@@ -375,8 +375,8 @@ export const FacilityDetail = () => {
         
         <div className="space-y-4">
           <Input label="Facility Name" defaultValue={facility.name} />
-          <Input label="Phone Number" defaultValue={facility.phone} />
-          <Input label="Email" defaultValue={facility.email} />
+          <Input label="Phone Number" type='number' defaultValue={facility.phone} />
+          <Input label="Email" type='email' defaultValue={facility.email} />
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700">
               Facility Type
