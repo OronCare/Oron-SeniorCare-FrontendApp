@@ -82,9 +82,10 @@ export const FacAdminStaff = () => {
             </div>
           </div>
         </div>
-        <div className='overflow-x-auto w-full'>
-        <div className="w-[400px]">
-          <table className="w-full text-sm text-left">
+
+        <div className="overflow-x-auto w-full">
+          <div className="w-[400px] md:w-full">
+          <table className="text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-4 font-semibold">Staff Member</th>
@@ -158,9 +159,7 @@ export const FacAdminStaff = () => {
                           
                           Edit
                         </Button>
-                        <button className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
+
                       </div>
                     </td>
                   </tr>);
@@ -181,7 +180,7 @@ export const FacAdminStaff = () => {
               }
             </tbody>
           </table>
-        </div>
+          </div>
         </div>
       </Card>
 
@@ -287,18 +286,6 @@ export const FacAdminStaff = () => {
               defaultValue={selectedStaff.firstName} />
             
               <Input label="Last Name" defaultValue={selectedStaff.lastName} />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700">
-                Branch Assignment
-              </label>
-              <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
-                {myBranches.map((b) =>
-                <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                )}
-              </select>
             </div>
 
             <div className="relative">

@@ -6,7 +6,8 @@ import {
   Plus,
   Upload,
   MoreHorizontal,
-  Activity } from
+  Activity, 
+  Eye} from
 'lucide-react';
 import { Card, Button, Badge, Input } from '../../components/UI';
 import { mockResidents } from '../../mockData';
@@ -124,7 +125,8 @@ export const ResidentsList = () => {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="w-full overflow-x-auto ">
+          <div className="w-[400px] md:w-full  ">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
               <tr>
@@ -203,15 +205,13 @@ export const ResidentsList = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-2  transition-opacity">
                         <Link to={`/admin/residents/${resident.id}`}>
-                          <Button variant="ghost" size="sm">
-                            View Profile
+                          <Button variant="ghost" size="sm" icon={Eye}>
+                            View 
                           </Button>
                         </Link>
-                        <button className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
+                   
                       </div>
                     </td>
                   </tr>);
@@ -235,7 +235,8 @@ export const ResidentsList = () => {
               }
             </tbody>
           </table>
-        </div>
+          </div>
+       
 
         {/* Pagination */}
         <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
@@ -259,6 +260,7 @@ export const ResidentsList = () => {
             </Button>
           </div>
         </div>
+         </div>
       </Card>
 
       <BulkUploadModal

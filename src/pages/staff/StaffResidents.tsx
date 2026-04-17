@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Search, Filter, Activity, ArrowRight } from 'lucide-react';
+import { Users, Search, Filter, Activity, ArrowRight, Eye } from 'lucide-react';
 import { Card, Button, Badge, Input } from '../../components/UI';
 import { mockResidents } from '../../mockData';
 import { Link } from 'react-router-dom';
@@ -98,8 +98,9 @@ export const StaffResidents = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+        <div className="w-full overflow-x-auto">
+            <div className="w-[400px] md:w-full">
+                        <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-6 py-4 font-semibold">Resident</th>
@@ -176,8 +177,8 @@ export const StaffResidents = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <Link to={`/staff/residents/${resident.id}`}>
-                      <Button variant="ghost" size="sm" icon={ArrowRight}>
-                        View Profile
+                      <Button variant="ghost" size="sm" icon={Eye}>
+                        View
                       </Button>
                     </Link>
                   </td>
@@ -198,6 +199,7 @@ export const StaffResidents = () => {
               }
             </tbody>
           </table>
+            </div>
         </div>
       </Card>
     </div>);
