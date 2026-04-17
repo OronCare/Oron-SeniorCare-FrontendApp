@@ -6,6 +6,7 @@ import { Task } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getFullName } from '../../types';
+
 export const StaffTasks = () => {
   const { user } = useAuth();
   const branchId = user?.branchId;
@@ -15,19 +16,40 @@ export const StaffTasks = () => {
     )
   );
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const columns = ['Todo', 'In Progress', 'Done'] as const;
+
   const moveTask = (taskId: string, newStatus: Task['status']) => {
     setTasks(
       tasks.map((t) =>
-      t.id === taskId ?
-      {
-        ...t,
-        status: newStatus
-      } :
-      t
+        t.id === taskId ?
+        {
+          ...t,
+          status: newStatus
+        } :
+        t
       )
     );
   };
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, newStatus: Task['status']) => {
+    e.preventDefault();
+    if (draggedTaskId) {
+      moveTask(draggedTaskId, newStatus);
+      setDraggedTaskId(null);
+    }
+  };
+
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'Medication':
@@ -46,15 +68,17 @@ export const StaffTasks = () => {
         return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
+
   const categories = [
-  'All',
-  'Medication',
-  'Bathing',
-  'Vitals',
-  'Therapy',
-  'Observation',
-  'Meal',
-  'General'];
+    'All',
+    'Medication',
+    'Bathing',
+    'Vitals',
+    'Therapy',
+    'Observation',
+    'Meal',
+    'General'
+  ];
 
   return (
     <div className="space-y-6 h-[calc(100vh-8rem)] flex flex-col">
@@ -71,9 +95,8 @@ export const StaffTasks = () => {
             className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}>
-            
             {categories.map((c) =>
-            <option key={c} value={c}>
+              <option key={c} value={c}>
                 {c}
               </option>
             )}
@@ -86,13 +109,15 @@ export const StaffTasks = () => {
           {columns.map((column) => {
             const columnTasks = tasks.filter(
               (t) =>
-              t.status === column && (
-              categoryFilter === 'All' || t.category === categoryFilter)
+                t.status === column && (
+                  categoryFilter === 'All' || t.category === categoryFilter)
             );
             return (
               <div
                 key={column}
-                className="flex-1 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden">
+                className="flex-1 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden"
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, column)}>
                 
                 <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
                   <h2 className="font-semibold text-slate-700">{column}</h2>
@@ -121,13 +146,15 @@ export const StaffTasks = () => {
                             opacity: 0,
                             scale: 0.9
                           }}
-                          className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow group">
+                          className={`bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow group cursor-grab active:cursor-grabbing ${draggedTaskId === task.id ? 'border-brand-500 ring-1 ring-brand-500 opacity-50' : 'border-slate-200'}`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, task.id)}
+                          onDragEnd={() => setDraggedTaskId(null)}>
                           
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex flex-col gap-1.5">
                               <span
                                 className={`w-fit text-[10px] font-medium px-2 py-0.5 rounded border ${getCategoryColor(task.category)}`}>
-                                
                                 {task.category}
                               </span>
                               <h3 className="font-medium text-slate-900 text-sm">
@@ -142,7 +169,7 @@ export const StaffTasks = () => {
 
                           <div className="space-y-2 mb-4">
                             {resident &&
-                            <div className="flex items-center gap-2 text-xs text-slate-600">
+                              <div className="flex items-center gap-2 text-xs text-slate-600">
                                 <User className="h-3.5 w-3.5 text-slate-400" />
                                 <span>
                                   {getFullName(resident)} (Rm {resident.room})
@@ -153,12 +180,11 @@ export const StaffTasks = () => {
                               <Calendar className="h-3.5 w-3.5 text-slate-400" />
                               <span
                                 className={
-                                new Date(task.dueDate) < new Date() &&
-                                task.status !== 'Done' ?
-                                'text-red-600 font-medium' :
-                                ''
+                                  new Date(task.dueDate) < new Date() &&
+                                  task.status !== 'Done' ?
+                                  'text-red-600 font-medium' :
+                                  ''
                                 }>
-                                
                                 {new Date(task.dueDate).toLocaleTimeString([], {
                                   hour: '2-digit',
                                   minute: '2-digit'
@@ -166,52 +192,21 @@ export const StaffTasks = () => {
                               </span>
                             </div>
                           </div>
-
-                          <div className="flex items-center justify-end pt-3 border-t border-slate-100">
-                            <div className="flex gap-2">
-                              {column !== 'Todo' &&
-                              <button
-                                onClick={() => moveTask(task.id, 'Todo')}
-                                className="px-2 py-1 text-xs font-medium text-slate-600 hover:text-brand-600 hover:bg-brand-50 rounded border border-slate-200 hover:border-brand-200 transition-colors">
-                                
-                                  Move to Todo
-                                </button>
-                              }
-                              {column !== 'In Progress' &&
-                              <button
-                                onClick={() =>
-                                moveTask(task.id, 'In Progress')
-                                }
-                                className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded border border-blue-200 transition-colors">
-                                
-                                  Start
-                                </button>
-                              }
-                              {column !== 'Done' &&
-                              <button
-                                onClick={() => moveTask(task.id, 'Done')}
-                                className="px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded border border-emerald-200 transition-colors">
-                                
-                                  Complete
-                                </button>
-                              }
-                            </div>
-                          </div>
-                        </motion.div>);
-
+                        </motion.div>
+                      );
                     })}
                   </AnimatePresence>
                   {columnTasks.length === 0 &&
-                  <div className="h-24 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg">
+                    <div className="h-24 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg">
                       <span className="text-sm text-slate-400">No tasks</span>
                     </div>
                   }
                 </div>
-              </div>);
-
+              </div>
+            );
           })}
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 };

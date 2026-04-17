@@ -155,8 +155,8 @@ export const FacAdminResidents = () => {
         </div>
 
         {/* Table */}
-        <div className='w-full overflow-x-auto'>
-        <div className="w-[400px]">
+        <div className="overflow-x-auto w-full">
+          <div className="w-[400px] md:w-full">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
               <tr>
@@ -263,6 +263,7 @@ export const FacAdminResidents = () => {
               }
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Pagination */}
@@ -286,7 +287,6 @@ export const FacAdminResidents = () => {
               Next
             </Button>
           </div>
-        </div>
         </div>
       </Card>
 

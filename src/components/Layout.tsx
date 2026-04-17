@@ -26,20 +26,24 @@ import {
 } from
   '../mockData';
 import { getFullName } from '../types';
+
 export const Layout = ({ children }: { children: React.ReactNode; }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  
   const roleAlerts = mockAlerts.filter(
     (a) => user && a.targetRoles.includes(user.role)
   );
   const unreadAlerts = roleAlerts.filter((a) => a.status === 'Unread');
+  
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+  
   const ownerLinks = [
     {
       name: 'Dashboard',
@@ -62,10 +66,11 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
       icon: FileText
     },
     {
-      name: 'Audit Logs',
+      name: 'Audit Logs',  // Keep this only for owner
       path: '/owner/audit-logs',
       icon: FileText
-    }];
+    }
+  ];
 
   const facilityAdminLinks = [
     {
@@ -93,16 +98,18 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
       path: '/facility-admin/reports',
       icon: FileText
     },
-    {
-      name: 'Audit Logs',
-      path: '/facility-admin/audit-logs',
-      icon: FileText
-    },
+    // REMOVED: Audit Logs for facility_admin
+    // {
+    //   name: 'Audit Logs',
+    //   path: '/facility-admin/audit-logs',
+    //   icon: FileText
+    // },
     {
       name: 'Notifications',
       path: '/facility-admin/notifications',
       icon: Bell
-    }];
+    }
+  ];
 
   const adminLinks = [
     {
@@ -140,16 +147,18 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
       path: '/admin/reports',
       icon: FileText
     },
-    {
-      name: 'Audit Logs',
-      path: '/admin/logs',
-      icon: FileText
-    },
+    // REMOVED: Audit Logs for admin
+    // {
+    //   name: 'Audit Logs',
+    //   path: '/admin/logs',
+    //   icon: FileText
+    // },
     {
       name: 'Notifications',
       path: '/admin/notifications',
       icon: Bell
-    }];
+    }
+  ];
 
   const staffLinks = [
     {
@@ -176,7 +185,8 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
       name: 'Notifications',
       path: '/staff/notifications',
       icon: Bell
-    }];
+    }  // Audit Logs never existed here
+  ];
 
   const links =
     user?.role === 'owner' ?
@@ -186,12 +196,14 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
         user?.role === 'admin' ?
           adminLinks :
           staffLinks;
+          
   const roleDisplay = {
     owner: 'Platform Owner',
     facility_admin: 'Facility Admin',
     admin: 'Branch Admin',
     staff: 'Staff'
   };
+  
   const generateBreadcrumbs = () => {
     const paths = location.pathname.split('/').filter(Boolean);
     if (paths.length === 0) return null;
@@ -223,7 +235,9 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
     }
     return breadcrumbs;
   };
+  
   const breadcrumbs = generateBreadcrumbs();
+  
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar - Desktop */}
@@ -249,7 +263,7 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-hidden">
           {links.map((link) => {
             const isActive =
               location.pathname === link.path ||
@@ -261,13 +275,11 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
                 key={link.name}
                 to={link.path}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-brand-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
-
                 <link.icon
                   className={`h-5 w-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-
                 {link.name}
-              </Link>);
-
+              </Link>
+            );
           })}
         </nav>
 
@@ -277,7 +289,6 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
               src={user?.avatar}
               alt={user ? getFullName(user) : ''}
               className="h-9 w-9 rounded-full border border-slate-700" />
-
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">
                 {user ? getFullName(user) : ''}
@@ -288,7 +299,6 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
           <button
             onClick={handleLogout}
             className="mt-2 flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
-
             <LogOut className="h-5 w-5" />
             Sign Out
           </button>
@@ -300,12 +310,10 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
         <div
           className="fixed inset-0 bg-slate-900/80 z-40 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)} />
-
       }
 
       {isMobileMenuOpen && (
         <aside className="fixed top-0 left-0 h-full w-64 bg-slate-900 text-white z-50 md:hidden flex flex-col">
-
           {/* Header */}
           <div className="h-16 flex items-center px-6 border-b border-slate-800">
             <span className="text-xl font-bold">
@@ -328,28 +336,25 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
             ))}
           </nav>
           <div className="p-4 border-t border-slate-800">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <img
-              src={user?.avatar}
-              alt={user ? getFullName(user) : ''}
-              className="h-9 w-9 rounded-full border border-slate-700" />
-
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
-                {user ? getFullName(user) : ''}
-              </p>
-              <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+            <div className="flex items-center gap-3 px-3 py-2">
+              <img
+                src={user?.avatar}
+                alt={user ? getFullName(user) : ''}
+                className="h-9 w-9 rounded-full border border-slate-700" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {user ? getFullName(user) : ''}
+                </p>
+                <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+              </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="mt-2 flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+              <LogOut className="h-5 w-5" />
+              Sign Out
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="mt-2 flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
-
-            <LogOut className="h-5 w-5" />
-            Sign Out
-          </button>
-        </div>
-
         </aside>
       )}
 
@@ -361,7 +366,6 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
             <button
               className="md:hidden text-slate-500 hover:text-slate-700"
               onClick={() => setIsMobileMenuOpen(true)}>
-
               <Menu className="h-6 w-6" />
             </button>
 
@@ -375,19 +379,17 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
                         <span className="font-semibold text-slate-900">
                           {crumb.label}
                         </span> :
-
                         <Link
                           to={crumb.path}
                           className="text-slate-500 hover:text-brand-600 transition-colors">
-
                           {crumb.label}
                         </Link>
                       }
                       {!isLast &&
                         <ChevronRight className="h-4 w-4 mx-2 text-slate-400" />
                       }
-                    </Fragment>);
-
+                    </Fragment>
+                  );
                 })}
               </div>
             }
@@ -398,7 +400,6 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
               <button
                 className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 relative transition-colors"
                 onClick={() => setShowNotifications(!showNotifications)}>
-
                 <Bell className="h-5 w-5" />
                 {unreadAlerts.length > 0 &&
                   <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 ring-2 ring-white text-[9px] font-bold text-white flex items-center justify-center">
@@ -424,11 +425,9 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
                         <div
                           key={alert.id}
                           className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors ${alert.status === 'Unread' ? 'bg-brand-50/30' : ''}`}>
-
                           <div className="flex gap-3">
                             <div
                               className={`mt-0.5 p-1.5 rounded-full h-fit ${alert.severity === 'Critical' ? 'bg-red-100 text-red-600' : alert.severity === 'Warning' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-
                               <ShieldAlert className="h-4 w-4" />
                             </div>
                             <div>
@@ -448,7 +447,6 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
                           </div>
                         </div>
                       ) :
-
                       <div className="p-8 text-center text-slate-500 text-sm">
                         No new notifications
                       </div>
@@ -458,7 +456,6 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
                     <Link
                       to="#"
                       className="text-xs font-medium text-brand-600 hover:text-brand-700">
-
                       View all notifications
                     </Link>
                   </div>
@@ -473,6 +470,6 @@ export const Layout = ({ children }: { children: React.ReactNode; }) => {
           {children}
         </div>
       </main>
-    </div>);
-
+    </div>
+  );
 };

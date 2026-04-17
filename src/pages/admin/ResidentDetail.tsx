@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
@@ -37,15 +37,27 @@ import {
 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+
 export const ResidentDetail = () => {
   const { id } = useParams();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();
+  
+  // Get the active tab from location state (if coming from care plans)
+  const [activeTab, setActiveTab] = useState(() => {
+    const state = location.state as { activeTab?: string };
+    if (state?.activeTab === 'careplan') {
+      return 'careplan';
+    }
+    return 'overview';
+  });
+  
   const [newNote, setNewNote] = useState('');
   const [noteType, setNoteType] = useState('Observation');
   const [isLoggingVitals, setIsLoggingVitals] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  
   const resident = mockResidents.find((r) => r.id === id) || mockResidents[0];
   const fullName = getFullName(resident);
   const vitals = mockVitals.
@@ -59,6 +71,7 @@ export const ResidentDetail = () => {
     new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
   const residentTasks = mockTasks.filter((t) => t.residentId === resident.id);
+  
   // Calculate age
   const getAge = (dob: string) => {
     const today = new Date();
@@ -70,6 +83,7 @@ export const ResidentDetail = () => {
     }
     return age;
   };
+  
   // Format vitals for chart (reverse to show chronological order left to right)
   const chartData = [...vitals].reverse().map((v) => ({
     date: new Date(v.date).toLocaleDateString([], {
@@ -80,38 +94,43 @@ export const ResidentDetail = () => {
     diastolic: v.diastolicBP,
     heartRate: v.heartRate
   }));
+  
   const tabs = [
-  {
-    id: 'overview',
-    label: 'Overview',
-    icon: User
-  },
-  {
-    id: 'vitals',
-    label: 'Vitals History',
-    icon: Activity
-  },
-  {
-    id: 'careplan',
-    label: 'Care Plan',
-    icon: ClipboardList
-  },
-  {
-    id: 'medications',
-    label: 'Medications',
-    icon: Pill
-  },
-  {
-    id: 'tasks',
-    label: 'Tasks',
-    icon: CheckCircle2
-  },
-  {
-    id: 'notes',
-    label: 'Notes',
-    icon: MessageSquare
-  }];
+    {
+      id: 'overview',
+      label: 'Overview',
+      icon: User
+    },
+    {
+      id: 'vitals',
+      label: 'Vitals History',
+      icon: Activity
+    },
+    {
+      id: 'careplan',
+      label: 'Care Plan',
+      icon: ClipboardList
+    },
+    {
+      id: 'medications',
+      label: 'Medications',
+      icon: Pill
+    },
+    {
+      id: 'tasks',
+      label: 'Tasks',
+      icon: CheckCircle2
+    },
+    {
+      id: 'notes',
+      label: 'Notes',
+      icon: MessageSquare
+    }
+  ];
 
+  // Rest of your component remains exactly the same...
+  // (All the helper functions and JSX remain unchanged)
+  
   const getHealthStateColor = (state: string) => {
     switch (state) {
       case 'Stable':
@@ -130,6 +149,7 @@ export const ResidentDetail = () => {
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };
+  
   const getTaskCategoryColor = (category: string) => {
     switch (category) {
       case 'Medication':
@@ -148,6 +168,7 @@ export const ResidentDetail = () => {
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };
+  
   const getNoteTypeColor = (type: string) => {
     switch (type) {
       case 'Clinical':
@@ -158,14 +179,14 @@ export const ResidentDetail = () => {
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };
+
   return (
-    <div className="space-y-6">
+     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-2">
+      <div className="flex  flex-col md:flex-row items-center gap-4 mb-2">
         <Link
           to={`/${user?.role === 'owner' ? 'owner/facilities' : user?.role === 'facility_admin' ? 'facility-admin/residents' : user?.role === 'staff' ? 'staff/residents' : 'admin/residents'}`}
           className="p-2 -ml-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">
-          
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1 flex items-center gap-4">
@@ -181,7 +202,7 @@ export const ResidentDetail = () => {
             
           </div>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col md:flex-row items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900">{fullName}</h1>
               <Badge
                 variant={
@@ -218,8 +239,8 @@ export const ResidentDetail = () => {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200 overflow-x-auto">
-        <nav className="flex gap-6 min-w-max">
+      <div className="border-b border-slate-200 overflow-x-auto scrollbar-hide">
+        <nav className="flex gap-6 w-[400px] w-full">
           {tabs.map((tab) =>
           <button
             key={tab.id}
@@ -431,7 +452,7 @@ export const ResidentDetail = () => {
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                       <HeartPulse className="h-5 w-5 text-brand-500" /> Record
-                      New Vitals
+                      New Vitals        
                     </h2>
                     <Button
                   variant="ghost"
@@ -656,8 +677,9 @@ export const ResidentDetail = () => {
                     Log Vitals
                   </Button>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
+                <div className="w-full overflow-x-auto">
+                  <div className="w-[400px] md:w-full ">
+                  <table className="text-sm text-left">
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                       <tr>
                         <th className="px-5 py-3 font-medium">Date & Time</th>
@@ -711,6 +733,7 @@ export const ResidentDetail = () => {
                     }
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </Card>
             </motion.div>
@@ -1196,5 +1219,5 @@ export const ResidentDetail = () => {
         </div>
       </Modal>
     </div>);
-
+  
 };

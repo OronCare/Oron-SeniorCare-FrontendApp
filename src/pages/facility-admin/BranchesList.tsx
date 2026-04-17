@@ -58,8 +58,8 @@ export const BranchesList = () => {
         </div>
 
         {/* Table */}
-        <div className='w-full overflow-x-auto'>
-        <div className="w-[400px]">
+        <div className="overflow-x-auto w-full">
+          <div className="w-[400px] md:w-full ">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
               <tr>
@@ -141,9 +141,7 @@ export const BranchesList = () => {
                             View
                           </Button>
                         </Link>
-                        <button className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
+
                       </div>
                     </td>
                   </tr>);
@@ -167,6 +165,7 @@ export const BranchesList = () => {
               }
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Pagination (Mock) */}
@@ -190,7 +189,6 @@ export const BranchesList = () => {
               Next
             </Button>
           </div>
-        </div>
         </div>
       </Card>
     </div>);

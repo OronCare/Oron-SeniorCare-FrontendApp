@@ -358,7 +358,7 @@ export const TaskManagement = () => {
                 <option>Urgent</option>
               </select>
             </div>
-            <Input label="Due Date & Time" type="datetime-local" />
+            <Input label="Due Date" type="date" />
           </div>
 
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">

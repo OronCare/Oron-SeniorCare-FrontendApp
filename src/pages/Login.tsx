@@ -58,7 +58,6 @@ export const Login = () => {
             {/* Demo Role Selector */}
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 mb-6">
               <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-3">
-                Demo: Select Role to Login
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {(Object.keys(roleDisplay) as Role[]).map((role) =>
