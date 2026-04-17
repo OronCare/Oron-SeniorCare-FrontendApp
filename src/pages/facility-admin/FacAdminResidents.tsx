@@ -1,4 +1,4 @@
-import React, { useState, createElement } from 'react';
+import { useState } from 'react';
 import {
   Users,
   Search,
@@ -165,6 +165,7 @@ export const FacAdminResidents = () => {
                 <th className="px-6 py-4 font-semibold">Health State</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold">Last Vitals</th>
+                <th className="px-6 py-4 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -242,13 +243,30 @@ export const FacAdminResidents = () => {
                         </span>
                       </div>
                     </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Link
+                          to={`/facility-admin/residents/${resident.id}`}
+                          onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="sm">
+                            View Profile
+                          </Button>
+                        </Link>
+                        <button
+                          className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100"
+                          onClick={(e) => e.stopPropagation()}
+                          type="button">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>);
 
               })}
               {filteredResidents.length === 0 &&
               <tr>
                   <td
-                  colSpan={5}
+                  colSpan={6}
                   className="px-6 py-12 text-center text-slate-500">
                   
                     <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />

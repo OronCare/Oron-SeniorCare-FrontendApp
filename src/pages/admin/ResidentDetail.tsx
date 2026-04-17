@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -24,7 +24,7 @@ import {
   mockTasks,
   mockStaffMembers } from
 '../../mockData';
-import { getFullName, Task } from '../../types';
+import { getFullName } from '../../types';
 import {
   LineChart,
   Line,
@@ -40,7 +40,7 @@ import { useAuth } from '../../context/AuthContext';
 export const ResidentDetail = () => {
   const { id } = useParams();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('careplan');
   const [newNote, setNewNote] = useState('');
   const [noteType, setNoteType] = useState('Observation');
   const [isLoggingVitals, setIsLoggingVitals] = useState(false);
@@ -1084,12 +1084,50 @@ export const ResidentDetail = () => {
         title="Edit Resident Profile">
         
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="First Name" defaultValue={resident.firstName} />
-            <Input label="Last Name" defaultValue={resident.lastName} />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Branch <span className="text-red-500">*</span>
+            </label>
+            <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
+              <option value="">Select a branch</option>
+              <option value={resident.branchId}>Current Branch ({resident.branchId})</option>
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Room Number" defaultValue={resident.room} />
+            <Input
+              label="Admission Date"
+              type="date"
+              defaultValue={resident.admissionDate} />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <Input label="First Name" defaultValue={resident.firstName} />
+            <Input label="Middle Name" defaultValue={resident.middleName} />
+            <Input label="Last Name" defaultValue={resident.lastName} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Date of Birth" type="date" defaultValue={resident.dob} />
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">
+                Gender
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                defaultValue={resident.gender}>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Weight (lbs)"
+              type="number"
+              defaultValue={resident.weight?.toString() || ''} />
+            <Input label="Height" defaultValue={resident.height || ''} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">
                 Status
@@ -1101,6 +1139,22 @@ export const ResidentDetail = () => {
                 <option>InPatient</option>
                 <option>Hospitalized</option>
                 <option>Discharged</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">
+                Relationship
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                defaultValue={resident.emergencyContacts[0]?.relation || ''}>
+                <option value="">Select Relationship</option>
+                <option>Spouse</option>
+                <option>Son</option>
+                <option>Daughter</option>
+                <option>Sibling</option>
+                <option>Friend</option>
+                <option>Other</option>
               </select>
             </div>
           </div>
@@ -1122,6 +1176,40 @@ export const ResidentDetail = () => {
             defaultValue={resident.primaryDiagnosis} />
           
           <Input label="Allergies" defaultValue={resident.allergies} />
+          <div className="pt-4 border-t border-slate-100">
+            <h3 className="text-sm font-semibold text-slate-900 mb-3">
+              Emergency Contact
+            </h3>
+            <div className="grid grid-cols-3 gap-4">
+              <Input
+                label="First Name"
+                defaultValue={resident.emergencyContacts[0]?.firstName || ''} />
+              <Input
+                label="Middle Name"
+                defaultValue={resident.emergencyContacts[0]?.middleName || ''} />
+              <Input
+                label="Last Name"
+                defaultValue={resident.emergencyContacts[0]?.lastName || ''} />
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <Input
+                label="Phone Number"
+                defaultValue={resident.emergencyContacts[0]?.phone || ''} />
+              <Input
+                label="Email"
+                type="email"
+                defaultValue={resident.emergencyContacts[0]?.email || ''} />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700">
+              Medical History & Notes
+            </label>
+            <textarea
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent min-h-[100px] resize-y"
+              defaultValue={resident.medicalHistory || ''}
+            />
+          </div>
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
             <Button
               variant="outline"

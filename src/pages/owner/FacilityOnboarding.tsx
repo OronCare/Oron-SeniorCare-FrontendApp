@@ -46,6 +46,7 @@ export const FacilityOnboarding = () => {
       navigate('/owner/facilities');
     }, 1500);
   };
+  
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -164,7 +165,7 @@ export const FacilityOnboarding = () => {
                     Contract Document
                   </label>
                   <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors cursor-pointer">
-                    <Upload className="h-8 w-8 mx-auto text-slate-400 mb-3" />
+                    <input type='file'/>
                     <p className="text-sm font-medium text-slate-900">
                       Click to upload or drag and drop
                     </p>
