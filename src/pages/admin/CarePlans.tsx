@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardList, Search, ArrowRight, Clock } from 'lucide-react';
+import { ClipboardList, Search, ArrowRight, Clock, Eye } from 'lucide-react';
 import { Card, Button, Input, StatsCard } from '../../components/UI';
 import { mockCarePlans, mockResidents } from '../../mockData';
 import { getFullName } from '../../types';
@@ -72,6 +72,7 @@ export const CarePlans = () => {
         </div>
 
         <div className="overflow-x-auto">
+          <div className="w-[400px] md:w-full">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
               <tr>
@@ -112,8 +113,8 @@ export const CarePlans = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <Link to={`/admin/residents/${plan.residentId}`}>
-                      <Button variant="ghost" size="sm" icon={ArrowRight}>
-                        View Plan
+                      <Button variant="ghost" size="sm" icon={Eye}>
+                        View
                       </Button>
                     </Link>
                   </td>
@@ -135,6 +136,7 @@ export const CarePlans = () => {
               }
             </tbody>
           </table>
+          </div>
         </div>
       </Card>
     </div>);

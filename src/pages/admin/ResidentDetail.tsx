@@ -161,11 +161,10 @@ export const ResidentDetail = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-2">
+      <div className="flex  flex-col md:flex-row items-center gap-4 mb-2">
         <Link
           to={`/${user?.role === 'owner' ? 'owner/facilities' : user?.role === 'facility_admin' ? 'facility-admin/residents' : user?.role === 'staff' ? 'staff/residents' : 'admin/residents'}`}
           className="p-2 -ml-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">
-          
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1 flex items-center gap-4">
@@ -181,7 +180,7 @@ export const ResidentDetail = () => {
             
           </div>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col md:flex-row items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900">{fullName}</h1>
               <Badge
                 variant={
@@ -218,8 +217,8 @@ export const ResidentDetail = () => {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200 overflow-x-auto">
-        <nav className="flex gap-6 min-w-max">
+      <div className="border-b border-slate-200 overflow-x-auto scrollbar-hide">
+        <nav className="flex gap-6 w-[400px] w-full">
           {tabs.map((tab) =>
           <button
             key={tab.id}
@@ -431,7 +430,7 @@ export const ResidentDetail = () => {
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                       <HeartPulse className="h-5 w-5 text-brand-500" /> Record
-                      New Vitals
+                      New Vitals        
                     </h2>
                     <Button
                   variant="ghost"
@@ -656,8 +655,9 @@ export const ResidentDetail = () => {
                     Log Vitals
                   </Button>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
+                <div className="w-full overflow-x-auto">
+                  <div className="w-[400px] md:w-full ">
+                  <table className="text-sm text-left">
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
                       <tr>
                         <th className="px-5 py-3 font-medium">Date & Time</th>
@@ -711,6 +711,7 @@ export const ResidentDetail = () => {
                     }
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </Card>
             </motion.div>
