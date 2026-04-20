@@ -1,10 +1,12 @@
+// components/SmartTable.jsx
 import { Link } from "react-router-dom";
 
 const SmartTable = ({ data = [], columns = [], actions = [] }) => {
   if (data.length === 0) {
     return (
       <div className="p-6 text-center border rounded-lg">
-        No Data Found
+        <p className="text-lg font-medium text-slate-900">No Data Found</p>
+        <p className="text-sm mt-1 text-slate-500">Try adjusting your search or filters.</p>
       </div>
     );
   }
@@ -13,19 +15,15 @@ const SmartTable = ({ data = [], columns = [], actions = [] }) => {
     <div className="w-full overflow-x-auto border rounded-lg">
       <table className="w-full text-sm">
         {/* Header */}
-        <thead className="bg-gray-100">
+        <thead className="bg-slate-50 border-b border-slate-200">
           <tr>
             {columns.map((col, index) => (
-              <th
-                key={index}
-                className="px-4 py-3 text-left font-semibold"
-              >
+              <th key={index} className="px-6 py-4 text-left font-semibold text-slate-700">
                 {col.label}
               </th>
             ))}
-
             {actions.length > 0 && (
-              <th className="px-4 py-3 text-right font-semibold">
+              <th className="px-6 py-4 text-right font-semibold text-slate-700">
                 Actions
               </th>
             )}
@@ -33,27 +31,34 @@ const SmartTable = ({ data = [], columns = [], actions = [] }) => {
         </thead>
 
         {/* Body */}
-        <tbody>
+        <tbody className="divide-y divide-slate-100">
           {data.map((item) => (
-            <tr key={item.id} className="border-t hover:bg-gray-50">
+            <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+              {/* Dynamic Columns */}
               {columns.map((col, index) => (
-                <td key={index} className="px-4 py-3">
-                  {item[col.key]}
+                <td key={index} className="px-6 py-4">
+                  {col.render ? col.render(item) : item[col.key]}
                 </td>
               ))}
-
-              {/* Actions */}
+              
+              {/* Actions Column */}
               {actions.length > 0 && (
-                <td className="px-4 py-3 text-right space-x-2">
-                  {actions.map((action, index) => (
-                    <Link
-                      key={index}
-                      to={`${action.path}/${item.id}`}
-                      className="px-3 py-1 text-xs bg-blue-500 text-white rounded"
-                    >
-                      {action.label}
-                    </Link>
-                  ))}
+                <td className="px-6 py-4 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    {actions.map((action, idx) => (
+                      action.render ? (
+                        action.render(item)
+                      ) : (
+                        <Link
+                          key={idx}
+                          to={`${action.path}/${item.id}`}
+                          className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                        >
+                          {action.label}
+                        </Link>
+                      )
+                    ))}
+                  </div>
                 </td>
               )}
             </tr>
