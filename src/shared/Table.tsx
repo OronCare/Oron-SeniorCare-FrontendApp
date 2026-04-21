@@ -1,7 +1,31 @@
 // components/SmartTable.jsx
 import { Link } from "react-router-dom";
+interface Column<T = any> {
+  key?: string;
+  label: string;
+  render?: (item: T) => React.ReactNode;
+}
 
-const SmartTable = ({ data = [], columns = [], actions = [] }) => {
+interface Action<T = any> {
+  label?: string;
+  path?: string;
+  render?: (item: T) => React.ReactNode;
+}
+
+interface SmartTableProps<T = any> {
+  data: T[];
+  columns: Column<T>[];
+  actions?: Action<T>[];
+}
+
+
+
+
+function SmartTable<T extends { id: string | number }>({ 
+  data, 
+  columns, 
+  actions = [] 
+}: SmartTableProps<T>) {
   if (data.length === 0) {
     return (
       <div className="p-6 text-center border rounded-lg">
@@ -70,3 +94,4 @@ const SmartTable = ({ data = [], columns = [], actions = [] }) => {
 };
 
 export default SmartTable;
+
