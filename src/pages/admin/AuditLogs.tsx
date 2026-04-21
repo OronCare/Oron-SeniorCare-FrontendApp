@@ -3,6 +3,9 @@ import { FileText, Search, Filter, Download, Calendar } from 'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
 import { mockAuditLogs } from '../../mockData';
 import { useAuth } from '../../context/AuthContext';
+import SmartTable from '../../shared/Table';
+import { AddResident } from './AddResident';
+import { Aditlogscolumns } from '../../shared/TableColumns';
 export const AuditLogs = () => {
   const { user } = useAuth();
   const branchId = user?.branchId;
@@ -92,97 +95,10 @@ export const AuditLogs = () => {
           </div>
         </div>
         {/*Table*/}
-        <div className='w-full overflow-x-auto'>
-
-        <div className="w-[400px]">
-          <table className="text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 font-semibold">Timestamp</th>
-                <th className="px-6 py-4 font-semibold">User</th>
-                <th className="px-6 py-4 font-semibold">Action</th>
-                <th className="px-6 py-4 font-semibold">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredLogs.map((log) =>
-              <tr
-                key={log.id}
-                className="hover:bg-slate-50/80 transition-colors">
-                
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <p className="font-medium text-slate-900">
-                      {new Date(log.timestamp).toLocaleDateString()}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {new Date(log.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit'
-                    })}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-600">
-                        {log.user.
-                      split(' ').
-                      map((n) => n[0]).
-                      join('')}
-                      </div>
-                      <span className="font-medium text-slate-900">
-                        {log.user}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-medium text-xs border border-slate-200">
-                      {log.action}
-                    </span>
-                  </td>
-                  <td
-                  className="px-6 py-4 text-slate-600 max-w-md truncate"
-                  title={log.details}>
-                  
-                    {log.details}
-                  </td>
-                </tr>
-              )}
-              {filteredLogs.length === 0 &&
-              <tr>
-                  <td
-                  colSpan={5}
-                  className="px-6 py-12 text-center text-slate-500">
-                  
-                    <FileText className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                    <p className="text-lg font-medium text-slate-900">
-                      No logs found
-                    </p>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
-          <p>
-            Showing{' '}
-            <span className="font-medium text-slate-900">
-              {filteredLogs.length}
-            </span>{' '}
-            results
-          </p>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
-          </div>
-        </div>
-        </div>
+            <SmartTable 
+            data={mockAuditLogs}
+            columns={Aditlogscolumns}
+            />
       </Card>
     </div>);
 

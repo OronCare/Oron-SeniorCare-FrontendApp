@@ -105,7 +105,7 @@ export const StaffTasks = () => {
       </div>
 
       <div className="flex-1 overflow-x-auto pb-4">
-        <div className="flex gap-6 h-full min-w-[800px]">
+        <div className="flex flex-col md:flex-row  gap-4 md:h-full md:min-w-[1000px]">
           {columns.map((column) => {
             const columnTasks = tasks.filter(
               (t) =>

@@ -16,6 +16,8 @@ import {
   mockStaffMembers } from
 '../../mockData';
 import { useAuth } from '../../context/AuthContext';
+import SmartTable from '../../shared/Table';
+import { BranchesCompactActions, BranchesCompactColumns } from '../../shared/TableColumns';
 export const FacilityAdminDashboard = () => {
   const { user } = useAuth();
   // Filter data for this facility admin's facility
@@ -89,83 +91,11 @@ export const FacilityAdminDashboard = () => {
               View all <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Branch Name</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Utilization</th>
-                  <th className="px-5 py-3 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {myBranches.slice(0, 5).map((branch) => {
-                  const usagePercent = Math.round(
-                    branch.currentResidents / branch.residentLimit * 100
-                  );
-                  return (
-                    <tr
-                      key={branch.id}
-                      className="hover:bg-slate-50/50 transition-colors">
-                      
-                      <td className="px-5 py-4">
-                        <p className="font-medium text-slate-900">
-                          {branch.name}
-                        </p>
-                        <p className="text-xs text-slate-500">{branch.type}</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <Badge
-                          variant={
-                          branch.status === 'Active' ?
-                          'success' :
-                          branch.status === 'Pending' ?
-                          'warning' :
-                          'danger'
-                          }>
-                          
-                          {branch.status}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-full bg-slate-200 rounded-full h-2 max-w-[80px]">
-                            <div
-                              className={`h-2 rounded-full ${usagePercent > 90 ? 'bg-red-500' : usagePercent > 75 ? 'bg-amber-500' : 'bg-brand-500'}`}
-                              style={{
-                                width: `${usagePercent}%`
-                              }}>
-                            </div>
-                          </div>
-                          <span className="text-xs font-medium text-slate-600">
-                            {branch.currentResidents}/{branch.residentLimit}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <Link to={`/facility-admin/branches/${branch.id}`}>
-                          <Button variant="ghost" size="sm">
-                            View
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>);
-
-                })}
-                {myBranches.length === 0 &&
-                <tr>
-                    <td
-                    colSpan={4}
-                    className="px-5 py-8 text-center text-slate-500">
-                    
-                      No branches found.
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+          <SmartTable
+            data={mockBranches}
+            columns={BranchesCompactColumns}
+            actions={BranchesCompactActions}
+            />
         </Card>
 
         {/* System Alerts */}

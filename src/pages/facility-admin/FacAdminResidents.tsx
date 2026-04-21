@@ -16,6 +16,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { BulkUploadModal } from '../../components/BulkUploadModal';
 import { useNavigate } from 'react-router-dom';
+import SmartTable from '../../shared/Table';
+import { Reidencecolumns, Residenceactions } from '../../shared/TableColumns';
 export const FacAdminResidents = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -155,116 +157,11 @@ export const FacAdminResidents = () => {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto w-full">
-          <div className="w-[400px] md:w-full">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 font-semibold">Resident</th>
-                <th className="px-6 py-4 font-semibold">Branch & Room</th>
-                <th className="px-6 py-4 font-semibold">Health State</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
-                <th className="px-6 py-4 font-semibold">Last Vitals</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredResidents.map((resident) => {
-                const branch = myBranches.find(
-                  (b) => b.id === resident.branchId
-                );
-                const fullName = getFullName(resident);
-                return (
-                  <tr
-                    key={resident.id}
-                    className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
-                    onClick={() =>
-                    window.location.href = `/facility-admin/residents/${resident.id}`
-                    }>
-                    
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-medium shrink-0 overflow-hidden">
-                          <img
-                            src={`https://i.pravatar.cc/150?u=${resident.id}`}
-                            alt={fullName}
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              e.currentTarget.parentElement!.innerText = `${resident.firstName[0]}${resident.lastName[0]}`;
-                            }} />
-                          
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">
-                            {fullName}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {getAge(resident.dob)} yrs • {resident.gender}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="font-medium text-slate-900 text-xs">
-                        {branch?.name}
-                      </p>
-                      <span className="inline-flex items-center px-2.5 py-1 mt-1 rounded-md bg-slate-100 text-slate-700 font-medium text-xs border border-slate-200">
-                        Room {resident.room}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getHealthStateColor(resident.healthState)}`}>
-                        
-                        {resident.healthState}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge
-                        variant={
-                        resident.status === 'InPatient' ?
-                        'success' :
-                        resident.status === 'Hospitalized' ?
-                        'warning' :
-                        'default'
-                        }>
-                        
-                        {resident.status}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Activity
-                          className={`h-4 w-4 ${resident.lastVitalsDate ? 'text-brand-500' : 'text-slate-300'}`} />
-                        
-                        <span className="text-xs text-slate-600">
-                          {formatDate(resident.lastVitalsDate)}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>);
-
-              })}
-              {filteredResidents.length === 0 &&
-              <tr>
-                  <td
-                  colSpan={5}
-                  className="px-6 py-12 text-center text-slate-500">
-                  
-                    <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                    <p className="text-lg font-medium text-slate-900">
-                      No residents found
-                    </p>
-                    <p className="text-sm mt-1">
-                      Try adjusting your search or filters.
-                    </p>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-          </div>
-        </div>
+       <SmartTable
+          data={filteredResidents}
+          columns={Reidencecolumns}
+          actions={Residenceactions}
+          />
 
         {/* Pagination */}
         <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
