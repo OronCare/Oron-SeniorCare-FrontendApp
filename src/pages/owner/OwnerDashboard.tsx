@@ -7,11 +7,14 @@ import {
   ArrowUpRight,
   ArrowRight,
   Activity,
-  Network } from
-'lucide-react';
+  Network
+} from
+  'lucide-react';
 import { StatsCard, Card, Badge, Button } from '../../components/UI';
 import { mockFacilities, mockBranches, mockAlerts } from '../../mockData';
 import { Link } from 'react-router-dom';
+import { FacilitesActions, Faciltescolumns, RecentFaciltescolumns } from '../../shared/TableColumns';
+import SmartTable from '../../shared/Table';
 export const OwnerDashboard = () => {
   const totalFacilities = mockFacilities.length;
   const totalBranches = mockBranches.length;
@@ -54,24 +57,24 @@ export const OwnerDashboard = () => {
           icon={Building2}
           trend="2 new this month"
           trendUp={true} />
-        
+
         <StatsCard
           title="Total Branches"
           value={totalBranches}
           icon={Network} />
-        
+
         <StatsCard
           title="Total Residents"
           value={totalResidents.toLocaleString()}
           icon={Users}
           trend="+12% vs last month"
           trendUp={true} />
-        
+
         <StatsCard
           title="System Utilization"
           value={`${utilization}%`}
           icon={Activity} />
-        
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -84,71 +87,16 @@ export const OwnerDashboard = () => {
             <Link
               to="/owner/facilities"
               className="text-sm font-medium text-brand-600 hover:text-brand-700 flex items-center">
-              
+
               View all <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Facility Name</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Branches</th>
-                  <th className="px-5 py-3 font-medium">Residents</th>
-                  <th className="px-5 py-3 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {mockFacilities.slice(0, 5).map((facility) => {
-                  return (
-                    <tr
-                      key={facility.id}
-                      className="hover:bg-slate-50/50 transition-colors">
-                      
-                      <td className="px-5 py-4">
-                        <p className="font-medium text-slate-900">
-                          {facility.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {facility.type}
-                        </p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <Badge
-                          variant={
-                          facility.status === 'Active' ?
-                          'success' :
-                          facility.status === 'Pending' ?
-                          'warning' :
-                          'danger'
-                          }>
-                          
-                          {facility.status}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-sm font-medium text-slate-700">
-                          {facility.totalBranches}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-sm font-medium text-slate-700">
-                          {facility.totalResidents}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <Link to={`/owner/facilities/${facility.id}`}>
-                          <Button variant="ghost" size="sm" icon={ArrowUpRight}>
-                            View
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>);
-
-                })}
-              </tbody>
-            </table>
+            <SmartTable
+              data={mockFacilities.slice(0, 5)}
+              columns={RecentFaciltescolumns}
+              actions={FacilitesActions}
+            />
           </div>
         </Card>
 
@@ -162,10 +110,10 @@ export const OwnerDashboard = () => {
           </div>
           <div className="p-5 space-y-4 flex-1 overflow-y-auto">
             {recentAlerts.map((alert) =>
-            <div key={alert.id} className="flex gap-3 items-start">
+              <div key={alert.id} className="flex gap-3 items-start">
                 <div
-                className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${alert.severity === 'Critical' ? 'bg-red-500' : alert.severity === 'Warning' ? 'bg-amber-500' : 'bg-blue-500'}`} />
-              
+                  className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${alert.severity === 'Critical' ? 'bg-red-500' : alert.severity === 'Warning' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+
                 <div>
                   <p className="text-sm font-medium text-slate-900">
                     {alert.title}
@@ -180,7 +128,7 @@ export const OwnerDashboard = () => {
               </div>
             )}
             {recentAlerts.length === 0 &&
-            <div className="text-center text-sm text-slate-500 py-8">
+              <div className="text-center text-sm text-slate-500 py-8">
                 No active system alerts
               </div>
             }
