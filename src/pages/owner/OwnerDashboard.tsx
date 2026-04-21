@@ -13,7 +13,7 @@ import {
 import { StatsCard, Card, Badge, Button } from '../../components/UI';
 import { mockFacilities, mockBranches, mockAlerts } from '../../mockData';
 import { Link } from 'react-router-dom';
-import { FacilitesActions, Faciltescolumns, RecentFaciltescolumns } from '../../shared/TableColumns';
+import { dashboardFacilitesActions, FacilitesActions, Faciltescolumns, RecentFaciltescolumns } from '../../shared/TableColumns';
 import SmartTable from '../../shared/Table';
 export const OwnerDashboard = () => {
   const totalFacilities = mockFacilities.length;
@@ -95,7 +95,7 @@ export const OwnerDashboard = () => {
             <SmartTable
               data={mockFacilities.slice(0, 5)}
               columns={RecentFaciltescolumns}
-              actions={FacilitesActions}
+              actions={dashboardFacilitesActions}
             />
           </div>
         </Card>

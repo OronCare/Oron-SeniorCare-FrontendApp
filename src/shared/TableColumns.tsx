@@ -87,14 +87,20 @@ export  const FacilitesActions = [
         </Link>
       )
     },
+  ];
+
+  export  const dashboardFacilitesActions = [
     {
       render: (facility : Facility) => (
-        <Button variant="ghost" size="sm">
-          Edit
-        </Button>
+        <Link to={`/owner/facilities/${facility.id}`}>
+          <Button variant="ghost" size="sm" icon={Eye}>
+            View
+          </Button>
+        </Link>
       )
-    }
+    },
   ];
+
 
 // Columns configuration
 export const RecentFaciltescolumns = [
