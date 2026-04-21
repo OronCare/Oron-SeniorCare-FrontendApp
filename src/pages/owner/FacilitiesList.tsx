@@ -8,8 +8,9 @@ import {
   FileText,
   Network,
   Users,
-  Eye } from
-'lucide-react';
+  Eye
+} from
+  'lucide-react';
 import { Card, Button, Badge, Input } from '../../components/UI';
 import { mockFacilities } from '../../mockData';
 import { Link } from 'react-router-dom';
@@ -20,12 +21,12 @@ export const FacilitiesList = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const filteredFacilities = mockFacilities.filter((facility) => {
     const matchesSearch =
-    facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    facility.facilityAdminName.
-    toLowerCase().
-    includes(searchTerm.toLowerCase());
+      facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      facility.facilityAdminName.
+        toLowerCase().
+        includes(searchTerm.toLowerCase());
     const matchesStatus =
-    statusFilter === 'All' || facility.status === statusFilter;
+      statusFilter === 'All' || facility.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
   return (
@@ -51,7 +52,7 @@ export const FacilitiesList = () => {
               icon={Search}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)} />
-            
+
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
@@ -60,7 +61,7 @@ export const FacilitiesList = () => {
                 className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}>
-                
+
                 <option value="All">All Statuses</option>
                 <option value="Active">Active</option>
                 <option value="Pending">Pending</option>
@@ -71,35 +72,35 @@ export const FacilitiesList = () => {
         </div>
         <div className="w-full overflow-x-auto ">
 
-        {/* Table */}
-        <SmartTable 
-      data={filteredFacilities} 
-      columns={Faciltescolumns} 
-      actions={FacilitesActions} 
-    />
+          {/* Table */}
+          <SmartTable
+            data={filteredFacilities}
+            columns={Faciltescolumns}
+            actions={FacilitesActions}
+          />
 
-        {/* Pagination (Mock) */}
-        <div className="p-4  border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
-          <p>
-            Showing <span className="font-medium text-slate-900">1</span> to{' '}
-            <span className="font-medium text-slate-900">
-              {filteredFacilities.length}
-            </span>{' '}
-            of{' '}
-            <span className="font-medium text-slate-900">
-              {filteredFacilities.length}
-            </span>{' '}
-            results
-          </p>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
+          {/* Pagination (Mock) */}
+          <div className="p-4  border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
+            <p>
+              Showing <span className="font-medium text-slate-900">1</span> to{' '}
+              <span className="font-medium text-slate-900">
+                {filteredFacilities.length}
+              </span>{' '}
+              of{' '}
+              <span className="font-medium text-slate-900">
+                {filteredFacilities.length}
+              </span>{' '}
+              results
+            </p>
+            <div className="flex gap-1">
+              <Button variant="outline" size="sm" disabled>
+                Previous
+              </Button>
+              <Button variant="outline" size="sm" disabled>
+                Next
+              </Button>
+            </div>
           </div>
-        </div>
         </div>
       </Card>
     </div>);

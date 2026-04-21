@@ -10,12 +10,16 @@ import {
   Activity,
   Network,
   Edit2,
-  Lock } from
+  Lock, 
+  Link,
+  Eye} from
 'lucide-react';
 import { Card, Button, Badge, Input, Modal } from '../../components/UI';
 import { mockStaffMembers, mockBranches } from '../../mockData';
 import { getFullName, StaffMember } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import SmartTable from '../../shared/Table';
+import { StaffColumns } from '../../shared/TableColumns';
 export const FacAdminStaff = () => {
   const { user } = useAuth();
   const facilityId = user?.facilityId || 'fac1';
@@ -40,6 +44,24 @@ export const FacAdminStaff = () => {
     setIsAddModalOpen(false);
     // Mock action
   };
+
+  const actions = [
+  {
+    render: (staff) => (
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={Edit2}
+        onClick={() => {
+          setSelectedStaff(staff);
+          setIsEditModalOpen(true);
+        }}
+      >
+        Edit
+      </Button>
+    )
+  },
+];
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -83,105 +105,11 @@ export const FacAdminStaff = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto w-full">
-          <div className="w-[400px] md:w-full">
-          <table className="text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 font-semibold">Staff Member</th>
-                <th className="px-6 py-4 font-semibold">Branch</th>
-                <th className="px-6 py-4 font-semibold">Role</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
-                <th className="px-6 py-4 font-semibold">Last Active</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredStaff.map((staff) => {
-                const branch = myBranches.find((b) => b.id === staff.branchId);
-                const fullName = getFullName(staff);
-                return (
-                  <tr
-                    key={staff.id}
-                    className="hover:bg-slate-50/80 transition-colors group">
-                    
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-medium shrink-0">
-                          {staff.firstName[0]}
-                          {staff.lastName[0]}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-900">
-                            {fullName}
-                          </p>
-                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                            <Mail className="h-3 w-3" /> {staff.email}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600">{branch?.name}</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-medium text-xs border border-slate-200">
-                        {staff.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge
-                        variant={
-                        staff.status === 'Active' ? 'success' : 'default'
-                        }>
-                        
-                        {staff.status}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Activity
-                          className={`h-4 w-4 ${staff.status === 'Active' ? 'text-brand-500' : 'text-slate-300'}`} />
-                        
-                        <span className="text-xs text-slate-600">
-                          {new Date(staff.lastActive).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 transition-opacity">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={Edit2}
-                          onClick={() => {
-                            setSelectedStaff(staff);
-                            setIsEditModalOpen(true);
-                          }}>
-                          
-                          Edit
-                        </Button>
-
-                      </div>
-                    </td>
-                  </tr>);
-
-              })}
-              {filteredStaff.length === 0 &&
-              <tr>
-                  <td
-                  colSpan={6}
-                  className="px-6 py-12 text-center text-slate-500">
-                  
-                    <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                    <p className="text-lg font-medium text-slate-900">
-                      No staff members found
-                    </p>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-          </div>
-        </div>
+        <SmartTable
+          data={filteredStaff} 
+          columns={StaffColumns} 
+          actions={actions} 
+        />
       </Card>
 
       <Modal
