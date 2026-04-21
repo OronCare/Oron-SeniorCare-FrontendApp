@@ -15,10 +15,12 @@ import {
   Users,
   Plus,
   Upload,
-  Eye } from
-'lucide-react';
+  Eye
+} from
+  'lucide-react';
 import { Card, Button, Badge, Modal, Input } from '../../components/UI';
 import { mockFacilities, mockBranches, mockAuditLogs } from '../../mockData';
+import { Facility } from '../../types';
 
 export const FacilityDetail = () => {
   const { id } = useParams();
@@ -26,14 +28,15 @@ export const FacilityDetail = () => {
   const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddBranchModalOpen, setIsAddBranchModalOpen] = useState(false);
-  
+  const [facilities, setFacilities] = useState<Facility | undefined>();
+
   const facility = mockFacilities.find((f) => f.id === id) || mockFacilities[0];
   const facilityBranches = mockBranches.filter(
     (b) => b.facilityId === facility.id
   );
   const facilityLogs = mockAuditLogs.
-  filter((log) => log.facilityId === facility.id).
-  slice(0, 5);
+    filter((log) => log.facilityId === facility.id).
+    slice(0, 5);
 
   const handleRevokeAccess = () => {
     setIsRevokeModalOpen(false);
@@ -58,10 +61,10 @@ export const FacilityDetail = () => {
               <Badge
                 variant={
                   facility.status === 'Active' ?
-                  'success' :
-                  facility.status === 'Pending' ?
-                  'warning' :
-                  'danger'
+                    'success' :
+                    facility.status === 'Pending' ?
+                      'warning' :
+                      'danger'
                 }>
                 {facility.status}
               </Badge>
@@ -72,9 +75,12 @@ export const FacilityDetail = () => {
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-2 sm:mt-0">
-          <Button 
-            variant="outline" 
-            onClick={() => setIsEditModalOpen(true)}
+          <Button
+            variant="outline"
+            onClick={() => {
+              setIsEditModalOpen(true);
+              setFacilities(facility);
+            }}
             className="w-full sm:w-auto text-sm">
             Edit Details
           </Button>
@@ -190,10 +196,10 @@ export const FacilityDetail = () => {
                           <Badge
                             variant={
                               branch.status === 'Active' ?
-                              'success' :
-                              branch.status === 'Pending' ?
-                              'warning' :
-                              'danger'
+                                'success' :
+                                branch.status === 'Pending' ?
+                                  'warning' :
+                                  'danger'
                             }>
                             {branch.status}
                           </Badge>
