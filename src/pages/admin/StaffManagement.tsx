@@ -36,6 +36,23 @@ export const StaffManagement = () => {
     setIsAddModalOpen(false);
     // Mock action
   };
+    const actions = [
+    {
+      render: (staff) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={Edit2}
+          onClick={() => {
+            setSelectedStaff(staff);
+            setIsEditModalOpen(true);
+          }}
+        >
+          Edit
+        </Button>
+      )
+    },
+  ];
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -71,7 +88,7 @@ export const StaffManagement = () => {
 
        <SmartTable
        columns={StaffColumns}
-       actions={StaffActions}
+       actions={actions}
        data={filteredStaff}
        />
       </Card>
