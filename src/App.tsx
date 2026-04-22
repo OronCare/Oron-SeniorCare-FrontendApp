@@ -13,34 +13,38 @@ import { OwnerDashboard } from './pages/owner/OwnerDashboard';
 import { FacilitiesList } from './pages/owner/FacilitiesList';
 import { FacilityOnboarding } from './pages/owner/FacilityOnboarding';
 import { FacilityDetail } from './pages/owner/FacilityDetail';
-import { OwnerReports } from './pages/owner/OwnerReports';
 import { RulesEngine } from './pages/owner/RulesEngine';
 // Facility Admin Pages
 import { FacilityAdminDashboard } from './pages/facility-admin/FacilityAdminDashboard';
 import { BranchesList } from './pages/facility-admin/BranchesList';
 import { BranchDetail } from './pages/facility-admin/BranchDetail';
-import { FacAdminResidents } from './pages/facility-admin/FacAdminResidents';
-import { FacAdminAddResident } from './pages/facility-admin/FacAdminAddResident';
-import { FacAdminStaff } from './pages/facility-admin/FacAdminStaff';
-import { FacAdminReports } from './pages/facility-admin/FacAdminReports';
 import { FacAdminNotifications } from './pages/facility-admin/FacAdminNotifications';
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { ResidentsList } from './pages/admin/ResidentsList';
-import { AddResident } from './pages/admin/AddResident';
 import { ResidentDetail } from './pages/admin/ResidentDetail';
 import { VitalsEntry } from './pages/admin/VitalsEntry';
 import { CarePlans } from './pages/admin/CarePlans';
-import { StaffManagement } from './pages/admin/StaffManagement';
-import { TaskManagement } from './pages/admin/TaskManagement';
-import { AdminReports } from './pages/admin/AdminReports';
 import { AuditLogs } from './pages/admin/AuditLogs';
 import { AdminNotifications } from './pages/admin/AdminNotifications';
 // Staff Pages
 import { StaffDashboard } from './pages/staff/StaffDashboard';
-import { StaffTasks } from './pages/staff/StaffTasks';
-import { StaffResidents } from './pages/staff/StaffResidents';
 import { StaffNotifications } from './pages/staff/StaffNotifications';
+import Residents from './components/residents/ResidentsList';
+import { AddRes } from './components/residents/AddResident';
+import { ResidentDetails } from './components/residents/ResidentDetails';
+import StaffPage from './components/staff/StaffManagement';
+import { OwnerReport } from './components/reports/OwnerReport';
+import { FacAdminReport } from './components/reports/FacAdminReport';
+import { AdminReport } from './components/reports/AdminReport';
+import { TaskManagements } from './components/task/TaskPage';
+import { FacilitiesLists } from './components/facility/FacilitiesList';
+import { FacilityDetails } from './components/facility/FacilityDetails';
+import { FacilityOnboardings } from './components/facility/FacilityOnboarding';
+import { RulesEngines } from './components/rules engine/RulesEngine';
+import { AuditLog } from './components/audit logs/AuditLogs';
+import { BranchLists } from './components/branches/BranchesList';
+import { BranchDetails } from './components/branches/BranchDetails';
+import { CarePlan } from './components/care plans/CarePlans';
 // Protected Route Wrapper
 const ProtectedRoute = ({
   children,
@@ -80,7 +84,7 @@ const AppRoutes = () => {
         path="/owner/facilities"
         element={
         <ProtectedRoute allowedRoles={['owner']}>
-            <FacilitiesList />
+            <FacilitiesLists />
           </ProtectedRoute>
         } />
       
@@ -88,7 +92,7 @@ const AppRoutes = () => {
         path="/owner/facilities/new"
         element={
         <ProtectedRoute allowedRoles={['owner']}>
-            <FacilityOnboarding />
+            <FacilityOnboardings />
           </ProtectedRoute>
         } />
       
@@ -96,7 +100,7 @@ const AppRoutes = () => {
         path="/owner/facilities/:id"
         element={
         <ProtectedRoute allowedRoles={['owner']}>
-            <FacilityDetail />
+            <FacilityDetails />
           </ProtectedRoute>
         } />
       
@@ -104,7 +108,7 @@ const AppRoutes = () => {
         path="/owner/rules"
         element={
         <ProtectedRoute allowedRoles={['owner']}>
-            <RulesEngine />
+            <RulesEngines />
           </ProtectedRoute>
         } />
       
@@ -112,7 +116,7 @@ const AppRoutes = () => {
         path="/owner/reports"
         element={
         <ProtectedRoute allowedRoles={['owner']}>
-            <OwnerReports />
+            <OwnerReport />
           </ProtectedRoute>
         } />
       
@@ -120,7 +124,7 @@ const AppRoutes = () => {
         path="/owner/audit-logs"
         element={
         <ProtectedRoute allowedRoles={['owner']}>
-            <AuditLogs />
+            <AuditLog />
           </ProtectedRoute>
         } />
       
@@ -146,7 +150,7 @@ const AppRoutes = () => {
         path="/facility-admin/branches"
         element={
         <ProtectedRoute allowedRoles={['facility_admin']}>
-            <BranchesList />
+            <BranchLists />
           </ProtectedRoute>
         } />
       
@@ -154,7 +158,7 @@ const AppRoutes = () => {
         path="/facility-admin/branches/:id"
         element={
         <ProtectedRoute allowedRoles={['facility_admin']}>
-            <BranchDetail />
+            <BranchDetails />
           </ProtectedRoute>
         } />
       
@@ -162,7 +166,7 @@ const AppRoutes = () => {
         path="/facility-admin/residents"
         element={
         <ProtectedRoute allowedRoles={['facility_admin']}>
-            <FacAdminResidents />
+            <Residents />
           </ProtectedRoute>
         } />
       
@@ -170,7 +174,7 @@ const AppRoutes = () => {
         path="/facility-admin/residents/new"
         element={
         <ProtectedRoute allowedRoles={['facility_admin']}>
-            <FacAdminAddResident />
+            <AddRes/>
           </ProtectedRoute>
         } />
       
@@ -178,7 +182,7 @@ const AppRoutes = () => {
         path="/facility-admin/residents/:id"
         element={
         <ProtectedRoute allowedRoles={['facility_admin']}>
-            <ResidentDetail />
+            <ResidentDetails />
           </ProtectedRoute>
         } />
       
@@ -194,7 +198,7 @@ const AppRoutes = () => {
         path="/facility-admin/staff"
         element={
         <ProtectedRoute allowedRoles={['facility_admin']}>
-            <FacAdminStaff />
+            <StaffPage />
           </ProtectedRoute>
         } />
       
@@ -202,7 +206,7 @@ const AppRoutes = () => {
         path="/facility-admin/reports"
         element={
         <ProtectedRoute allowedRoles={['facility_admin']}>
-            <FacAdminReports />
+            <FacAdminReport />
           </ProtectedRoute>
         } />
       
@@ -228,7 +232,7 @@ const AppRoutes = () => {
         path="/admin/residents"
         element={
         <ProtectedRoute allowedRoles={['admin']}>
-            <ResidentsList />
+            <Residents />
           </ProtectedRoute>
         } />
       
@@ -236,7 +240,7 @@ const AppRoutes = () => {
         path="/admin/residents/new"
         element={
         <ProtectedRoute allowedRoles={['admin']}>
-            <AddResident />
+            <AddRes/>
           </ProtectedRoute>
         } />
       
@@ -244,7 +248,7 @@ const AppRoutes = () => {
         path="/admin/residents/:id"
         element={
         <ProtectedRoute allowedRoles={['admin']}>
-            <ResidentDetail />
+            <ResidentDetails />
           </ProtectedRoute>
         } />
       
@@ -260,7 +264,7 @@ const AppRoutes = () => {
         path="/admin/care-plans"
         element={
         <ProtectedRoute allowedRoles={['admin']}>
-            <CarePlans />
+            <CarePlan />
           </ProtectedRoute>
         } />
       
@@ -268,7 +272,7 @@ const AppRoutes = () => {
         path="/admin/staff"
         element={
         <ProtectedRoute allowedRoles={['admin']}>
-            <StaffManagement />
+            <StaffPage />
           </ProtectedRoute>
         } />
       
@@ -276,7 +280,7 @@ const AppRoutes = () => {
         path="/admin/tasks"
         element={
         <ProtectedRoute allowedRoles={['admin']}>
-            <TaskManagement />
+            <TaskManagements/>
           </ProtectedRoute>
         } />
       
@@ -284,7 +288,7 @@ const AppRoutes = () => {
         path="/admin/reports"
         element={
         <ProtectedRoute allowedRoles={['admin']}>
-            <AdminReports />
+            <AdminReport />
           </ProtectedRoute>
         } />
       
@@ -318,7 +322,7 @@ const AppRoutes = () => {
         path="/staff/tasks"
         element={
         <ProtectedRoute allowedRoles={['staff']}>
-            <StaffTasks />
+            <TaskManagements />
           </ProtectedRoute>
         } />
       
@@ -326,7 +330,7 @@ const AppRoutes = () => {
         path="/staff/residents"
         element={
         <ProtectedRoute allowedRoles={['staff']}>
-            <StaffResidents />
+            <Residents />
           </ProtectedRoute>
         } />
       
@@ -334,7 +338,7 @@ const AppRoutes = () => {
         path="/staff/residents/:id"
         element={
         <ProtectedRoute allowedRoles={['staff']}>
-            <ResidentDetail />
+            <ResidentDetails />
           </ProtectedRoute>
         } />
       
