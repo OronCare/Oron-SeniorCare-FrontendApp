@@ -460,6 +460,67 @@ export const StaffColumns = [
   }
 ];
 
+// shared/TableColumns.tsx
+
+export const StaffColumnsForFacilityAdmin = (branches?: any[]) => [
+  {
+    label: "Staff Member",
+    render: (staff) => (
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-medium shrink-0">
+          {staff.firstName?.[0] || ''}{staff.lastName?.[0] || ''}
+        </div>
+        <div>
+          <p className="font-semibold text-slate-900">
+            {getFullName(staff)}
+          </p>
+          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+            <Mail className="h-3 w-3" /> {staff.email}
+          </p>
+        </div>
+      </div>
+    )
+  },
+  {
+    label: "Branch",  // ✅ Branch column added here
+    render: (staff) => {
+      const branch = branches?.find(b => b.id === staff.branchId);
+      return (
+        <div className="text-sm text-slate-700">
+          {branch?.name || 'N/A'}
+        </div>
+      );
+    }
+  },
+  {
+    label: "Role",
+    render: (staff) => (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-medium text-xs border border-slate-200">
+        {staff.role}
+      </span>
+    )
+  },
+  {
+    label: "Status",
+    render: (staff) => (
+      <Badge variant={staff.status === 'Active' ? 'success' : 'default'}>
+        {staff.status}
+      </Badge>
+    )
+  },
+  {
+    label: "Last Active",
+    render: (staff) => (
+      <div className="flex items-center gap-2">
+        <Activity className={`h-4 w-4 ${staff.status === 'Active' ? 'text-brand-500' : 'text-slate-300'}`} />
+        <span className="text-xs text-slate-600">
+          {formatDate(staff.lastActive)}
+        </span>
+      </div>
+    )
+  }
+];
+
 // Staff Actions - Using Link directly (NO handle function needed)
 export const StaffActions = [
   {
