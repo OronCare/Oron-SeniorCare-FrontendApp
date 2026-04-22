@@ -22,7 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export const TaskManagements = () => {
   const { user } = useAuth();
-  
+
   const isFacilityAdmin = user?.role === "facility_admin";
   const isAdmin = user?.role === "admin";
   const isStaff = user?.role === "staff";
@@ -37,21 +37,21 @@ export const TaskManagements = () => {
     const facilityId = user?.facilityId;
     const branches = mockBranches.filter(b => b.facilityId === facilityId);
     const branchIds = branches.map(b => b.id);
-    
+
     tasks = mockTasks.filter(t => branchIds.includes(t.branchId));
     staffMembers = mockStaffMembers.filter(s => branchIds.includes(s.branchId));
     residents = mockResidents.filter(r => branchIds.includes(r.branchId));
-  } 
+  }
   else if (isAdmin) {
     // Branch Admin: See all tasks in their branch
     const branchId = user?.branchId;
     tasks = mockTasks.filter(t => t.branchId === branchId);
     staffMembers = mockStaffMembers.filter(s => s.branchId === branchId);
     residents = mockResidents.filter(r => r.branchId === branchId);
-  } 
+  }
   else if (isStaff) {
     // Staff: See only their assigned tasks
-    tasks = mockTasks.filter(t => 
+    tasks = mockTasks.filter(t =>
       t.assignedTo === user?.id && t.branchId === user?.branchId
     );
     // Staff only need residents info for their tasks
@@ -69,7 +69,7 @@ export const TaskManagements = () => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   // Different columns based on role
-  const columns = isStaff 
+  const columns = isStaff
     ? ['Todo', 'In Progress', 'Done'] as const
     : ['Todo', 'In Progress', 'Done', 'Deferred'] as const;
 
@@ -151,12 +151,12 @@ export const TaskManagements = () => {
             {isStaff ? 'My Tasks' : 'Task Board'}
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            {isStaff 
+            {isStaff
               ? 'Manage your assigned tasks for today.'
               : 'Manage and track care tasks across the facility.'}
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
             <Filter className="h-4 w-4" />
@@ -169,7 +169,7 @@ export const TaskManagements = () => {
               ))}
             </select>
           </div>
-          
+
           {/* Only admins can create tasks */}
           {(isAdmin || isFacilityAdmin) && (
             <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>
@@ -188,14 +188,14 @@ export const TaskManagements = () => {
                 t.status === column && (
                   categoryFilter === 'All' || t.category === categoryFilter)
             );
-            
+
             return (
               <div
                 key={column}
                 className="flex-1 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden transition-colors"
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, column)}>
-                
+
                 <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 pointer-events-none">
                   <h2 className="font-semibold text-slate-700">{column}</h2>
                   <Badge variant="default">{columnTasks.length}</Badge>
@@ -210,7 +210,7 @@ export const TaskManagements = () => {
                       const resident = residents.find(
                         (r) => r.id === task.residentId
                       );
-                      
+
                       return (
                         <motion.div
                           key={task.id}
@@ -218,13 +218,12 @@ export const TaskManagements = () => {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          className={`bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow group ${
-                            !isStaff ? 'cursor-grab active:cursor-grabbing' : ''
-                          } ${draggedTaskId === task.id ? 'border-brand-500 ring-1 ring-brand-500 opacity-50' : 'border-slate-200'}`}
-                          draggable={!isStaff}
-                          onDragStart={(e) => !isStaff && handleDragStart(e, task.id)}
+                          className={`bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow group ${!isStaff ? 'cursor-grab active:cursor-grabbing' : 'cursor-grab active:cursor-grabbing'
+                            } ${draggedTaskId === task.id ? 'border-brand-500 ring-1 ring-brand-500 opacity-50' : 'border-slate-200'}`}
+                          draggable={true}   
+                          onDragStart={(e) => handleDragStart(e, task.id)}
                           onDragEnd={() => setDraggedTaskId(null)}>
-                          
+
                           {/* Task Header */}
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
@@ -244,7 +243,7 @@ export const TaskManagements = () => {
                                 {task.title}
                               </h3>
                             </div>
-                            
+
                             {/* Edit/View buttons */}
                             {column === 'Todo' && (isAdmin || isFacilityAdmin) && (
                               <button
@@ -256,7 +255,7 @@ export const TaskManagements = () => {
                                 <Edit2 className="h-3.5 w-3.5" />
                               </button>
                             )}
-                            
+
                             {isStaff && (
                               <button
                                 onClick={() => {
@@ -289,9 +288,9 @@ export const TaskManagements = () => {
                               <span
                                 className={
                                   new Date(task.dueDate) < new Date() &&
-                                  task.status !== 'Done' ?
-                                  'text-red-600 font-medium' :
-                                  ''
+                                    task.status !== 'Done' ?
+                                    'text-red-600 font-medium' :
+                                    ''
                                 }>
                                 {new Date(task.dueDate).toLocaleDateString()} {' '}
                                 {new Date(task.dueDate).toLocaleTimeString([], {
@@ -356,7 +355,7 @@ export const TaskManagements = () => {
                       );
                     })}
                   </AnimatePresence>
-                  
+
                   {columnTasks.length === 0 && (
                     <div className="h-24 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg">
                       <span className="text-sm text-slate-400">No tasks</span>
@@ -467,7 +466,7 @@ export const TaskManagements = () => {
           title="Edit Task">
           <div className="space-y-4">
             <Input label="Task Title" defaultValue={selectedTask.title} />
-            
+
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">
                 Description
