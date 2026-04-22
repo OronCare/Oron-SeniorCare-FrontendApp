@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HeartPulse, Save, Activity, ArrowRight, User } from 'lucide-react';
-import { Card, Button, Input } from '../../components/UI';
-import { mockResidents, mockVitals } from '../../mockData';
+import { Card , Button } from '../UI';
+import { mockResidents , mockVitals } from '../../mockData';
 import { getFullName } from '../../types';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
