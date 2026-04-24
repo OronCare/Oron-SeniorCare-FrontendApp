@@ -1,0 +1,220 @@
+import React, { useState } from "react";
+import { Search, Filter, Plus, Upload, Network, Eye } from "lucide-react";
+import { Card, Button, Input } from "../../components/UI";
+import { mockResidents, mockBranches } from "../../mockData";
+import { getFullName } from "../../types";
+import { useAuth } from "../../context/AuthContext";
+import { Link, useNavigate } from "react-router-dom";
+import SmartTable from "../../shared/Table";
+import {
+    Reidencecolumns,
+    Residenceactions,
+    StaffResidenceactions,
+} from "../../shared/TableColumns";
+import { BulkUploadModal } from "../../components/BulkUploadModal";
+
+const Residents = () => {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+
+    const role = user?.role;
+
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All");
+    const [branchFilter, setBranchFilter] = useState("All");
+    const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+
+    // 🔹 Role-based data logic
+    let residents = [];
+
+    if (role === "facility_admin") {
+        const myBranches = mockBranches.filter(
+            (b) => b.facilityId === user?.facilityId
+        );
+        const branchIds = myBranches.map((b) => b.id);
+
+        residents = mockResidents.filter((r) =>
+            branchIds.includes(r.branchId)
+        );
+    } else {
+        residents = mockResidents.filter(
+            (r) => r.branchId === user?.branchId
+        );
+    }
+    const isFacilityAdmin = role === "facility_admin";
+    const isAdmin = role === "admin";
+    const isStaff = role === "staff";
+    const actions = isStaff ? StaffResidenceactions : Residenceactions;
+
+    // Override for facility_admin
+    let finalActions = actions;
+    if (isFacilityAdmin) {
+        finalActions = [
+            {
+                render: (resident) => (
+                    <Link to={`/facility-admin/residents/${resident.id}`}>
+                        <Button variant="ghost" size="sm" icon={Eye}>
+                            View
+                        </Button>
+                    </Link>
+                )
+            }
+        ];
+    } else if (isStaff) {
+        finalActions = [
+            {
+                render: (resident) => (
+                    <Link to={`/staff/residents/${resident.id}`}>
+                        <Button variant="ghost" size="sm" icon={Eye}>
+                            View
+                        </Button>
+                    </Link>
+                )
+            }
+        ];
+    }
+    // 🔹 Filtering
+    const filteredResidents = residents.filter((resident) => {
+        const fullName = getFullName(resident).toLowerCase();
+
+        const matchesSearch =
+            fullName.includes(searchTerm.toLowerCase()) ||
+            resident.room.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesStatus =
+            statusFilter === "All" || resident.status === statusFilter;
+
+        const matchesBranch =
+            role !== "facility_admin" ||
+            branchFilter === "All" ||
+            resident.branchId === branchFilter;
+
+        return matchesSearch && matchesStatus && matchesBranch;
+    });
+
+    // 🔹 Role-based config
+
+
+    const title =
+        role === "facility_admin"
+            ? "Facility Residents"
+            : role === "staff"
+                ? "My Residents"
+                : "Residents";
+
+    const description =
+        role === "facility_admin"
+            ? "View residents across all branches"
+            : role === "staff"
+                ? "View residents in your branch"
+                : "Manage resident profiles";
+
+
+    return (
+        <div className="space-y-6">
+            {/* HEADER */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+                    <p className="text-sm text-slate-500 mt-1">{description}</p>
+                </div>
+
+                {/* ACTION BUTTONS */}
+
+                {(isAdmin || isFacilityAdmin) && (
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            icon={Upload}
+                            onClick={() => setIsBulkUploadOpen(true)}
+                        >
+                            Bulk Upload
+                        </Button>
+
+                        <Button
+                            icon={Plus}
+                            onClick={() => {
+                                // Build the correct path based on role
+                                const basePath = role === "admin" ? "/admin" : "/facility-admin";
+                                navigate(`${basePath}/residents/new`);
+                            }}
+                        >
+                            Add Resident
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            <Card noPadding>
+                {/* TOOLBAR */}
+                <div className="p-5 border-b flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50/50">
+                    <div className="w-full sm:w-80">
+                        <Input
+                            placeholder="Search by name or room..."
+                            icon={Search}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="flex gap-2 flex-wrap">
+                        {/* Branch filter ONLY for facility admin */}
+                        {isFacilityAdmin && (
+                            <div className="flex items-center gap-2 border px-3 py-2 rounded-lg bg-white">
+                                <Network className="h-4 w-4" />
+                                <select
+                                    value={branchFilter}
+                                    onChange={(e) => setBranchFilter(e.target.value)}
+                                >
+                                    <option value="All">All Branches</option>
+                                    {mockBranches
+                                        .filter((b) => b.facilityId === user?.facilityId)
+                                        .map((b) => (
+                                            <option key={b.id} value={b.id}>
+                                                {b.name}
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* Status filter */}
+                        <div className="flex items-center gap-2 border px-3 py-2 rounded-lg bg-white">
+                            <Filter className="h-4 w-4" />
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                            >
+                                <option value="All">All Statuses</option>
+                                <option value="InPatient">InPatient</option>
+                                <option value="Hospitalized">Hospitalized</option>
+                                <option value="Discharged">Discharged</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* TABLE */}
+                <SmartTable
+                    data={filteredResidents}
+                    columns={Reidencecolumns}
+                    actions={finalActions}
+                />
+            </Card>
+
+            {/* BULK UPLOAD (only admin + facility admin) */}
+            {!isStaff && (
+                <BulkUploadModal
+                    isOpen={isBulkUploadOpen}
+                    onClose={() => setIsBulkUploadOpen(false)}
+                    onUpload={(data) => {
+                        console.log(data);
+                        setIsBulkUploadOpen(false);
+                    }}
+                />
+            )}
+        </div>
+    );
+};
+
+export default Residents;
