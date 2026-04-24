@@ -181,15 +181,15 @@ export const ResidentDetails = () => {
   };
 
   return (
-     <div className="space-y-6">
+     <div className="space-y-6 overflow-x-hidden">
       {/* Header */}
-      <div className="flex  flex-col md:flex-row items-center gap-4 mb-2">
+      <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
         <Link
           to={`/${user?.role === 'owner' ? 'owner/facilities' : user?.role === 'facility_admin' ? 'facility-admin/residents' : user?.role === 'staff' ? 'staff/residents' : 'admin/residents'}`}
           className="p-2 -ml-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div className="flex-1 flex items-center gap-4">
+        <div className="flex-1 flex flex-col md:flex-row items-center gap-4">
           <div className="h-14 w-14 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xl border-2 border-white shadow-sm overflow-hidden">
             <img
               src={`https://i.pravatar.cc/150?u=${resident.id}`}
@@ -202,7 +202,7 @@ export const ResidentDetails = () => {
             
           </div>
           <div>
-            <div className="flex flex-col md:flex-row items-center gap-3">
+            <div className="flex flex-col  md:flex-row items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900">{fullName}</h1>
               <Badge
                 variant={
@@ -227,7 +227,7 @@ export const ResidentDetails = () => {
             </p>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3">
           <Button
             variant="outline"
             icon={Edit2}
@@ -239,8 +239,9 @@ export const ResidentDetails = () => {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200 overflow-x-auto scrollbar-hide">
-        <nav className="flex gap-6 w-[400px] w-full">
+      <div className="border-b w-full  border-slate-200 overflow-x-auto scrollbar-hide">
+       <div className=" w-[400px]  md:w-full ">
+       <nav className="flex gap-6 w-[400px] w-full">
           {tabs.map((tab) =>
           <button
             key={tab.id}
@@ -252,6 +253,7 @@ export const ResidentDetails = () => {
             </button>
           )}
         </nav>
+       </div>
       </div>
 
       {/* Tab Content */}
