@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Building2,
@@ -6,15 +6,45 @@ import {
   User,
   CheckCircle,
   ArrowRight,
-  ArrowLeft,
-  Upload } from
+  ArrowLeft } from
 'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
 import { motion, AnimatePresence } from 'framer-motion';
-export const FacilityOnboardings = () => {
+import { CreateFacilityRequest } from '../../services/facilityService';
+import axios from 'axios';
+
+const generateTemporaryPassword = () => {
+  return `Oron@${Math.random().toString(36).slice(-8)}A1`;
+};
+
+export const FacilityOnboarding = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Form data
+  const [formData, setFormData] = useState<CreateFacilityRequest>({
+    name: '',
+    phone: '',
+    email: '',
+    type: 'Senior Living',
+    status: 'Active',
+    contractStart: '',
+    contractEnd: '',
+    adminFirstName: '',
+    adminLastName: '',
+    adminEmail: '',
+    adminPassword: generateTemporaryPassword(),
+  });
+
+  const handleInputChange = (field: keyof CreateFacilityRequest, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
   const steps = [
   {
     id: 1,
@@ -37,16 +67,38 @@ export const FacilityOnboardings = () => {
     icon: CheckCircle
   }];
 
-  const handleNext = () => setStep((s) => Math.min(s + 1, 4));
-  const handlePrev = () => setStep((s) => Math.max(s - 1, 1));
-  const handleSubmit = () => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      navigate('/owner/facilities');
-    }, 1500);
+  const handleNext = () => {
+    setStep((s) => Math.min(s + 1, 4));
   };
-  
+
+  const handlePrev = () => setStep((s) => Math.max(s - 1, 1));
+
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      const apiBase = (import.meta as any).env?.VITE_API_URL as string;
+      const auth = localStorage.getItem('oron_auth');
+      const token = auth ? (JSON.parse(auth) as { token?: string }).token || '' : '';
+      const createdFacilityResponse = await axios.post(`${apiBase}/facilities`, formData, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token || ''}`,
+        },
+      });
+      void createdFacilityResponse; // response not used directly; navigation below
+
+      setTimeout(() => {
+        setIsSubmitting(false);
+        navigate('/owner/facilities');
+      }, 1500);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to create facility');
+      setIsSubmitting(false);
+      console.error(err);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -86,6 +138,11 @@ export const FacilityOnboardings = () => {
 
       <Card className="overflow-hidden">
         <div className="p-6 min-h-[400px] relative">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
           <AnimatePresence mode="wait">
             {step === 1 &&
             <motion.div
@@ -110,26 +167,37 @@ export const FacilityOnboardings = () => {
                 <div className="grid grid-cols-1 gap-4">
                   <Input
                   label="Facility Name"
-                  placeholder="e.g. Sunrise Senior Living" />
+                  placeholder="e.g. Sunrise Senior Living"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)} />
                 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="block text-sm font-medium text-slate-700">
                         Facility Type
                       </label>
-                      <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
+                      <select 
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                        value={formData.type}
+                        onChange={(e) => handleInputChange('type', e.target.value)}>
                         <option>Senior Living</option>
                         <option>Assisted Living</option>
                         <option>Memory Care</option>
                         <option>Multi-Specialty</option>
                       </select>
                     </div>
-                    <Input label="Phone Number" placeholder="(555) 000-0000" />
+                    <Input 
+                      label="Phone Number" 
+                      placeholder="(555) 000-0000"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)} />
                   </div>
                   <Input
                   label="Email Address"
                   type="email"
-                  placeholder="contact@facility.com" />
+                  placeholder="contact@facility.com"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)} />
                 
                 </div>
               </motion.div>
@@ -156,8 +224,16 @@ export const FacilityOnboardings = () => {
                   Contract Details
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input label="Contract Start Date" type="date" />
-                  <Input label="Contract End Date" type="date" />
+                  <Input 
+                    label="Contract Start Date" 
+                    type="date"
+                    value={formData.contractStart}
+                    onChange={(e) => handleInputChange('contractStart', e.target.value)} />
+                  <Input 
+                    label="Contract End Date" 
+                    type="date"
+                    value={formData.contractEnd}
+                    onChange={(e) => handleInputChange('contractEnd', e.target.value)} />
                 </div>
 
                 <div className="mt-6">
@@ -203,15 +279,24 @@ export const FacilityOnboardings = () => {
                 </p>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <Input label="First Name" placeholder="Jane" />
-                    <Input label="Middle Name (Optional)" placeholder="A." />
-                    <Input label="Last Name" placeholder="Doe" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input 
+                      label="First Name" 
+                      placeholder="Jane"
+                      value={formData.adminFirstName}
+                      onChange={(e) => handleInputChange('adminFirstName', e.target.value)} />
+                    <Input 
+                      label="Last Name" 
+                      placeholder="Doe"
+                      value={formData.adminLastName}
+                      onChange={(e) => handleInputChange('adminLastName', e.target.value)} />
                   </div>
                   <Input
                   label="Admin Email"
                   type="email"
-                  placeholder="jane@facility.com" />
+                  placeholder="jane@facility.com"
+                  value={formData.adminEmail}
+                  onChange={(e) => handleInputChange('adminEmail', e.target.value)} />
                 
 
                   <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 mt-6">
@@ -223,6 +308,11 @@ export const FacilityOnboardings = () => {
                       admin's email address. They will be required to change it
                       upon first login.
                     </p>
+                    {formData.adminPassword && (
+                      <p className="text-xs text-amber-700 mt-3 font-mono bg-white p-2 rounded border border-amber-200">
+                        Generated: {formData.adminPassword}
+                      </p>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -253,20 +343,16 @@ export const FacilityOnboardings = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-slate-500">Facility Name</p>
-                      <p className="text-sm font-medium text-slate-900">
-                        Sunrise Senior Living
-                      </p>
+                      <p className="text-sm font-medium text-slate-900">{formData.name || '-'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Type</p>
-                      <p className="text-sm font-medium text-slate-900">
-                        Assisted Living
-                      </p>
+                      <p className="text-sm font-medium text-slate-900">{formData.type || '-'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Contract Period</p>
                       <p className="text-sm font-medium text-slate-900">
-                        Jan 1, 2025 - Dec 31, 2028
+                        {formData.contractStart || '-'} - {formData.contractEnd || '-'}
                       </p>
                     </div>
                   </div>
@@ -276,7 +362,7 @@ export const FacilityOnboardings = () => {
                       Facility Admin Account
                     </p>
                     <p className="text-sm font-medium text-slate-900">
-                      Jane Doe (jane@facility.com)
+                      {`${formData.adminFirstName || '-'} ${formData.adminLastName || ''}`.trim()} ({formData.adminEmail || '-'})
                     </p>
                   </div>
                 </div>

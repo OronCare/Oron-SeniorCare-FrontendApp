@@ -16,8 +16,8 @@ import { BranchLists } from "./components/branches/BranchesList";
 import { BranchDetails } from "./components/branches/BranchDetails";
 import { AuditLog } from "./components/audit logs/AuditLogs";
 import { CarePlan } from "./components/care plans/CarePlans";
-import { FacilitiesLists } from "./components/facility/FacilitiesList";
-import { FacilityOnboardings } from "./components/facility/FacilityOnboarding";
+import { FacilitiesList } from "./components/facility/FacilitiesList";
+import { FacilityOnboarding } from "./components/facility/FacilityOnboarding";
 import { FacilityDetails } from "./components/facility/FacilityDetails";
 import { OwnerReport } from "./components/reports/OwnerReport";
 import { FacAdminReport } from "./components/reports/FacAdminReport";
@@ -41,8 +41,8 @@ const AppRoutes = () => {
       {/* Owner nested routes */}
       <Route path="/owner" element={<OwnerLayout/>}>
         <Route index element={<OwnerDashboard />} />
-        <Route path="facilities" element={<FacilitiesLists />} />
-        <Route path="facilities/new" element={<FacilityOnboardings />} />
+        <Route path="facilities" element={<FacilitiesList />} />
+        <Route path="facilities/new" element={<FacilityOnboarding />} />
         <Route path="facilities/:id" element={<FacilityDetails />} />
         <Route path="rules" element={<RulesEngines />} />
         <Route path="reports" element={<OwnerReport />} />

@@ -1,38 +1,78 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Building2,
   Search,
   Filter,
   Plus,
-  MoreVertical,
-  FileText,
-  Network,
-  Users,
   Eye,
   Edit2
 } from
   'lucide-react';
-import { Card, Button, Badge, Input, Modal } from '../../components/UI';
-import { mockFacilities } from '../../mockData';
+import { Card, Button, Input, Modal } from '../../components/UI';
 import { Link } from 'react-router-dom';
 import SmartTable from '../../shared/Table';
-import { FacilitesActions, Faciltescolumns } from '../../shared/TableColumns';
+import { Faciltescolumns } from '../../shared/TableColumns';
 import { Facility } from '../../types';
-export const FacilitiesLists = () => {
+import axios from 'axios';
+
+export const FacilitiesList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const filteredFacilities = mockFacilities.filter((facility) => {
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedFacility, setSelectedFacility] = useState<Facility>();
+
+  // Fetch facilities on mount
+  useEffect(() => {
+    fetchFacilities();
+  }, []);
+
+  const fetchFacilities = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const apiBase = (import.meta as any).env?.VITE_API_URL as string;
+      const auth = localStorage.getItem('oron_auth');
+      const token = auth ? (JSON.parse(auth) as { token?: string }).token : '';
+
+      const response = await axios.get(`${apiBase}/facilities`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token || ''}`,
+        },
+      });
+
+      const payload = response.data;
+      const data: Facility[] = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload?.facilities)
+            ? payload.facilities
+            : [];
+
+      setFacilities(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch facilities');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const safeFacilities = Array.isArray(facilities) ? facilities : [];
+
+  const filteredFacilities = safeFacilities.filter((facility) => {
     const matchesSearch =
       facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      facility.facilityAdminName.
+      (facility.facilityAdminName || '').
         toLowerCase().
         includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === 'All' || facility.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const  [selectFaciltes , setSelectFacilties] = useState<Facility>()
   const actions = [
       {
       render: (facility : Facility) => (
@@ -44,13 +84,13 @@ export const FacilitiesLists = () => {
       )
     },
     {
-      render: (selectFaciltes) => (
+      render: (facility: Facility) => (
         <Button
           variant="ghost"
           size="sm"
           icon={Edit2}
           onClick={() => {
-            setSelectFacilties(selectFaciltes);
+            setSelectedFacility(facility);
             setIsEditModalOpen(true);
           }}
         >
@@ -102,28 +142,44 @@ export const FacilitiesLists = () => {
           </div>
         </div>
         <div className="w-full overflow-x-auto ">
-
-          {/* Table */}
-          <SmartTable
-            data={filteredFacilities}
-            columns={Faciltescolumns}
-            actions={actions}
-          />
+          {error && (
+            <div className="p-4 bg-red-50 text-red-700 rounded-lg m-4">
+              {error}
+            </div>
+          )}
+          {loading ? (
+            <div className="p-8 text-center text-slate-500">
+              Loading facilities...
+            </div>
+          ) : filteredFacilities.length === 0 ? (
+            <div className="p-8 text-center text-slate-500">
+              No facilities found
+            </div>
+          ) : (
+            <>
+              {/* Table */}
+              <SmartTable
+                data={filteredFacilities}
+                columns={Faciltescolumns}
+                actions={actions}
+              />
+            </>
+          )}
           <Modal
             isOpen={isEditModalOpen}
             onClose={() => setIsEditModalOpen(false)}
             title="Edit Facility Details">
             <div className="space-y-4">
-              <Input label="Facility Name" defaultValue={selectFaciltes?.name} />
-              <Input label="Phone Number" type='number' defaultValue={selectFaciltes?.phone} />
-              <Input label="Email" type='email' defaultValue={selectFaciltes?.email} />
+              <Input label="Facility Name" defaultValue={selectedFacility?.name} />
+              <Input label="Phone Number" type='number' defaultValue={selectedFacility?.phone} />
+              <Input label="Email" type='email' defaultValue={selectedFacility?.email} />
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-slate-700">
                   Facility Type
                 </label>
                 <select
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                  defaultValue={selectFaciltes?.type}>
+                  defaultValue={selectedFacility?.type}>
                   <option>Senior Living</option>
                   <option>Assisted Living</option>
                   <option>Memory Care</option>
@@ -140,30 +196,6 @@ export const FacilitiesLists = () => {
               </div>
             </div>
           </Modal>
-
-
-          {/* Pagination (Mock) */}
-          <div className="p-4  border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
-            <p>
-              Showing <span className="font-medium text-slate-900">1</span> to{' '}
-              <span className="font-medium text-slate-900">
-                {filteredFacilities.length}
-              </span>{' '}
-              of{' '}
-              <span className="font-medium text-slate-900">
-                {filteredFacilities.length}
-              </span>{' '}
-              results
-            </p>
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" disabled>
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                Next
-              </Button>
-            </div>
-          </div>
         </div>
       </Card>
     </div>);

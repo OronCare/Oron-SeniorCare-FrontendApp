@@ -37,12 +37,12 @@ export interface Branch {
   name: string;
   address: string;
   phone: string;
-  type: 'Senior Living' | 'Assisted Living' | 'Memory Care';
-  status: 'Active' | 'Pending' | 'Suspended';
+  type: string;
+  status: string;
   residentLimit: number;
   currentResidents: number;
-  branchAdminId: string;
-  branchAdminName: string;
+  branchAdminId?: string | null;
+  branchAdminName?: string | null;
 }
 
 // ─── Resident ───

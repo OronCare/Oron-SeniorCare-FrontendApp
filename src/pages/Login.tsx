@@ -1,34 +1,38 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Role } from '../types';
 import { Activity, Lock, Mail, ArrowRight } from 'lucide-react';
 import { Button, Input, Card } from '../components/UI';
+
 export const Login = () => {
-  const { login } = useAuth();
+  const { login, user, isAuthenticated, isAuthReady } = useAuth();
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role>('admin');
-  const handleLogin = (e: React.FormEvent) => {
+  const [error, setError] = useState<string | null>(null);
+
+  if (isAuthReady && isAuthenticated && user) {
+    const path = user.role === 'facility_admin' ? '/facility-admin' : `/${user.role}`;
+    return <Navigate to={path} replace />;
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      login(selectedRole);
-      setIsLoading(false);
-      const path =
-      selectedRole === 'facility_admin' ?
-      '/facility-admin' :
-      `/${selectedRole}`;
+    setError(null);
+
+    try {
+      const user = await login(email, password);
+      const path = user.role === 'facility_admin' ? '/facility-admin' : `/${user.role}`;
       navigate(path);
-    }, 800);
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
-  const roleDisplay = {
-    owner: 'Platform Owner',
-    facility_admin: 'Facility Admin',
-    admin: 'Branch Admin',
-    staff: 'Staff'
-  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background decoration */}
@@ -55,41 +59,29 @@ export const Login = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <Card className="py-8 px-4 sm:px-10 shadow-xl border-0 ring-1 ring-slate-200">
           <form className="space-y-6" onSubmit={handleLogin}>
-            {/* Demo Role Selector */}
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 mb-6">
-              <p className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-3">
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {(Object.keys(roleDisplay) as Role[]).map((role) =>
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => setSelectedRole(role)}
-                  className={`px-3 py-2 text-xs font-medium rounded-md transition-colors ${selectedRole === role ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>
-                  
-                    {roleDisplay[role]}
-                  </button>
-                )}
-              </div>
+            <div className="space-y-4">
+              <Input
+                label="Email address"
+                type="email"
+                required
+                icon={Mail}
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+
+              <Input
+                label="Password"
+                type="password"
+                required
+                icon={Lock}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
             </div>
-
-            <Input
-              label="Email address"
-              type="email"
-              required
-              icon={Mail}
-              placeholder="Enter your email"
-              defaultValue={`${selectedRole}@oron.com`} />
-            
-
-            <Input
-              label="Password"
-              type="password"
-              required
-              icon={Lock}
-              placeholder="••••••••"
-              defaultValue="password123" />
-            
 
             <div className="flex items-center justify-between">
               <div className="flex items-center">

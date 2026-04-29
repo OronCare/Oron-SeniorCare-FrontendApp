@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Search, Filter, Plus, Upload, Network, Eye } from "lucide-react";
 import { Card, Button, Input } from "../../components/UI";
-import { mockResidents, mockBranches } from "../../mockData";
-import { getFullName } from "../../types";
+import { getFullName, Resident, Branch } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import SmartTable from "../../shared/Table";
@@ -12,35 +11,83 @@ import {
     StaffResidenceactions,
 } from "../../shared/TableColumns";
 import { BulkUploadModal } from "../../components/BulkUploadModal";
+import { residentService } from "../../services/residentService";
+import axios from "axios";
 
 const Residents = () => {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const navigate = useNavigate();
 
     const role = user?.role;
 
+    const [residents, setResidents] = useState<Resident[]>([]);
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [branchFilter, setBranchFilter] = useState("All");
     const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
-    // 🔹 Role-based data logic
-    let residents = [];
+    useEffect(() => {
+        const apiBase = import.meta.env.VITE_API_URL;
+        if (!apiBase || !token) {
+            setError('Unable to load residents. Missing API configuration or authentication.');
+            return;
+        }
 
-    if (role === "facility_admin") {
-        const myBranches = mockBranches.filter(
-            (b) => b.facilityId === user?.facilityId
-        );
-        const branchIds = myBranches.map((b) => b.id);
+        const fetchResidents = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const payload = await residentService.getAllResidents();
+                setResidents(payload);
+            } catch (err) {
+                const message = axios.isAxiosError(err)
+                    ? err.response?.data || err.message
+                    : (err as Error).message;
+                setError(String(message));
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        residents = mockResidents.filter((r) =>
-            branchIds.includes(r.branchId)
-        );
-    } else {
-        residents = mockResidents.filter(
-            (r) => r.branchId === user?.branchId
-        );
-    }
+        const fetchBranches = async () => {
+            if (role !== "facility_admin") return;
+            try {
+                const response = await axios.get<Branch[]>(`${import.meta.env.VITE_API_URL}/branches`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                setBranches(response.data);
+            } catch (err) {
+                console.warn('Unable to fetch branch list for filters', err);
+            }
+        };
+
+        fetchResidents();
+        fetchBranches();
+    }, [role, token]);
+
+    const branchOptions = useMemo(() => {
+        if (branches.length > 0) {
+            return branches.filter((branch) => branch.facilityId === user?.facilityId);
+        }
+
+        return Array.from(new Set(residents.map((resident) => resident.branchId))).map((id) => ({
+            id,
+            facilityId: user?.facilityId || '',
+            name: id,
+            address: '',
+            phone: '',
+            type: '',
+            status: '',
+            residentLimit: 0,
+            currentResidents: 0,
+        } as Branch));
+    }, [branches, residents, user?.facilityId]);
+
     const isFacilityAdmin = role === "facility_admin";
     const isAdmin = role === "admin";
     const isStaff = role === "staff";
@@ -51,7 +98,7 @@ const Residents = () => {
     if (isFacilityAdmin) {
         finalActions = [
             {
-                render: (resident) => (
+                render: (resident: Resident) => (
                     <Link to={`/facility-admin/residents/${resident.id}`}>
                         <Button variant="ghost" size="sm" icon={Eye}>
                             View
@@ -63,7 +110,7 @@ const Residents = () => {
     } else if (isStaff) {
         finalActions = [
             {
-                render: (resident) => (
+                render: (resident: Resident) => (
                     <Link to={`/staff/residents/${resident.id}`}>
                         <Button variant="ghost" size="sm" icon={Eye}>
                             View
@@ -167,13 +214,11 @@ const Residents = () => {
                                     onChange={(e) => setBranchFilter(e.target.value)}
                                 >
                                     <option value="All">All Branches</option>
-                                    {mockBranches
-                                        .filter((b) => b.facilityId === user?.facilityId)
-                                        .map((b) => (
-                                            <option key={b.id} value={b.id}>
-                                                {b.name}
-                                            </option>
-                                        ))}
+                                    {branchOptions.map((branch) => (
+                                        <option key={branch.id} value={branch.id}>
+                                            {branch.name || branch.id}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         )}
