@@ -10,7 +10,15 @@ type Props = {
 };
 
 const ProtectedRoute = ({ children, allowedRoles }: Props) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isAuthReady } = useAuth();
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-slate-500">
+        Loading...
+      </div>
+    );
+  }
 
 
   // not login

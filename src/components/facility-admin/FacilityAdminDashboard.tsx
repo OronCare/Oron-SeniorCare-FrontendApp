@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Network,
@@ -10,24 +10,56 @@ import {
 'lucide-react';
 import { StatsCard, Card, Badge, Button } from '../../components/UI';
 import {
-  mockBranches,
-  mockAlerts,
-  mockResidents,
-  mockStaffMembers } from
+  mockAlerts } from
 '../../mockData';
 import { useAuth } from '../../context/AuthContext';
 import SmartTable from '../../shared/Table';
 import { BranchesCompactActions, BranchesCompactColumns } from '../../shared/TableColumns';
+import { branchService } from '../../services/branchService';
+import { residentService } from '../../services/residentService';
+import { usersService } from '../../services/usersService';
+import { Branch, Resident, User } from '../../types';
 export const FacilityAdminDashboard = () => {
   const { user } = useAuth();
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [residents, setResidents] = useState<Resident[]>([]);
+  const [staff, setStaff] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [branchesData, residentsData, staffData] = await Promise.all([
+          branchService.getAllBranches(),
+          residentService.getAllResidents(),
+          usersService.getAllUsers()
+        ]);
+        setBranches(branchesData);
+        setResidents(residentsData);
+        setStaff(staffData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   // Filter data for this facility admin's facility
-  const facilityId = user?.facilityId || 'fac1';
-  const myBranches = mockBranches.filter((b) => b.facilityId === facilityId);
+  const facilityId = user?.facilityId || '';
+  const myBranches = branches.filter((b) => b.facilityId === facilityId);
   const branchIds = myBranches.map((b) => b.id);
-  const myResidents = mockResidents.filter((r) =>
-  branchIds.includes(r.branchId)
+  const myResidents = residents.filter((r) =>
+    branchIds.includes(r.branchId)
   );
-  const myStaff = mockStaffMembers.filter((s) => branchIds.includes(s.branchId));
+  const myStaff = staff.filter((s) =>
+    s.role === 'admin' || s.role === 'staff'
+  ).filter((s) => branchIds.includes(s.branchId || ''));
+
   const totalCapacity = myBranches.reduce(
     (acc, curr) => acc + curr.residentLimit,
     0
@@ -41,6 +73,46 @@ export const FacilityAdminDashboard = () => {
     a.branchId && branchIds.includes(a.branchId))
   );
   const recentAlerts = facAlerts.slice(0, 4);
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Facility Dashboard
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Overview of all branches under your management
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-slate-500">Loading dashboard data...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Facility Dashboard
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Overview of all branches under your management
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-red-500">Error loading dashboard: {error}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -63,18 +135,18 @@ export const FacilityAdminDashboard = () => {
           title="Total Branches"
           value={myBranches.length}
           icon={Network} />
-        
+
         <StatsCard
           title="Total Residents"
           value={totalResidents}
           icon={Users} />
-        
+
         <StatsCard title="Total Staff" value={myStaff.length} icon={Users} />
         <StatsCard
           title="Overall Utilization"
           value={`${utilization}%`}
           icon={Activity} />
-        
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -87,12 +159,12 @@ export const FacilityAdminDashboard = () => {
             <Link
               to="/facility-admin/branches"
               className="text-sm font-medium text-brand-600 hover:text-brand-700 flex items-center">
-              
+
               View all <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </div>
           <SmartTable
-            data={mockBranches}
+            data={myBranches}
             columns={BranchesCompactColumns}
             actions={BranchesCompactActions}
             />

@@ -1,38 +1,123 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Users,
-  FileSignature,
   AlertTriangle,
-  ArrowUpRight,
   ArrowRight,
   Activity,
   Network
-} from
-  'lucide-react';
-import { StatsCard, Card, Badge, Button } from '../../components/UI';
-import { mockFacilities, mockBranches, mockAlerts } from '../../mockData';
+} from 'lucide-react';
+import { StatsCard, Card, Button } from '../../components/UI';
+import { mockAlerts } from '../../mockData';
 import { Link } from 'react-router-dom';
-import { dashboardFacilitesActions, FacilitesActions, Faciltescolumns, RecentFaciltescolumns } from '../../shared/TableColumns';
+import { dashboardFacilitesActions, RecentFaciltescolumns } from '../../shared/TableColumns';
 import SmartTable from '../../shared/Table';
+import { facilityService } from '../../services/facilityService';
+import { branchService } from '../../services/branchService';
+import { residentService } from '../../services/residentService';
+import { Facility, Branch } from '../../types';
 export const OwnerDashboard = () => {
-  const totalFacilities = mockFacilities.length;
-  const totalBranches = mockBranches.length;
-  const activeFacilities = mockFacilities.filter(
-    (f) => f.status === 'Active'
-  ).length;
-  const totalResidents = mockFacilities.reduce(
-    (acc, curr) => acc + curr.totalResidents,
-    0
-  );
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [residents, setResidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [facilitiesData, branchesData, residentsData] = await Promise.all([
+          facilityService.getAllFacilities(),
+          branchService.getAllBranches(),
+          residentService.getAllResidents()
+        ]);
+        const residentCountsByFacility = residentsData.reduce(
+          (acc, resident) => {
+            if (resident.facilityId) {
+              acc[resident.facilityId] = (acc[resident.facilityId] ?? 0) + 1;
+            }
+            return acc;
+          },
+          {} as Record<string, number>
+        );
+
+        setFacilities(
+          facilitiesData.map((facility) => ({
+            ...facility,
+            totalResidents: residentCountsByFacility[facility.id] ?? facility.totalResidents ?? 0,
+          }))
+        );
+        setBranches(branchesData);
+        setResidents(residentsData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const totalFacilities = facilities.length;
+  const totalBranches = branches.length;
+  const totalResidents = residents.length;
+  // const activeFacilities = facilities.filter(
+  //   (f) => f.status === 'Active'
+  // ).length;
+  // totalResidents = facilities.reduce(
+  //   (acc, curr) => acc + curr.totalResidents,
+  //   0
+  // );
   // Calculate total capacity across all branches
-  const totalCapacity = mockBranches.reduce(
+  const totalCapacity = branches.reduce(
     (acc, curr) => acc + curr.residentLimit,
     0
   );
   const utilization = Math.round(totalResidents / totalCapacity * 100) || 0;
   const ownerAlerts = mockAlerts.filter((a) => a.targetRoles.includes('owner'));
   const recentAlerts = ownerAlerts.slice(0, 4);
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Platform Overview
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Monitor all facilities and system health
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-slate-500">Loading dashboard data...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Platform Overview
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Monitor all facilities and system health
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-red-500">Error loading dashboard: {error}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -55,7 +140,6 @@ export const OwnerDashboard = () => {
           title="Total Facilities"
           value={totalFacilities}
           icon={Building2}
-          trend="2 new this month"
           trendUp={true} />
 
         <StatsCard
@@ -67,7 +151,6 @@ export const OwnerDashboard = () => {
           title="Total Residents"
           value={totalResidents.toLocaleString()}
           icon={Users}
-          trend="+12% vs last month"
           trendUp={true} />
 
         <StatsCard
@@ -93,7 +176,7 @@ export const OwnerDashboard = () => {
           </div>
           <div className="overflow-x-auto">
             <SmartTable
-              data={mockFacilities.slice(0, 5)}
+              data={facilities.slice(0, 5)}
               columns={RecentFaciltescolumns}
               actions={dashboardFacilitesActions}
             />
