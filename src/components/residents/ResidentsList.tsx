@@ -240,11 +240,17 @@ const Residents = () => {
                 </div>
 
                 {/* TABLE */}
+                {loading ? (
+          <div className="p-8 text-center text-slate-500">Loading residents...</div>
+        ) : filteredResidents.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">No residents found</div>
+        ) : (
                 <SmartTable
                     data={filteredResidents}
                     columns={Reidencecolumns}
                     actions={finalActions}
                 />
+                 )}
             </Card>
 
             {/* BULK UPLOAD (only admin + facility admin) */}

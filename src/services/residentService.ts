@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { Resident } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL;
@@ -53,16 +52,43 @@ export interface CreateResidentRequest {
 
 export const residentService = {
   async getAllResidents(): Promise<Resident[]> {
-    const response = await axios.get<Resident[]>(`${API_BASE}/residents`, {
+    const response = await fetch(`${API_BASE}/residents`, {
+      method: 'GET',
       headers: getHeaders(),
     });
-    return response.data;
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || 'Failed to fetch residents');
+    }
+
+    const payload = await response.json();
+
+    if (Array.isArray(payload)) {
+      return payload as Resident[];
+    }
+    if (Array.isArray(payload?.data)) {
+      return payload.data as Resident[];
+    }
+    if (Array.isArray(payload?.residents)) {
+      return payload.residents as Resident[];
+    }
+
+    return [];
   },
 
   async createResident(data: CreateResidentRequest): Promise<Resident> {
-    const response = await axios.post<Resident>(`${API_BASE}/residents`, data, {
+    const response = await fetch(`${API_BASE}/residents`, {
+      method: 'POST',
       headers: getHeaders(),
+      body: JSON.stringify(data),
     });
-    return response.data;
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || 'Failed to create resident');
+    }
+
+    return response.json();
   },
 };

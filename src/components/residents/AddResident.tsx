@@ -91,6 +91,15 @@ export const AddRes = () => {
     (branch) => !user?.facilityId || branch.facilityId === user.facilityId,
   );
 
+  const currentBranch = branches.find((branch) => branch.id === user?.branchId);
+
+  useEffect(() => {
+    const branchId = user?.branchId;
+    if (role === 'admin' && branchId) {
+      setFormData((prev) => ({ ...prev, branchId }));
+    }
+  }, [role, user?.branchId]);
+
   const setField = (field: keyof typeof formData, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -242,18 +251,26 @@ export const AddRes = () => {
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-slate-700">Branch</label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                  value={formData.branchId}
-                  onChange={(e) => setField('branchId', e.target.value)}
-                >
-                  <option value="">Select a branch</option>
-                  {branchOptions.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name || branch.id}
-                    </option>
-                  ))}
-                </select>
+                {role === 'admin' ? (
+                  <input
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-100 text-slate-700 cursor-not-allowed"
+                    value={currentBranch?.name || formData.branchId || 'Assigned branch'}
+                    disabled
+                  />
+                ) : (
+                  <select
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                    value={formData.branchId}
+                    onChange={(e) => setField('branchId', e.target.value)}
+                  >
+                    <option value="">Select a branch</option>
+                    {branchOptions.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name || branch.id}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <Input
                 label="Room Number"

@@ -6,8 +6,9 @@ import {
   User,
   CheckCircle,
   ArrowRight,
-  ArrowLeft } from
-'lucide-react';
+  ArrowLeft
+} from
+  'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreateFacilityRequest } from '../../services/facilityService';
@@ -22,7 +23,7 @@ export const FacilityOnboarding = () => {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Form data
   const [formData, setFormData] = useState<CreateFacilityRequest>({
     name: '',
@@ -37,6 +38,8 @@ export const FacilityOnboarding = () => {
     adminEmail: '',
     adminPassword: generateTemporaryPassword(),
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+const [fileName, setFileName] = useState('');
 
   const handleInputChange = (field: keyof CreateFacilityRequest, value: string) => {
     setFormData(prev => ({
@@ -46,26 +49,26 @@ export const FacilityOnboarding = () => {
   };
 
   const steps = [
-  {
-    id: 1,
-    title: 'Facility Details',
-    icon: Building2
-  },
-  {
-    id: 2,
-    title: 'Contract Details',
-    icon: FileText
-  },
-  {
-    id: 3,
-    title: 'Admin Account',
-    icon: User
-  },
-  {
-    id: 4,
-    title: 'Review',
-    icon: CheckCircle
-  }];
+    {
+      id: 1,
+      title: 'Facility Details',
+      icon: Building2
+    },
+    {
+      id: 2,
+      title: 'Contract Details',
+      icon: FileText
+    },
+    {
+      id: 3,
+      title: 'Admin Account',
+      icon: User
+    },
+    {
+      id: 4,
+      title: 'Review',
+      icon: CheckCircle
+    }];
 
   const handleNext = () => {
     setStep((s) => Math.min(s + 1, 4));
@@ -121,15 +124,15 @@ export const FacilityOnboarding = () => {
         </div>
 
         {steps.map((s) =>
-        <div key={s.id} className="flex flex-col items-center gap-2">
+          <div key={s.id} className="flex flex-col items-center gap-2">
             <div
-            className={`h-10 w-10 rounded-full flex items-center justify-center border-2 transition-colors ${step >= s.id ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-slate-300 text-slate-400'}`}>
-            
+              className={`h-10 w-10 rounded-full flex items-center justify-center border-2 transition-colors ${step >= s.id ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-slate-300 text-slate-400'}`}>
+
               <s.icon className="h-5 w-5" />
             </div>
             <span
-            className={`text-xs font-medium ${step >= s.id ? 'text-brand-700' : 'text-slate-500'}`}>
-            
+              className={`text-xs font-medium ${step >= s.id ? 'text-brand-700' : 'text-slate-500'}`}>
+
               {s.title}
             </span>
           </div>
@@ -145,38 +148,38 @@ export const FacilityOnboarding = () => {
           )}
           <AnimatePresence mode="wait">
             {step === 1 &&
-            <motion.div
-              key="step1"
-              initial={{
-                opacity: 0,
-                x: 20
-              }}
-              animate={{
-                opacity: 1,
-                x: 0
-              }}
-              exit={{
-                opacity: 0,
-                x: -20
-              }}
-              className="space-y-4">
-              
+              <motion.div
+                key="step1"
+                initial={{
+                  opacity: 0,
+                  x: 20
+                }}
+                animate={{
+                  opacity: 1,
+                  x: 0
+                }}
+                exit={{
+                  opacity: 0,
+                  x: -20
+                }}
+                className="space-y-4">
+
                 <h2 className="text-lg font-semibold text-slate-900 mb-4">
                   Facility Information
                 </h2>
                 <div className="grid grid-cols-1 gap-4">
                   <Input
-                  label="Facility Name"
-                  placeholder="e.g. Sunrise Senior Living"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)} />
-                
+                    label="Facility Name"
+                    placeholder="e.g. Sunrise Senior Living"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)} />
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="block text-sm font-medium text-slate-700">
                         Facility Type
                       </label>
-                      <select 
+                      <select
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
                         value={formData.type}
                         onChange={(e) => handleInputChange('type', e.target.value)}>
@@ -186,51 +189,51 @@ export const FacilityOnboarding = () => {
                         <option>Multi-Specialty</option>
                       </select>
                     </div>
-                    <Input 
-                      label="Phone Number" 
+                    <Input
+                      label="Phone Number"
                       placeholder="(555) 000-0000"
                       value={formData.phone}
                       onChange={(e) => handleInputChange('phone', e.target.value)} />
                   </div>
                   <Input
-                  label="Email Address"
-                  type="email"
-                  placeholder="contact@facility.com"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)} />
-                
+                    label="Email Address"
+                    type="email"
+                    placeholder="contact@facility.com"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)} />
+
                 </div>
               </motion.div>
             }
 
             {step === 2 &&
-            <motion.div
-              key="step2"
-              initial={{
-                opacity: 0,
-                x: 20
-              }}
-              animate={{
-                opacity: 1,
-                x: 0
-              }}
-              exit={{
-                opacity: 0,
-                x: -20
-              }}
-              className="space-y-4">
-              
+              <motion.div
+                key="step2"
+                initial={{
+                  opacity: 0,
+                  x: 20
+                }}
+                animate={{
+                  opacity: 1,
+                  x: 0
+                }}
+                exit={{
+                  opacity: 0,
+                  x: -20
+                }}
+                className="space-y-4">
+
                 <h2 className="text-lg font-semibold text-slate-900 mb-4">
                   Contract Details
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input 
-                    label="Contract Start Date" 
+                  <Input
+                    label="Contract Start Date"
                     type="date"
                     value={formData.contractStart}
                     onChange={(e) => handleInputChange('contractStart', e.target.value)} />
-                  <Input 
-                    label="Contract End Date" 
+                  <Input
+                    label="Contract End Date"
                     type="date"
                     value={formData.contractEnd}
                     onChange={(e) => handleInputChange('contractEnd', e.target.value)} />
@@ -240,36 +243,67 @@ export const FacilityOnboarding = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Contract Document
                   </label>
-                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors cursor-pointer">
-                    <input type='file'/>
-                    <p className="text-sm font-medium text-slate-900">
-                      Click to upload or drag and drop
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      PDF up to 10MB
-                    </p>
+                  <div
+                    className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      const fileInput = document.getElementById('fileInput') as HTMLInputElement | null;
+                      if (fileInput) {
+                        fileInput.click();
+                      }
+                    }}
+                  >
+                    <input
+                      type='file'
+                      id="fileInput"
+                      className="hidden"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setSelectedFile(file);
+                          setFileName(file.name);
+                          console.log('Selected file:', file);
+                        }
+                      }}
+                    />
+
+                    {fileName ? (
+                      <div className="text-sm font-medium text-slate-900">
+                        <span className="text-green-600">✓ File selected: </span>
+                        {fileName}
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium text-slate-900">
+                          Click to upload or drag and drop
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          PDF up to 10MB
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               </motion.div>
             }
 
             {step === 3 &&
-            <motion.div
-              key="step3"
-              initial={{
-                opacity: 0,
-                x: 20
-              }}
-              animate={{
-                opacity: 1,
-                x: 0
-              }}
-              exit={{
-                opacity: 0,
-                x: -20
-              }}
-              className="space-y-4">
-              
+              <motion.div
+                key="step3"
+                initial={{
+                  opacity: 0,
+                  x: 20
+                }}
+                animate={{
+                  opacity: 1,
+                  x: 0
+                }}
+                exit={{
+                  opacity: 0,
+                  x: -20
+                }}
+                className="space-y-4">
+
                 <h2 className="text-lg font-semibold text-slate-900 mb-4">
                   Facility Admin Account
                 </h2>
@@ -280,24 +314,24 @@ export const FacilityOnboarding = () => {
 
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input 
-                      label="First Name" 
+                    <Input
+                      label="First Name"
                       placeholder="Jane"
                       value={formData.adminFirstName}
                       onChange={(e) => handleInputChange('adminFirstName', e.target.value)} />
-                    <Input 
-                      label="Last Name" 
+                    <Input
+                      label="Last Name"
                       placeholder="Doe"
                       value={formData.adminLastName}
                       onChange={(e) => handleInputChange('adminLastName', e.target.value)} />
                   </div>
                   <Input
-                  label="Admin Email"
-                  type="email"
-                  placeholder="jane@facility.com"
-                  value={formData.adminEmail}
-                  onChange={(e) => handleInputChange('adminEmail', e.target.value)} />
-                
+                    label="Admin Email"
+                    type="email"
+                    placeholder="jane@facility.com"
+                    value={formData.adminEmail}
+                    onChange={(e) => handleInputChange('adminEmail', e.target.value)} />
+
 
                   <div className="p-4 bg-amber-50 rounded-lg border border-amber-100 mt-6">
                     <p className="text-sm font-medium text-amber-800">
@@ -319,22 +353,22 @@ export const FacilityOnboarding = () => {
             }
 
             {step === 4 &&
-            <motion.div
-              key="step4"
-              initial={{
-                opacity: 0,
-                x: 20
-              }}
-              animate={{
-                opacity: 1,
-                x: 0
-              }}
-              exit={{
-                opacity: 0,
-                x: -20
-              }}
-              className="space-y-6">
-              
+              <motion.div
+                key="step4"
+                initial={{
+                  opacity: 0,
+                  x: 20
+                }}
+                animate={{
+                  opacity: 1,
+                  x: 0
+                }}
+                exit={{
+                  opacity: 0,
+                  x: -20
+                }}
+                className="space-y-6">
+
                 <h2 className="text-lg font-semibold text-slate-900 mb-4">
                   Review & Confirm
                 </h2>
@@ -377,20 +411,20 @@ export const FacilityOnboarding = () => {
             onClick={handlePrev}
             disabled={step === 1 || isSubmitting}
             icon={ArrowLeft}>
-            
+
             Back
           </Button>
 
           {step < 4 ?
-          <Button onClick={handleNext}>
+            <Button onClick={handleNext}>
               Next <ArrowRight className="ml-2 h-4 w-4" />
             </Button> :
 
-          <Button
-            onClick={handleSubmit}
-            isLoading={isSubmitting}
-            icon={CheckCircle}>
-            
+            <Button
+              onClick={handleSubmit}
+              isLoading={isSubmitting}
+              icon={CheckCircle}>
+
               Confirm & Onboard
             </Button>
           }
