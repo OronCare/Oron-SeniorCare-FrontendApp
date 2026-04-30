@@ -92,7 +92,7 @@ export interface Resident {
 export interface Vital {
   id: string;
   residentId: string;
-  branchId: string;
+  branchId: string; 
   date: string;
   systolicBP: number;
   diastolicBP: number;
@@ -237,3 +237,4 @@ export function getFullName(entity: {
   filter(Boolean).
   join(' ');
 }
+

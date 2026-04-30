@@ -1,24 +1,45 @@
-import React, { useState, createElement } from 'react';
-import { FileText, Search, Filter, Download, Calendar } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Search, Filter, Download, Calendar } from 'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
-import { mockAuditLogs } from '../../mockData';
 import { useAuth } from '../../context/AuthContext';
 import SmartTable from '../../shared/Table';
 import { Aditlogscolumns } from '../../shared/TableColumns';
+import { auditLogService } from '../../services/auditLogService';
+import { AuditLog as AuditLogType } from '../../types';
 
 
 export const AuditLog = () => {
-  const { user } = useAuth();
-  const branchId = user?.branchId;
+  const { user, isAuthenticated } = useAuth();
+  const [logs, setLogs] = useState<AuditLogType[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
-  // Filter logs by branch
-  const branchLogs = mockAuditLogs.filter((log) => log.branchId === branchId);
+
+  useEffect(() => {
+    const fetchAuditLogs = async () => {
+      if (!isAuthenticated || !user) return;
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await auditLogService.getAuditLogs();
+        setLogs(data);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to load audit logs';
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchAuditLogs();
+  }, [isAuthenticated, user]);
+
   const uniqueActions = [
   'All',
-  ...Array.from(new Set(branchLogs.map((log) => log.action)))];
+  ...Array.from(new Set(logs.map((log) => log.action)))];
 
-  const filteredLogs = branchLogs.filter((log) => {
+  const filteredLogs = logs.filter((log) => {
     const matchesSearch =
     log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
     log.details.toLowerCase().includes(searchTerm.toLowerCase());
@@ -95,11 +116,17 @@ export const AuditLog = () => {
             </div>
           </div>
         </div>
+        {error && (
+          <div className="p-4 bg-red-50 text-red-700 rounded-lg m-4">
+            {error}
+          </div>
+        )}
         {/*Table*/}
-            <SmartTable 
-            data={mockAuditLogs}
+            <SmartTable
+            data={loading ? [] : filteredLogs}
             columns={Aditlogscolumns}
             />
+            {loading && <div className="p-4 text-sm text-slate-500">Loading audit logs...</div>}
       </Card>
     </div>);
 
