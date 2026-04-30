@@ -1,6 +1,6 @@
 // pages/Staff/StaffPage.tsx
 
-import React, { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Plus,
@@ -12,48 +12,105 @@ import {
 } from "lucide-react";
 
 import { Card, Button, Input, Modal } from "../../components/UI";
-import { mockStaffMembers, mockBranches } from "../../mockData";
 import { getFullName, StaffMember } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import SmartTable from "../../shared/Table";
 import { StaffColumns, StaffColumnsForFacilityAdmin } from "../../shared/TableColumns";
+import { staffService } from "../../services/staffService";
+import { branchService } from "../../services/branchService";
+import { Branch } from "../../types";
+import axios from "axios";
 
 const StaffPage = () => {
   const { user } = useAuth();
 
- 
-
   const isFacilityAdmin = user?.role === "facility_admin";
   const isAdmin = user?.role === "admin";
 
-  
-
-  // ✅ Data filtering based on role
-  let staffData: StaffMember[] = [];
-  let branches = [];
-
-  if (isFacilityAdmin) {
-    const facilityId = user?.facilityId;
-    branches = mockBranches.filter((b) => b.facilityId === facilityId);
-    const branchIds = branches.map((b) => b.id);
-
-    staffData = mockStaffMembers.filter((s) =>
-      branchIds.includes(s.branchId)
-    );
-  }
-
-  if (isAdmin) {
-    const branchId = user?.branchId;
-    staffData = mockStaffMembers.filter((s) => s.branchId === branchId);
-  }
-
   // ---------------- STATE ----------------
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [branchFilter, setBranchFilter] = useState("All");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] =
     useState<StaffMember | null>(null);
+  const permissionOptions = [
+    "View Residents",
+    "Edit Vitals",
+    "Manage Care Plans",
+    "View Reports",
+    "Manage Tasks",
+  ];
+
+  const [addForm, setAddForm] = useState({
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    email: "",
+    role: "Caregiver" as StaffMember["role"],
+    branchId: "",
+    permissions: permissionOptions.slice(0, 2),
+  });
+
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    role: "Caregiver" as StaffMember["role"],
+    status: "Active" as StaffMember["status"],
+    permissions: [] as string[],
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [staffPayload, branchPayload] = await Promise.all([
+          staffService.getAllStaff(),
+          isFacilityAdmin ? branchService.getAllBranches() : Promise.resolve([]),
+        ]);
+
+        setStaffList(staffPayload);
+        if (isFacilityAdmin) {
+          const facilityBranches = branchPayload.filter(
+            (branch) => branch.facilityId === user?.facilityId
+          );
+          setBranches(facilityBranches);
+          setAddForm((prev) =>
+            !prev.branchId && facilityBranches[0]?.id
+              ? { ...prev, branchId: facilityBranches[0].id }
+              : prev
+          );
+        }
+      } catch (err) {
+        const message = axios.isAxiosError(err)
+          ? String(err.response?.data || err.message)
+          : (err as Error).message;
+        setError(message || "Failed to load staff data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isFacilityAdmin, user?.facilityId]);
+
+  const staffData = useMemo(() => {
+    if (isFacilityAdmin) {
+      const branchIds = branches.map((b) => b.id);
+      return staffList.filter((s) => branchIds.includes(s.branchId));
+    }
+    if (isAdmin) {
+      return staffList.filter((s) => s.branchId === user?.branchId);
+    }
+    return staffList;
+  }, [branches, isAdmin, isFacilityAdmin, staffList, user?.branchId]);
 
   // ---------------- FILTER ----------------
   const filteredStaff = staffData.filter((staff) => {
@@ -80,8 +137,7 @@ const StaffPage = () => {
           size="sm"
           icon={Edit2}
           onClick={() => {
-            setSelectedStaff(staff);
-            setIsEditModalOpen(true);
+            handleOpenEdit(staff);
           }}
         >
           Edit
@@ -90,21 +146,100 @@ const StaffPage = () => {
     },
   ];
 
-  
-  if (isAdmin) {
-    // Don't need branches for admin
-    staffData = mockStaffMembers.filter((s) => s.branchId === user?.branchId);
-  }
-
   const staffColumnsConfig = isFacilityAdmin 
-  ? StaffColumnsForFacilityAdmin(branches)  // ← Call the function with branches
+  ? StaffColumnsForFacilityAdmin(branches)
   : StaffColumns;
 
-  console.log(branches)
+  const handleAddStaff = async () => {
+    if (!user?.facilityId) return;
+    if (!addForm.firstName || !addForm.lastName || !addForm.email) {
+      setError("Please fill first name, last name, and email.");
+      return;
+    }
 
-  const handleAddStaff = () => {
-    setIsAddModalOpen(false);
-    // Mock action
+    const targetBranchId = isAdmin ? user.branchId || "" : addForm.branchId;
+    if (!targetBranchId) {
+      setError("Please select a branch.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const created = await staffService.createStaff({
+        branchId: targetBranchId,
+        facilityId: user.facilityId,
+        firstName: addForm.firstName.trim(),
+        middleName: addForm.middleName.trim() || undefined,
+        lastName: addForm.lastName.trim(),
+        email: addForm.email.trim(),
+        role: addForm.role,
+        status: "Active",
+        permissions: addForm.permissions,
+      });
+      setStaffList((prev) => [created, ...prev]);
+      setIsAddModalOpen(false);
+      setAddForm((prev) => ({
+        ...prev,
+        firstName: "",
+        middleName: "",
+        lastName: "",
+        email: "",
+        role: "Caregiver",
+        permissions: permissionOptions.slice(0, 2),
+      }));
+    } catch (err) {
+      const message = axios.isAxiosError(err)
+        ? String(err.response?.data || err.message)
+        : (err as Error).message;
+      setError(message || "Failed to create staff member");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenEdit = (staff: StaffMember) => {
+    setSelectedStaff(staff);
+    setEditForm({
+      firstName: staff.firstName,
+      middleName: staff.middleName || "",
+      lastName: staff.lastName,
+      role: staff.role,
+      status: staff.status,
+      permissions: staff.permissions || [],
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedStaff) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await staffService.updateStaff(selectedStaff.id, {
+        firstName: editForm.firstName.trim(),
+        middleName: editForm.middleName.trim() || undefined,
+        lastName: editForm.lastName.trim(),
+        role: editForm.role,
+        status: editForm.status,
+        permissions: editForm.permissions,
+      });
+      setStaffList((prev) =>
+        prev.map((staff) => (staff.id === selectedStaff.id ? updated : staff))
+      );
+      setIsEditModalOpen(false);
+      setSelectedStaff(null);
+    } catch (err) {
+      const message =
+        axios.isAxiosError(err) && err.response?.status === 404
+          ? "Staff update API is not available yet on backend. Add PUT /staff/:id (or PATCH /staff/:id) to enable edit."
+          : axios.isAxiosError(err)
+          ? String(err.response?.data || err.message)
+          : (err as Error).message;
+      setError(message || "Failed to update staff member");
+    } finally {
+      setSubmitting(false);
+    }
   };
   // ---------------- UI ----------------
   return (
@@ -126,6 +261,11 @@ const StaffPage = () => {
           Add Staff Member
         </Button>
       </div>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* TABLE */}
       <Card noPadding>
@@ -157,10 +297,13 @@ const StaffPage = () => {
         </div>
 
         <SmartTable
-          data={filteredStaff}
+          data={loading ? [] : filteredStaff}
           columns={staffColumnsConfig}
           actions={actions}
         />
+        {loading && (
+          <div className="p-4 text-sm text-slate-500">Loading staff...</div>
+        )}
       </Card>
 
       {/* ADD MODAL */}
@@ -171,25 +314,78 @@ const StaffPage = () => {
         
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input label="First Name" placeholder="Jane" />
-            <Input label="Middle Name (Optional)" placeholder="A." />
-            <Input label="Last Name" placeholder="Doe" />
+            <Input
+              label="First Name"
+              placeholder="Jane"
+              value={addForm.firstName}
+              onChange={(e) =>
+                setAddForm((prev) => ({ ...prev, firstName: e.target.value }))
+              }
+            />
+            <Input
+              label="Middle Name (Optional)"
+              placeholder="A."
+              value={addForm.middleName}
+              onChange={(e) =>
+                setAddForm((prev) => ({ ...prev, middleName: e.target.value }))
+              }
+            />
+            <Input
+              label="Last Name"
+              placeholder="Doe"
+              value={addForm.lastName}
+              onChange={(e) =>
+                setAddForm((prev) => ({ ...prev, lastName: e.target.value }))
+              }
+            />
           </div>
 
           <Input
             label="Email Address"
             type="email"
-            placeholder="jane@facility.com" />
-          
+            placeholder="jane@facility.com"
+            value={addForm.email}
+            onChange={(e) =>
+              setAddForm((prev) => ({ ...prev, email: e.target.value }))
+            }
+          />
+          {isFacilityAdmin && (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">Branch</label>
+              <select
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                value={addForm.branchId}
+                onChange={(e) =>
+                  setAddForm((prev) => ({ ...prev, branchId: e.target.value }))
+                }
+              >
+                <option value="">Select Branch</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700">
               Role
             </label>
-            <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
-              <option>Caregiver</option>
-              <option>Nurse</option>
-              <option>Coordinator</option>
+            <select
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+              value={addForm.role}
+              onChange={(e) =>
+                setAddForm((prev) => ({
+                  ...prev,
+                  role: e.target.value as StaffMember["role"],
+                }))
+              }
+            >
+              <option value="Caregiver">Caregiver</option>
+              <option value="Nurse">Nurse</option>
+              <option value="Coordinator">Coordinator</option>
             </select>
           </div>
 
@@ -198,21 +394,23 @@ const StaffPage = () => {
               <Shield className="h-4 w-4 text-brand-500" /> Permissions
             </label>
             <div className="space-y-2">
-              {[
-              'View Residents',
-              'Edit Vitals',
-              'Manage Care Plans',
-              'View Reports',
-              'Manage Tasks'].
-              map((perm, idx) =>
+              {permissionOptions.map((perm) =>
               <label
-                key={idx}
+                key={perm}
                 className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
                 
                   <input
                   type="checkbox"
                   className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
-                  defaultChecked={idx < 2} />
+                  checked={addForm.permissions.includes(perm)}
+                  onChange={(e) =>
+                    setAddForm((prev) => ({
+                      ...prev,
+                      permissions: e.target.checked
+                        ? [...prev.permissions, perm]
+                        : prev.permissions.filter((p) => p !== perm),
+                    }))
+                  } />
                 
                   <span className="text-sm text-slate-700">{perm}</span>
                 </label>
@@ -232,7 +430,9 @@ const StaffPage = () => {
             <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddStaff}>Create Account</Button>
+            <Button onClick={handleAddStaff}>
+              {submitting ? "Creating..." : "Create Account"}
+            </Button>
           </div>
         </div>
       </Modal>
@@ -249,16 +449,25 @@ const StaffPage = () => {
             <div className="grid grid-cols-2 gap-4">
               <Input
               label="First Name"
-              defaultValue={selectedStaff.firstName} />
+              value={editForm.firstName}
+              onChange={(e) =>
+                setEditForm((prev) => ({ ...prev, firstName: e.target.value }))
+              } />
             
-              <Input label="Last Name" defaultValue={selectedStaff.lastName} />
+              <Input
+                label="Last Name"
+                value={editForm.lastName}
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, lastName: e.target.value }))
+                }
+              />
             </div>
 
             <div className="relative">
               <Input
               label="Email Address"
               type="email"
-              defaultValue={selectedStaff.email}
+              value={selectedStaff.email}
               disabled
               className="bg-slate-100 text-slate-500 cursor-not-allowed pr-10" />
             
@@ -276,11 +485,36 @@ const StaffPage = () => {
               </label>
               <select
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-              defaultValue={selectedStaff.role}>
+              value={editForm.role}
+              onChange={(e) =>
+                setEditForm((prev) => ({
+                  ...prev,
+                  role: e.target.value as StaffMember["role"],
+                }))
+              }>
               
-                <option>Caregiver</option>
-                <option>Nurse</option>
-                <option>Coordinator</option>
+                <option value="Caregiver">Caregiver</option>
+                <option value="Nurse">Nurse</option>
+                <option value="Coordinator">Coordinator</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">
+                Status
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                value={editForm.status}
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    status: e.target.value as StaffMember["status"],
+                  }))
+                }
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
               </select>
             </div>
 
@@ -289,21 +523,23 @@ const StaffPage = () => {
                 <Shield className="h-4 w-4 text-brand-500" /> Permissions
               </label>
               <div className="space-y-2">
-                {[
-              'View Residents',
-              'Edit Vitals',
-              'Manage Care Plans',
-              'View Reports',
-              'Manage Tasks'].
-              map((perm, idx) =>
+                {permissionOptions.map((perm) =>
               <label
-                key={idx}
+                key={perm}
                 className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
                 
                     <input
                   type="checkbox"
                   className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
-                  defaultChecked={selectedStaff.permissions.includes(perm)} />
+                  checked={editForm.permissions.includes(perm)}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      permissions: e.target.checked
+                        ? [...prev.permissions, perm]
+                        : prev.permissions.filter((p) => p !== perm),
+                    }))
+                  } />
                 
                     <span className="text-sm text-slate-700">{perm}</span>
                   </label>
@@ -318,8 +554,8 @@ const StaffPage = () => {
               
                 Cancel
               </Button>
-              <Button onClick={() => setIsEditModalOpen(false)}>
-                Save Changes
+              <Button onClick={handleSaveEdit}>
+                {submitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </div>

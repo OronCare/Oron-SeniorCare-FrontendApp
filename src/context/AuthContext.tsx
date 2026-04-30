@@ -1,47 +1,132 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
 import { User, Role } from '../types';
-import { mockUsers } from '../mockData';
+
 interface AuthContextType {
   user: User | null;
-  login: (role: Role) => void;
+  token: string | null;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
   isAuthenticated: boolean;
+  isAuthReady: boolean;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const normalizeRole = (role: string): Role => {
+  switch (role) {
+    case 'OWNER':
+      return 'owner';
+    case 'FACILITY_ADMIN':
+      return 'facility_admin';
+    case 'BRANCH_ADMIN':
+      return 'admin';
+    case 'STAFF':
+      return 'staff';
+    default:
+      return role as Role;
+  }
+};
+
 export const AuthProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  // Check for saved user on mount
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const savedAuth = localStorage.getItem('oron_auth');
+      if (!savedAuth) {
+        return null;
+      }
+      const parsed = JSON.parse(savedAuth) as { user?: User };
+      return parsed.user || null;
+    } catch {
+      return null;
+    }
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    try {
+      const savedAuth = localStorage.getItem('oron_auth');
+      if (!savedAuth) {
+        return null;
+      }
+      const parsed = JSON.parse(savedAuth) as { token?: string };
+      return parsed.token || null;
+    } catch {
+      return null;
+    }
+  });
+
   useEffect(() => {
-    const savedUser = localStorage.getItem('oron_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    setIsAuthReady(true);
   }, []);
-  const login = (role: Role) => {
-    const mockUser = mockUsers.find((u) => u.role === role);
-    if (mockUser) {
-      setUser(mockUser);
-      localStorage.setItem('oron_user', JSON.stringify(mockUser));
+
+  const login = async (email: string, password: string) => {
+    const apiBaseUrl = import.meta.env.VITE_API_URL || '';
+    const endpoint = `${apiBaseUrl}/auth/login`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Login failed');
     }
+
+    const data = await response.json() as {
+      access_token: string;
+      message: string;
+      user: {
+        id: string;
+        email: string;
+        firstName: string;
+        middleName?: string;
+        lastName: string;
+        role: string;
+        facilityId?: string;
+        branchId?: string;
+      };
+    };
+
+    const normalizedUser: User = {
+      id: data.user.id,
+      email: data.user.email,
+      firstName: data.user.firstName,
+      middleName: data.user.middleName,
+      lastName: data.user.lastName,
+      role: normalizeRole(data.user.role),
+      facilityId: data.user.facilityId,
+      branchId: data.user.branchId,
+    };
+
+    setUser(normalizedUser);
+    setToken(data.access_token);
+    localStorage.setItem('oron_auth', JSON.stringify({ user: normalizedUser, token: data.access_token }));
+
+    return normalizedUser;
   };
+
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('oron_user');
+    setToken(null);
+    localStorage.removeItem('oron_auth');
   };
+
   return (
     <AuthContext.Provider
       value={{
         user,
+        token,
         login,
         logout,
-        isAuthenticated: !!user
+        isAuthenticated: !!user,
+        isAuthReady,
       }}>
-      
       {children}
-    </AuthContext.Provider>);
-
+    </AuthContext.Provider>
+  );
 };
 export const useAuth = () => {
   const context = useContext(AuthContext);
