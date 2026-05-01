@@ -1,3 +1,4 @@
+import axios, { AxiosError } from 'axios';
 import { Resident } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL;
@@ -20,6 +21,23 @@ const getHeaders = () => ({
   'Content-Type': 'application/json',
   Authorization: `Bearer ${getAuthToken()}`,
 });
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof AxiosError) {
+    const payload = error.response?.data;
+    if (typeof payload === 'string') {
+      if (payload.includes('<!doctype') || payload.includes('<html')) {
+        return 'Residents API returned HTML instead of JSON. Check VITE_API_URL points to backend.';
+      }
+      return payload || fallback;
+    }
+    if (payload && typeof payload === 'object') {
+      const message = (payload as { message?: unknown }).message;
+      if (typeof message === 'string') return message;
+    }
+  }
+  return fallback;
+};
 
 export interface CreateResidentRequest {
   branchId: string;
@@ -52,43 +70,38 @@ export interface CreateResidentRequest {
 
 export const residentService = {
   async getAllResidents(): Promise<Resident[]> {
-    const response = await fetch(`${API_BASE}/residents`, {
-      method: 'GET',
-      headers: getHeaders(),
-    });
+    try {
+      const response = await axios.get(`${API_BASE}/residents`, {
+        headers: getHeaders(),
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Failed to fetch residents');
-    }
+      const payload = response.data;
 
-    const payload = await response.json();
+      if (Array.isArray(payload)) {
+        return payload as Resident[];
+      }
+      if (Array.isArray(payload?.data)) {
+        return payload.data as Resident[];
+      }
+      if (Array.isArray(payload?.residents)) {
+        return payload.residents as Resident[];
+      }
 
-    if (Array.isArray(payload)) {
-      return payload as Resident[];
+      return [];
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to fetch residents'));
     }
-    if (Array.isArray(payload?.data)) {
-      return payload.data as Resident[];
-    }
-    if (Array.isArray(payload?.residents)) {
-      return payload.residents as Resident[];
-    }
-
-    return [];
   },
 
   async createResident(data: CreateResidentRequest): Promise<Resident> {
-    const response = await fetch(`${API_BASE}/residents`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(data),
-    });
+    try {
+      const response = await axios.post(`${API_BASE}/residents`, data, {
+        headers: getHeaders(),
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Failed to create resident');
+      return response.data as Resident;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to create resident'));
     }
-
-    return response.json();
   },
 };

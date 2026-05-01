@@ -1,3 +1,4 @@
+import axios, { AxiosError } from 'axios';
 import { AuditLog } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL;
@@ -19,45 +20,46 @@ const getApiBase = () => {
   return API_BASE;
 };
 
-const parseJsonResponse = async (response: Response) => {
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    const text = await response.text();
-    throw new Error(
-      text.includes('<!doctype') || text.includes('<html')
-        ? 'Audit logs API returned HTML instead of JSON. Check VITE_API_URL points to backend.'
-        : text || 'Audit logs API returned a non-JSON response.',
-    );
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof AxiosError) {
+    const payload = error.response?.data;
+    if (typeof payload === 'string') {
+      if (payload.includes('<!doctype') || payload.includes('<html')) {
+        return 'Audit logs API returned HTML instead of JSON. Check VITE_API_URL points to backend.';
+      }
+      return payload || fallback;
+    }
+    if (payload && typeof payload === 'object') {
+      const message = (payload as { message?: unknown }).message;
+      if (typeof message === 'string') return message;
+    }
   }
-
-  return response.json();
+  return fallback;
 };
 
 export const auditLogService = {
   async getAuditLogs(): Promise<AuditLog[]> {
-    const response = await fetch(`${getApiBase()}/audit-logs`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${getAuthToken()}`,
-      },
-    });
+    try {
+      const response = await axios.get(`${getApiBase()}/audit-logs`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Failed to fetch audit logs');
+      const payload = response.data;
+      if (Array.isArray(payload)) {
+        return payload as AuditLog[];
+      }
+      if (Array.isArray(payload?.data)) {
+        return payload.data as AuditLog[];
+      }
+      if (Array.isArray(payload?.logs)) {
+        return payload.logs as AuditLog[];
+      }
+      return [];
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to fetch audit logs'));
     }
-
-    const payload = await parseJsonResponse(response);
-    if (Array.isArray(payload)) {
-      return payload as AuditLog[];
-    }
-    if (Array.isArray(payload?.data)) {
-      return payload.data as AuditLog[];
-    }
-    if (Array.isArray(payload?.logs)) {
-      return payload.logs as AuditLog[];
-    }
-    return [];
   },
 };
