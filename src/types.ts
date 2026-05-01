@@ -92,17 +92,20 @@ export interface Resident {
 export interface Vital {
   id: string;
   residentId: string;
-  branchId: string; 
+  branchId: string;
+  facilityId?: string;
   date: string;
-  systolicBP: number;
-  diastolicBP: number;
-  heartRate: number;
-  temperature: number;
-  oxygenSaturation: number;
+  systolicBP?: number;
+  diastolicBP?: number;
+  heartRate?: number;
+  temperature?: number;
+  oxygenSaturation?: number;
   bloodSugar?: number;
-  weight: number;
-  respiratoryRate: number;
-  recordedBy: string;
+  weight?: number;
+  respiratoryRate?: number;
+  recordedBy?: string;
+  recordedById?: string;
+  thresholdEvaluation?: Record<string, unknown>;
   notes?: string;
 }
 

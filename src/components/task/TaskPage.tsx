@@ -1,85 +1,77 @@
-// pages/Tasks/TaskManagement.tsx
-
-import React, { useState } from 'react';
-import {
-  ClipboardList,
-  Plus,
-  Calendar,
-  User,
-  Clock,
-  AlertCircle,
-  Activity,
-  CheckCircle2,
-  Filter,
-  Edit2,
-  Eye
-} from 'lucide-react';
-import { Card, Button, Badge, Modal, Input } from '../../components/UI';
-import { mockTasks, mockStaffMembers, mockResidents, mockBranches } from '../../mockData';
-import { Task, getFullName, StaffMember, Resident } from '../../types';
+import { useEffect, useState } from 'react';
+import { Plus, Calendar, User, Filter, Eye, Clock, Activity, CheckCircle2 } from 'lucide-react';
+import { Button, Badge, Modal, Input } from '../../components/UI';
+import { Task, getFullName, Resident, User as AppUser } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { taskService } from '../../services/taskService';
+import { residentService } from '../../services/residentService';
+import { usersService } from '../../services/usersService';
+import axios from 'axios';
+
+type TaskStatus = 'Todo' | 'In Progress' | 'Done';
 
 export const TaskManagements = () => {
   const { user } = useAuth();
+  const isBranchAdmin = user?.role === 'admin';
+  const isStaff = user?.role === 'staff';
 
-  const isFacilityAdmin = user?.role === "facility_admin";
-  const isAdmin = user?.role === "admin";
-  const isStaff = user?.role === "staff";
+  const [taskList, setTaskList] = useState<Task[]>([]);
+  const [residents, setResidents] = useState<Resident[]>([]);
+  const [staffMembers, setStaffMembers] = useState<AppUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Get data based on role
-  let tasks: Task[] = [];
-  let staffMembers: StaffMember[] = [];
-  let residents: Resident[] = [];
-
-  if (isFacilityAdmin) {
-    // Facility Admin: See all tasks in their facility
-    const facilityId = user?.facilityId;
-    const branches = mockBranches.filter(b => b.facilityId === facilityId);
-    const branchIds = branches.map(b => b.id);
-
-    tasks = mockTasks.filter(t => branchIds.includes(t.branchId));
-    staffMembers = mockStaffMembers.filter(s => branchIds.includes(s.branchId));
-    residents = mockResidents.filter(r => branchIds.includes(r.branchId));
-  }
-  else if (isAdmin) {
-    // Branch Admin: See all tasks in their branch
-    const branchId = user?.branchId;
-    tasks = mockTasks.filter(t => t.branchId === branchId);
-    staffMembers = mockStaffMembers.filter(s => s.branchId === branchId);
-    residents = mockResidents.filter(r => r.branchId === branchId);
-  }
-  else if (isStaff) {
-    // Staff: See only their assigned tasks
-    tasks = mockTasks.filter(t =>
-      t.assignedTo === user?.id && t.branchId === user?.branchId
-    );
-    // Staff only need residents info for their tasks
-    const taskResidentIds = [...new Set(tasks.map(t => t.residentId).filter(Boolean))];
-    residents = mockResidents.filter(r => taskResidentIds.includes(r.id));
-    staffMembers = []; // Staff don't need full staff list
-  }
-
-  const [taskList, setTaskList] = useState<Task[]>(tasks);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
-  // Different columns based on role
-  const columns = isStaff
-    ? ['Todo', 'In Progress', 'Done'] as const
-    : ['Todo', 'In Progress', 'Done', 'Deferred'] as const;
+  const [createForm, setCreateForm] = useState({
+    title: '',
+    category: 'General' as Task['category'],
+    description: '',
+    residentId: '',
+    assignedToId: '',
+    dueDate: '',
+  });
 
-  const moveTask = (taskId: string, newStatus: Task['status']) => {
-    setTaskList(
-      taskList.map((t) =>
-        t.id === taskId ? { ...t, status: newStatus } : t
-      )
-    );
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [tasks, allResidents, users] = await Promise.all([
+          taskService.getAllTasks(),
+          residentService.getAllResidents(),
+          usersService.getAllUsers(),
+        ]);
+
+        setTaskList(tasks);
+        setResidents(allResidents);
+        setStaffMembers(
+          users.filter((u) => {
+            const normalizedRole = String(u.role || '').toLowerCase();
+            const isStaffRole = normalizedRole === 'staff';
+            const sameBranch = !user?.branchId || u.branchId === user.branchId;
+            return isStaffRole && sameBranch;
+          }),
+        );
+      } catch (err) {
+        const message = axios.isAxiosError(err)
+          ? String(err.response?.data || err.message)
+          : (err as Error).message;
+        setError(message || 'Failed to load task data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [user?.branchId]);
+
+  const columns: TaskStatus[] = ['Todo', 'In Progress', 'Done'];
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedTaskId(taskId);
@@ -91,11 +83,68 @@ export const TaskManagements = () => {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e: React.DragEvent, newStatus: Task['status']) => {
+  const handleDrop = (e: React.DragEvent, newStatus: TaskStatus) => {
     e.preventDefault();
     if (draggedTaskId) {
       moveTask(draggedTaskId, newStatus);
       setDraggedTaskId(null);
+    }
+  };
+
+  const moveTask = async (taskId: string, newStatus: TaskStatus) => {
+    const current = taskList.find((t) => t.id === taskId);
+    if (!current) return;
+    setTaskList((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
+    try {
+      const updated = await taskService.updateTask(taskId, { status: newStatus });
+      setTaskList((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    } catch (err) {
+      setTaskList((prev) => prev.map((t) => (t.id === taskId ? current : t)));
+      const message = axios.isAxiosError(err)
+        ? String(err.response?.data || err.message)
+        : (err as Error).message;
+      setError(message || 'Failed to update task status');
+    }
+  };
+
+  const handleCreateTask = async () => {
+    if (!user?.branchId || !user?.facilityId) return;
+    if (!createForm.title || !createForm.residentId || !createForm.assignedToId || !createForm.dueDate) {
+      setError('Please fill all required fields.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const created = await taskService.createTask({
+        residentId: createForm.residentId,
+        branchId: user.branchId,
+        facilityId: user.facilityId,
+        title: createForm.title.trim(),
+        description: createForm.description.trim(),
+        category: createForm.category,
+        status: 'Todo',
+        dueDate: new Date(createForm.dueDate).toISOString(),
+        assignedToId: createForm.assignedToId,
+      });
+      setTaskList((prev) => [created, ...prev]);
+      setIsAddModalOpen(false);
+      setCreateForm({
+        title: '',
+        category: 'General',
+        description: '',
+        residentId: '',
+        assignedToId: '',
+        dueDate: '',
+      });
+    } catch (err) {
+      const message = axios.isAxiosError(err)
+        ? String(err.response?.data || err.message)
+        : (err as Error).message;
+      setError(message || 'Failed to create task');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -115,19 +164,6 @@ export const TaskManagements = () => {
         return 'bg-orange-100 text-orange-800 border-orange-200';
       default:
         return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
-  const getPriorityColor = (priority?: string) => {
-    switch (priority) {
-      case 'Urgent':
-        return 'text-red-600 bg-red-50';
-      case 'High':
-        return 'text-orange-600 bg-orange-50';
-      case 'Medium':
-        return 'text-yellow-600 bg-yellow-50';
-      default:
-        return 'text-slate-600 bg-slate-50';
     }
   };
 
@@ -170,14 +206,18 @@ export const TaskManagements = () => {
             </select>
           </div>
 
-          {/* Only admins can create tasks */}
-          {(isAdmin || isFacilityAdmin) && (
+          {isBranchAdmin && (
             <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>
               Create Task
             </Button>
           )}
         </div>
       </div>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* TASK BOARD */}
       <div className="flex-1 overflow-x-auto pb-4">
@@ -204,9 +244,7 @@ export const TaskManagements = () => {
                 <div className="flex-1 p-3 overflow-y-auto space-y-3">
                   <AnimatePresence>
                     {columnTasks.map((task) => {
-                      const assignedStaff = staffMembers.find(
-                        (s) => s.id === task.assignedTo
-                      );
+                      const assignedStaff = staffMembers.find((s) => s.id === task.assignedTo);
                       const resident = residents.find(
                         (r) => r.id === task.residentId
                       );
@@ -232,29 +270,11 @@ export const TaskManagements = () => {
                                   className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${getTaskCategoryColor(task.category)}`}>
                                   {task.category}
                                 </span>
-                                {task.priority && task.priority !== 'Medium' && (
-                                  <span
-                                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getPriorityColor(task.priority)}`}>
-                                    {task.priority}
-                                  </span>
-                                )}
                               </div>
                               <h3 className="font-medium text-slate-900 text-sm">
                                 {task.title}
                               </h3>
                             </div>
-
-                            {/* Edit/View buttons */}
-                            {column === 'Todo' && (isAdmin || isFacilityAdmin) && (
-                              <button
-                                onClick={() => {
-                                  setSelectedTask(task);
-                                  setIsEditModalOpen(true);
-                                }}
-                                className="p-1 text-slate-400 hover:text-brand-600 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </button>
-                            )}
 
                             {isStaff && (
                               <button
@@ -322,7 +342,7 @@ export const TaskManagements = () => {
                             )}
 
                             {/* Move buttons - only for admins */}
-                            {!isStaff && (
+                            {isBranchAdmin && (
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {column !== 'Todo' && (
                                   <button
@@ -368,20 +388,28 @@ export const TaskManagements = () => {
         </div>
       </div>
 
-      {/* CREATE TASK MODAL - Only for admins */}
-      {(isAdmin || isFacilityAdmin) && (
+      {isBranchAdmin && (
         <Modal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           title="Create New Task">
           <div className="space-y-4">
-            <Input label="Task Title" placeholder="e.g. Administer Medication" />
+            <Input
+              label="Task Title"
+              placeholder="e.g. Administer Medication"
+              value={createForm.title}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, title: e.target.value }))}
+            />
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">
                 Category
               </label>
-              <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
+              <select
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                value={createForm.category}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, category: e.target.value as Task['category'] }))}
+              >
                 <option value="Medication">Medication</option>
                 <option value="Bathing">Bathing</option>
                 <option value="Vitals">Vitals</option>
@@ -398,8 +426,10 @@ export const TaskManagements = () => {
               </label>
               <textarea
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent min-h-[80px] resize-y"
-                placeholder="Task details...">
-              </textarea>
+                placeholder="Task details..."
+                value={createForm.description}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -407,11 +437,15 @@ export const TaskManagements = () => {
                 <label className="block text-sm font-medium text-slate-700">
                   Assign To
                 </label>
-                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
-                  <option value="">Unassigned</option>
+                <select
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                  value={createForm.assignedToId}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, assignedToId: e.target.value }))}
+                >
+                  <option value="">Select staff</option>
                   {staffMembers.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {getFullName(s)}
+                      {getFullName(s)} ({s.email})
                     </option>
                   ))}
                 </select>
@@ -420,8 +454,12 @@ export const TaskManagements = () => {
                 <label className="block text-sm font-medium text-slate-700">
                   Resident
                 </label>
-                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
-                  <option value="">None</option>
+                <select
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                  value={createForm.residentId}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, residentId: e.target.value }))}
+                >
+                  <option value="">Select resident</option>
                   {residents.map((r) => (
                     <option key={r.id} value={r.id}>
                       {getFullName(r)}
@@ -431,100 +469,19 @@ export const TaskManagements = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  Priority
-                </label>
-                <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
-                  <option>Low</option>
-                  <option>Medium</option>
-                  <option>High</option>
-                  <option>Urgent</option>
-                </select>
-              </div>
-              <Input label="Due Date" type="date" />
-            </div>
+            <Input
+              label="Due Date & Time"
+              type="datetime-local"
+              value={createForm.dueDate}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, dueDate: e.target.value }))}
+            />
 
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
               <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => setIsAddModalOpen(false)}>
-                Create Task
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* EDIT TASK MODAL - Only for admins */}
-      {(isAdmin || isFacilityAdmin) && selectedTask && (
-        <Modal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          title="Edit Task">
-          <div className="space-y-4">
-            <Input label="Task Title" defaultValue={selectedTask.title} />
-
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700">
-                Description
-              </label>
-              <textarea
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                rows={3}
-                defaultValue={selectedTask.description}>
-              </textarea>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  Category
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                  defaultValue={selectedTask.category}>
-                  <option value="Medication">Medication</option>
-                  <option value="Bathing">Bathing</option>
-                  <option value="Vitals">Vitals</option>
-                  <option value="Therapy">Therapy</option>
-                  <option value="Observation">Observation</option>
-                  <option value="Meal">Meal</option>
-                  <option value="General">General</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  Assign To
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                  defaultValue={selectedTask.assignedTo || ''}>
-                  <option value="">Unassigned</option>
-                  {staffMembers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {getFullName(s)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Due Date & Time"
-                type="datetime-local"
-                defaultValue={selectedTask.dueDate.slice(0, 16)} />
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
-              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => setIsEditModalOpen(false)}>
-                Save Changes
+              <Button onClick={handleCreateTask}>
+                {submitting ? 'Creating...' : 'Create Task'}
               </Button>
             </div>
           </div>
@@ -567,7 +524,9 @@ export const TaskManagements = () => {
                   Resident
                 </label>
                 <p className="text-slate-600 text-sm">
-                  {residents.find(r => r.id === selectedTask.residentId)?.name || 'None'}
+                  {residents.find(r => r.id === selectedTask.residentId)
+                    ? getFullName(residents.find(r => r.id === selectedTask.residentId) as Resident)
+                    : 'None'}
                 </p>
               </div>
               <div>
@@ -588,6 +547,7 @@ export const TaskManagements = () => {
           </div>
         </Modal>
       )}
+      {loading && <p className="text-sm text-slate-500">Loading tasks...</p>}
     </div>
   );
 };
