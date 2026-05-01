@@ -1,3 +1,4 @@
+import axios, { AxiosError } from 'axios';
 import { User } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL;
@@ -22,47 +23,47 @@ const getApiBase = () => {
   return API_BASE;
 };
 
-const parseJsonResponse = async (response: Response) => {
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    const text = await response.text();
-    throw new Error(
-      text.includes('<!doctype') || text.includes('<html')
-        ? 'Users API returned HTML instead of JSON. Check VITE_API_URL points to backend.' :
-        text || 'Users API returned a non-JSON response.',
-    );
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof AxiosError) {
+    const payload = error.response?.data;
+    if (typeof payload === 'string') {
+      if (payload.includes('<!doctype') || payload.includes('<html')) {
+        return 'Users API returned HTML instead of JSON. Check VITE_API_URL points to backend.';
+      }
+      return payload || fallback;
+    }
+    if (payload && typeof payload === 'object') {
+      const message = (payload as { message?: unknown }).message;
+      if (typeof message === 'string') return message;
+    }
   }
-
-  return response.json();
+  return fallback;
 };
 
 export const usersService = {
   async getAllUsers(): Promise<User[]> {
-    const response = await fetch(`${getApiBase()}/users`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAuthToken()}`,
-      },
-    });
+    try {
+      const response = await axios.get(`${getApiBase()}/users`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || 'Failed to fetch users');
-    }
+      const payload = response.data;
+      if (Array.isArray(payload)) {
+        return payload as User[];
+      }
+      if (Array.isArray(payload?.data)) {
+        return payload.data as User[];
+      }
+      if (Array.isArray(payload?.users)) {
+        return payload.users as User[];
+      }
 
-    const payload = await parseJsonResponse(response);
-
-    if (Array.isArray(payload)) {
-      return payload as User[];
+      return [];
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to fetch users'));
     }
-    if (Array.isArray(payload?.data)) {
-      return payload.data as User[];
-    }
-    if (Array.isArray(payload?.users)) {
-      return payload.users as User[];
-    }
-
-    return [];
   },
 };
