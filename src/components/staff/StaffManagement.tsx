@@ -20,9 +20,12 @@ import { staffService } from "../../services/staffService";
 import { branchService } from "../../services/branchService";
 import { Branch } from "../../types";
 import axios from "axios";
+import { useToast } from "../../context/ToastContext";
+import { getApiErrorMessage } from "../../utils/apiMessage";
 
 const StaffPage = () => {
   const { user } = useAuth();
+  const toast = useToast();
 
   const isFacilityAdmin = user?.role === "facility_admin";
   const isAdmin = user?.role === "admin";
@@ -89,10 +92,9 @@ const StaffPage = () => {
           );
         }
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? String(err.response?.data || err.message)
-          : (err as Error).message;
-        setError(message || "Failed to load staff data");
+        const message = getApiErrorMessage(err, "Failed to load staff data");
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
@@ -153,13 +155,17 @@ const StaffPage = () => {
   const handleAddStaff = async () => {
     if (!user?.facilityId) return;
     if (!addForm.firstName || !addForm.lastName || !addForm.email) {
-      setError("Please fill first name, last name, and email.");
+      const message = "Please fill first name, last name, and email.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
     const targetBranchId = isAdmin ? user.branchId || "" : addForm.branchId;
     if (!targetBranchId) {
-      setError("Please select a branch.");
+      const message = "Please select a branch.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -188,11 +194,11 @@ const StaffPage = () => {
         role: "Caregiver",
         permissions: permissionOptions.slice(0, 2),
       }));
+      toast.success("Staff member created successfully.");
     } catch (err) {
-      const message = axios.isAxiosError(err)
-        ? String(err.response?.data || err.message)
-        : (err as Error).message;
-      setError(message || "Failed to create staff member");
+      const message = getApiErrorMessage(err, "Failed to create staff member");
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -229,14 +235,14 @@ const StaffPage = () => {
       );
       setIsEditModalOpen(false);
       setSelectedStaff(null);
+      toast.success("Staff member updated successfully.");
     } catch (err) {
       const message =
         axios.isAxiosError(err) && err.response?.status === 404
           ? "Staff update API is not available yet on backend. Add PUT /staff/:id (or PATCH /staff/:id) to enable edit."
-          : axios.isAxiosError(err)
-          ? String(err.response?.data || err.message)
-          : (err as Error).message;
-      setError(message || "Failed to update staff member");
+          : getApiErrorMessage(err, "Failed to update staff member");
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

@@ -13,9 +13,12 @@ import {
 import { BulkUploadModal } from "../../components/BulkUploadModal";
 import { residentService } from "../../services/residentService";
 import axios from "axios";
+import { useToast } from "../../context/ToastContext";
+import { getApiErrorMessage } from "../../utils/apiMessage";
 
 const Residents = () => {
     const { user, token } = useAuth();
+    const toast = useToast();
     const navigate = useNavigate();
 
     const role = user?.role;
@@ -32,7 +35,9 @@ const Residents = () => {
     useEffect(() => {
         const apiBase = import.meta.env.VITE_API_URL;
         if (!apiBase || !token) {
-            setError('Unable to load residents. Missing API configuration or authentication.');
+            const message = 'Unable to load residents. Missing API configuration or authentication.';
+            setError(message);
+            toast.error(message);
             return;
         }
 
@@ -43,10 +48,9 @@ const Residents = () => {
                 const payload = await residentService.getAllResidents();
                 setResidents(payload);
             } catch (err) {
-                const message = axios.isAxiosError(err)
-                    ? err.response?.data || err.message
-                    : (err as Error).message;
-                setError(String(message));
+                const message = getApiErrorMessage(err, 'Failed to load residents');
+                setError(message);
+                toast.error(message);
             } finally {
                 setLoading(false);
             }

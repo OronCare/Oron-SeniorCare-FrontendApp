@@ -16,7 +16,10 @@ import { facilityService } from '../../services/facilityService';
 import { branchService } from '../../services/branchService';
 import { residentService } from '../../services/residentService';
 import { Facility, Branch } from '../../types';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 export const OwnerDashboard = () => {
+  const toast = useToast();
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [residents, setResidents] = useState([]);
@@ -51,7 +54,9 @@ export const OwnerDashboard = () => {
         setBranches(branchesData);
         setResidents(residentsData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+        const message = getApiErrorMessage(err, 'Failed to fetch data');
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }

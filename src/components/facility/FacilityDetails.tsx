@@ -22,6 +22,8 @@ import { facilityService } from '../../services/facilityService';
 import { CreateBranchRequest } from '../../services/branchService';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage, getApiSuccessMessage } from '../../utils/apiMessage';
 
 const generateTemporaryPassword = () => {
   return `Oron@${Math.random().toString(36).slice(-8)}A1`;
@@ -46,6 +48,7 @@ export const FacilityDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToast();
   const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddBranchModalOpen, setIsAddBranchModalOpen] = useState(false);
@@ -99,8 +102,10 @@ export const FacilityDetails = () => {
         ...prev,
         facilityId,
       }));
-    } catch (err: any) {
-      setError(err.message || 'Failed to load facility details');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to load facility details');
+      setError(message);
+      toast.error(message);
       console.error(err);
     } finally {
       setLoading(false);
@@ -170,12 +175,15 @@ export const FacilityDetails = () => {
         facilityId: facility.id,
       });
       setIsAddBranchModalOpen(false);
+      toast.success(getApiSuccessMessage(createdBranchResponse.data, 'Branch created successfully.'));
 
       if (tempPassword) {
-        window.alert(`Branch admin temporary password: ${tempPassword}`);
+        toast.success(`Branch admin temporary password: ${tempPassword}`);
       }
-    } catch (err: any) {
-      setBranchError(err.message || 'Failed to create branch');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to create branch');
+      setBranchError(message);
+      toast.error(message);
       console.error(err);
     } finally {
       setIsCreatingBranch(false);

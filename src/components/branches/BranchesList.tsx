@@ -5,8 +5,11 @@ import SmartTable from '../../shared/Table';
 import { BranchesActions, BranchesColumns } from '../../shared/TableColumns';
 import { Branch } from '../../types';
 import axios from 'axios';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 
 export const BranchLists = () => {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -39,8 +42,10 @@ export const BranchLists = () => {
             ? data.branches
             : [];
       setBranches(branchesData);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch branches');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to fetch branches');
+      setError(message);
+      toast.error(message);
       console.error(err);
     } finally {
       setLoading(false);

@@ -6,10 +6,13 @@ import SmartTable from '../../shared/Table';
 import { Aditlogscolumns } from '../../shared/TableColumns';
 import { auditLogService } from '../../services/auditLogService';
 import { AuditLog as AuditLogType } from '../../types';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 
 
 export const AuditLog = () => {
   const { user, isAuthenticated } = useAuth();
+  const toast = useToast();
   const [logs, setLogs] = useState<AuditLogType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,8 +28,9 @@ export const AuditLog = () => {
         const data = await auditLogService.getAuditLogs();
         setLogs(data);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load audit logs';
+        const message = getApiErrorMessage(err, 'Failed to load audit logs');
         setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }

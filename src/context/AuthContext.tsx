@@ -1,5 +1,6 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
 import { User, Role } from '../types';
+import { getApiErrorMessage } from '../utils/apiMessage';
 
 interface AuthContextType {
   user: User | null;
@@ -71,8 +72,14 @@ export const AuthProvider: React.FC<{
     });
 
     if (!response.ok) {
+      let parsedError: unknown;
       const errorText = await response.text();
-      throw new Error(errorText || 'Login failed');
+      try {
+        parsedError = JSON.parse(errorText);
+      } catch {
+        parsedError = errorText;
+      }
+      throw new Error(getApiErrorMessage(parsedError, 'Login failed'));
     }
 
     const data = await response.json() as {

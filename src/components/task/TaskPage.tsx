@@ -8,11 +8,14 @@ import { taskService } from '../../services/taskService';
 import { residentService } from '../../services/residentService';
 import { usersService } from '../../services/usersService';
 import axios from 'axios';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 
 type TaskStatus = 'Todo' | 'In Progress' | 'Done';
 
 export const TaskManagements = () => {
   const { user } = useAuth();
+  const toast = useToast();
   const isBranchAdmin = user?.role === 'admin';
   const isStaff = user?.role === 'staff';
 
@@ -60,10 +63,9 @@ export const TaskManagements = () => {
           }),
         );
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? String(err.response?.data || err.message)
-          : (err as Error).message;
-        setError(message || 'Failed to load task data');
+        const message = getApiErrorMessage(err, 'Failed to load task data');
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
@@ -100,17 +102,18 @@ export const TaskManagements = () => {
       setTaskList((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
     } catch (err) {
       setTaskList((prev) => prev.map((t) => (t.id === taskId ? current : t)));
-      const message = axios.isAxiosError(err)
-        ? String(err.response?.data || err.message)
-        : (err as Error).message;
-      setError(message || 'Failed to update task status');
+      const message = getApiErrorMessage(err, 'Failed to update task status');
+      setError(message);
+      toast.error(message);
     }
   };
 
   const handleCreateTask = async () => {
     if (!user?.branchId || !user?.facilityId) return;
     if (!createForm.title || !createForm.residentId || !createForm.assignedToId || !createForm.dueDate) {
-      setError('Please fill all required fields.');
+      const message = 'Please fill all required fields.';
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -138,11 +141,11 @@ export const TaskManagements = () => {
         assignedToId: '',
         dueDate: '',
       });
+      toast.success('Task created successfully.');
     } catch (err) {
-      const message = axios.isAxiosError(err)
-        ? String(err.response?.data || err.message)
-        : (err as Error).message;
-      setError(message || 'Failed to create task');
+      const message = getApiErrorMessage(err, 'Failed to create task');
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

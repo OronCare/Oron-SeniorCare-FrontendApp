@@ -13,6 +13,8 @@ import SmartTable from '../../shared/Table';
 import { Faciltescolumns } from '../../shared/TableColumns';
 import { Facility } from '../../types';
 import { facilityService, UpdateFacilityRequest } from '../../services/facilityService';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 
 const emptyEditForm: UpdateFacilityRequest = {
   name: '',
@@ -29,6 +31,7 @@ const emptyEditForm: UpdateFacilityRequest = {
 };
 
 export const FacilitiesList = () => {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [facilities, setFacilities] = useState<Facility[]>([]);
@@ -50,8 +53,10 @@ export const FacilitiesList = () => {
       setError(null);
       const data = await facilityService.getAllFacilities();
       setFacilities(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch facilities');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to fetch facilities');
+      setError(message);
+      toast.error(message);
       console.error(err);
     } finally {
       setLoading(false);
@@ -101,7 +106,9 @@ export const FacilitiesList = () => {
     }
 
     if (!editForm.adminEmail) {
-      setError('Facility admin email is required to update facility details.');
+      const message = 'Facility admin email is required to update facility details.';
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -122,8 +129,11 @@ export const FacilitiesList = () => {
       setIsEditModalOpen(false);
       setSelectedFacility(undefined);
       setEditForm(emptyEditForm);
-    } catch (err: any) {
-      setError(err.message || 'Failed to update facility');
+      toast.success('Facility updated successfully.');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to update facility');
+      setError(message);
+      toast.error(message);
       console.error(err);
     } finally {
       setIsSaving(false);

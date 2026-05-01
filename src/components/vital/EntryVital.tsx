@@ -7,7 +7,8 @@ import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { residentService } from "../../services/residentService";
 import { vitalService } from "../../services/vitalService";
-import axios from "axios";
+import { useToast } from "../../context/ToastContext";
+import { getApiErrorMessage } from "../../utils/apiMessage";
 
 type VitalFormState = {
   systolicBP: string;
@@ -42,6 +43,7 @@ const toNumberOrUndefined = (value: string): number | undefined => {
 export const VitalsEntry = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToast();
   const branchId = user?.branchId || "";
   const [residents, setResidents] = useState<Resident[]>([]);
   const [selectedResidentId, setSelectedResidentId] = useState("");
@@ -65,10 +67,9 @@ export const VitalsEntry = () => {
         const data = await residentService.getAllResidents();
         setResidents(data);
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? String(err.response?.data || err.message)
-          : (err as Error).message;
-        setError(message || "Failed to load residents");
+        const message = getApiErrorMessage(err, "Failed to load residents");
+        setError(message);
+        toast.error(message);
       } finally {
         setIsLoading(false);
       }
@@ -89,10 +90,9 @@ export const VitalsEntry = () => {
         const vitals = await vitalService.getVitalsByResident(selectedResidentId);
         setRecentVitals(vitals.slice(0, 3));
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? String(err.response?.data || err.message)
-          : (err as Error).message;
-        setError(message || "Failed to load resident vitals");
+        const message = getApiErrorMessage(err, "Failed to load resident vitals");
+        setError(message);
+        toast.error(message);
       }
     };
 
@@ -105,7 +105,9 @@ export const VitalsEntry = () => {
 
   const handleSave = async () => {
     if (!selectedResidentId) {
-      setError("Please select a resident first.");
+      const message = "Please select a resident first.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -129,12 +131,12 @@ export const VitalsEntry = () => {
       const vitals = await vitalService.getVitalsByResident(selectedResidentId);
       setRecentVitals(vitals.slice(0, 3));
       setIsSubmitting(false);
+      toast.success("Vitals saved successfully.");
       navigate("/admin/residents");
     } catch (err) {
-      const message = axios.isAxiosError(err)
-        ? String(err.response?.data || err.message)
-        : (err as Error).message;
-      setError(message || "Failed to save vitals");
+      const message = getApiErrorMessage(err, "Failed to save vitals");
+      setError(message);
+      toast.error(message);
       setIsSubmitting(false);
     }
   };
