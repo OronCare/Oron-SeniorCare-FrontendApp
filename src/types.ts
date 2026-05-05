@@ -177,19 +177,19 @@ export interface Rule {
   description: string;
 }
 
-// ─── Care Plan ───
 export interface CarePlan {
   id: string;
   residentId: string;
   branchId: string;
   generatedDate: string;
   reviewDate: string;
-  medications: {
-    name: string;
-    dosage: string;
-    schedule: string;
-    status: 'Active' | 'Paused' | 'Discontinued';
-  }[];
+  // NEW fields for metadata banner
+  version?: string;          // e.g., "1.2"
+  lastReviewDate?: string;   // ISO date
+  nextReviewDate?: string;   // ISO date
+  author?: string;           // e.g., "Dr. Sarah Johnson"
+  signed?: boolean;          // default false
+  medications: Medication[];
   actions: string[];
 }
 

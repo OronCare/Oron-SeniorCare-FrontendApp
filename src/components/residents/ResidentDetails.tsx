@@ -37,6 +37,12 @@ import {
 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { MetadataBanner } from '../../components/care plans/MetadataBanner';
+import { ClinicalAssessment } from '../../components/care plans/ClinicalAssessment';
+import { RiskSafetyProfile } from '../../components/care plans/RiskSafetyProfile';
+import { GoalsOfCare } from '../../components/care plans/GoalsOfCare';
+import { PlannedInterventions } from '../../components/care plans/PlannedInterventions';
+import { PersonCenteredPreferences } from '../../components/care plans/PersonCenteredPreferences';
 
 export const ResidentDetails = () => {
   const { id } = useParams();
@@ -741,95 +747,92 @@ export const ResidentDetails = () => {
             </motion.div>
           }
 
-          {activeTab === 'careplan' &&
-          <motion.div
-            key="careplan"
-            initial={{
-              opacity: 0,
-              y: 10
-            }}
-            animate={{
-              opacity: 1,
-              y: 0
-            }}
-            exit={{
-              opacity: 0,
-              y: -10
-            }}>
-            
-              {carePlan ?
-            <div className="space-y-6">
-                  <Card>
-                    <div className="mb-6">
-                      <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                        <ClipboardList className="h-5 w-5 text-brand-500" />{' '}
-                        Care Plan
-                      </h2>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Evolving care plan based on staff inputs and
-                        assessments.
-                      </p>
-                    </div>
+{activeTab === 'careplan' && (
+  <motion.div
+    key="careplan"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+  >
+    {carePlan ? (
+      <div className="space-y-6">
+        {/* METADATA BANNER – NEW */}
+        <MetadataBanner carePlan={carePlan} />
 
-                    <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-slate-400" />
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Generated Date
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {new Date(
-                          carePlan.generatedDate
-                        ).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-slate-400" />
-                        <div>
-                          <p className="text-xs text-slate-500">Next Review</p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {new Date(carePlan.reviewDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+        {/* EXISTING CARD (slightly restructured) */}
+        <Card>
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-brand-500" /> Care Plan
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Evolving care plan based on staff inputs and assessments.
+            </p>
+          </div>
 
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-medium text-slate-900 uppercase tracking-wider">
-                        Required Actions
-                      </h3>
-                      <ul className="space-y-2">
-                        {carePlan.actions.map((action, idx) =>
-                    <li
-                      key={idx}
-                      className="flex items-start gap-3 p-3 border border-slate-100 rounded-lg hover:border-brand-200 transition-colors">
-                      
-                            <div className="mt-0.5 h-4 w-4 rounded-full border-2 border-brand-500 flex-shrink-0"></div>
-                            <span className="text-sm text-slate-700">
-                              {action}
-                            </span>
-                          </li>
-                    )}
-                      </ul>
-                    </div>
-                  </Card>
-                </div> :
+          <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-lg border border-slate-100">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-slate-400" />
+              <div>
+                <p className="text-xs text-slate-500">Generated Date</p>
+                <p className="text-sm font-medium text-slate-900">
+                  {new Date(carePlan.generatedDate).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-slate-400" />
+              <div>
+                <p className="text-xs text-slate-500">Next Review</p>
+                <p className="text-sm font-medium text-slate-900">
+                  {new Date(carePlan.reviewDate).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </div>
 
-            <Card className="text-center py-12">
-                  <ClipboardList className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                  <h3 className="text-lg font-medium text-slate-900">
-                    No Active Care Plan
-                  </h3>
-                  <p className="text-sm text-slate-500 mt-1 mb-4">
-                    A care plan has not been generated for this resident yet.
-                  </p>
-                  <Button>Generate Care Plan</Button>
-                </Card>
-            }
-            </motion.div>
-          }
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-slate-900 uppercase tracking-wider">
+              Required Actions
+            </h3>
+            <ul className="space-y-2">
+              {carePlan.actions.map((action, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-start gap-3 p-3 border border-slate-100 rounded-lg hover:border-brand-200 transition-colors"
+                >
+                  <div className="mt-0.5 h-4 w-4 rounded-full border-2 border-brand-500 flex-shrink-0"></div>
+                  <span className="text-sm text-slate-700">{action}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Card>
+
+        {/* Future sections (Clinical, Risk, Goals, etc.) will be added here later */}
+
+        <ClinicalAssessment residentId={resident.id} />
+        <RiskSafetyProfile residentId={resident.id} /> 
+        <GoalsOfCare residentId={resident.id} />  
+        <PlannedInterventions residentId={resident.id} />  
+
+        <PersonCenteredPreferences residentId={resident.id} />  
+
+
+
+      </div>
+    ) : (
+      <Card className="text-center py-12">
+        <ClipboardList className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+        <h3 className="text-lg font-medium text-slate-900">No Active Care Plan</h3>
+        <p className="text-sm text-slate-500 mt-1 mb-4">
+          A care plan has not been generated for this resident yet.
+        </p>
+        <Button>Generate Care Plan</Button>
+      </Card>
+    )}
+  </motion.div>
+)}
 
           {activeTab === 'medications' &&
           <motion.div
