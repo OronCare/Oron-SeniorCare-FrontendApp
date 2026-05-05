@@ -53,6 +53,8 @@ const normalizeVital = (payload: Partial<Vital>): Vital => ({
   recordedBy: payload.recordedBy,
   recordedById: payload.recordedById,
   thresholdEvaluation: payload.thresholdEvaluation,
+  clinicalHealthState: payload.clinicalHealthState,
+  recommendedAction: payload.recommendedAction,
   notes: payload.notes,
 });
 

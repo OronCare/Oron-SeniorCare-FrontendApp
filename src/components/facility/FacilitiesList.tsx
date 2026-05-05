@@ -13,6 +13,9 @@ import SmartTable from '../../shared/Table';
 import { Faciltescolumns } from '../../shared/TableColumns';
 import { Facility } from '../../types';
 import { facilityService, UpdateFacilityRequest } from '../../services/facilityService';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
+import TableSkeleton from '../skeletons/TableSkeleton';
 
 const emptyEditForm: UpdateFacilityRequest = {
   name: '',
@@ -29,10 +32,11 @@ const emptyEditForm: UpdateFacilityRequest = {
 };
 
 export const FacilitiesList = () => {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState<Facility>();
@@ -50,8 +54,10 @@ export const FacilitiesList = () => {
       setError(null);
       const data = await facilityService.getAllFacilities();
       setFacilities(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch facilities');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to fetch facilities');
+      setError(message);
+      toast.error(message);
       console.error(err);
     } finally {
       setLoading(false);
@@ -101,7 +107,9 @@ export const FacilitiesList = () => {
     }
 
     if (!editForm.adminEmail) {
-      setError('Facility admin email is required to update facility details.');
+      const message = 'Facility admin email is required to update facility details.';
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -122,8 +130,11 @@ export const FacilitiesList = () => {
       setIsEditModalOpen(false);
       setSelectedFacility(undefined);
       setEditForm(emptyEditForm);
-    } catch (err: any) {
-      setError(err.message || 'Failed to update facility');
+      toast.success('Facility updated successfully.');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to update facility');
+      setError(message);
+      toast.error(message);
       console.error(err);
     } finally {
       setIsSaving(false);
@@ -163,6 +174,14 @@ export const FacilitiesList = () => {
       )
     }
   ];
+  if (loading) {
+    return (
+        <TableSkeleton
+            rows={5}
+            columns={6}
+        />
+    );
+}
 
   return (
     <div className="space-y-6">
@@ -211,23 +230,22 @@ export const FacilitiesList = () => {
               {error}
             </div>
           )}
-          {loading ? (
-            <div className="p-8 text-center text-slate-500">
-              Loading facilities...
-            </div>
-          ) : filteredFacilities.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">
-              No facilities found
+          {filteredFacilities.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="text-slate-400 mb-2">
+                <Search className="h-12 w-12 mx-auto" />
+              </div>
+              <p className="text-lg font-medium text-slate-900">No facilities found</p>
+              <p className="text-sm mt-1 text-slate-500">
+                Try adjusting your search or filters
+              </p>
             </div>
           ) : (
-            <>
-              {/* Table */}
-              <SmartTable
-                data={filteredFacilities}
-                columns={Faciltescolumns}
-                actions={actions}
-              />
-            </>
+            <SmartTable
+              data={filteredFacilities}
+              columns={Faciltescolumns}
+              actions={actions}
+            />
           )}
           <Modal
             isOpen={isEditModalOpen}

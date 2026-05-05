@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Activity, Lock, Mail, ArrowRight } from 'lucide-react';
 import { Button, Input, Card } from '../components/UI';
+import { getApiErrorMessage } from '../utils/apiMessage';
 
 export const Login = () => {
   const { login, user, isAuthenticated, isAuthReady } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,9 +28,12 @@ export const Login = () => {
     try {
       const user = await login(email, password);
       const path = user.role === 'facility_admin' ? '/facility-admin' : `/${user.role}`;
+      toast.success('Login successful.');
       navigate(path);
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Login failed');
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }

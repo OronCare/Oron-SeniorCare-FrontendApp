@@ -13,6 +13,8 @@ import { Card, Button, Input } from '../../components/UI';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreateFacilityRequest } from '../../services/facilityService';
 import axios from 'axios';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage, getApiSuccessMessage } from '../../utils/apiMessage';
 
 const generateTemporaryPassword = () => {
   return `Oron@${Math.random().toString(36).slice(-8)}A1`;
@@ -20,6 +22,7 @@ const generateTemporaryPassword = () => {
 
 export const FacilityOnboarding = () => {
   const navigate = useNavigate();
+  const toast = useToast();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,13 +93,16 @@ const [fileName, setFileName] = useState('');
         },
       });
       void createdFacilityResponse; // response not used directly; navigation below
+      toast.success(getApiSuccessMessage(createdFacilityResponse.data, 'Facility created successfully.'));
 
       setTimeout(() => {
         setIsSubmitting(false);
         navigate('/owner/facilities');
       }, 1500);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create facility');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to create facility');
+      setError(message);
+      toast.error(message);
       setIsSubmitting(false);
       console.error(err);
     }

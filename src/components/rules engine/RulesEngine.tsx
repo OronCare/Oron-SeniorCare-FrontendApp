@@ -1,20 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Settings,
   Activity,
-  ShieldAlert,
   Edit2,
   Save,
   Info } from
 'lucide-react';
-import { Card, Badge, Button } from '../../components/UI';
+import { Card, Button } from '../../components/UI';
 import { Rule, RuleThreshold } from '../../types';
 import { motion } from 'framer-motion';
-import axios from 'axios';
 import { rulesService } from '../../services/rulesService';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 export const RulesEngines = () => {
   const { user } = useAuth();
+  const toast = useToast();
   const isOwner = user?.role === 'owner';
   const [rules, setRules] = useState<Rule[]>([]);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -33,10 +34,9 @@ export const RulesEngines = () => {
         const data = await rulesService.getAllRules();
         setRules(data);
       } catch (err) {
-        const message = axios.isAxiosError(err)
-          ? String(err.response?.data || err.message)
-          : (err as Error).message;
-        setError(message || 'Failed to load rules');
+        const message = getApiErrorMessage(err, 'Failed to load rules');
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
@@ -61,14 +61,14 @@ export const RulesEngines = () => {
       setRules((prevRules) =>
         prevRules.map((r) => (r.id === id ? updated : r)),
       );
+      toast.success(`Rule ${nextState ? 'enabled' : 'disabled'} successfully.`);
     } catch (err) {
       setRules((prevRules) =>
         prevRules.map((r) => (r.id === id ? { ...r, isActive: currentRule.isActive } : r)),
       );
-      const message = axios.isAxiosError(err)
-        ? String(err.response?.data || err.message)
-        : (err as Error).message;
-      setError(message || 'Failed to update rule status');
+      const message = getApiErrorMessage(err, 'Failed to update rule status');
+      setError(message);
+      toast.error(message);
     } finally {
       setSavingRuleId(null);
     }
@@ -95,11 +95,11 @@ export const RulesEngines = () => {
       );
       setEditingRuleId(null);
       setEditThresholds(null);
+      toast.success('Rule thresholds updated successfully.');
     } catch (err) {
-      const message = axios.isAxiosError(err)
-        ? String(err.response?.data || err.message)
-        : (err as Error).message;
-      setError(message || 'Failed to save rule thresholds');
+      const message = getApiErrorMessage(err, 'Failed to save rule thresholds');
+      setError(message);
+      toast.error(message);
     } finally {
       setSavingRuleId(null);
     }

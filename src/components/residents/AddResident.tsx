@@ -16,6 +16,8 @@ import { useAuth } from '../../context/AuthContext';
 import { residentService, CreateResidentRequest } from '../../services/residentService';
 import { branchService } from '../../services/branchService';
 import { Branch, EmergencyContact } from '../../types';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 
 const defaultResidentForm: Omit<CreateResidentRequest, 'emergencyContacts'> = {
   branchId: '',
@@ -61,6 +63,7 @@ const defaultContact: EmergencyContact = {
 
 export const AddRes = () => {
   const { user } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const [formData, setFormData] = useState(defaultResidentForm);
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([
@@ -145,10 +148,12 @@ export const AddRes = () => {
     try {
       await residentService.createResident(payload);
       setSuccess('Resident created successfully.');
+      toast.success('Resident created successfully.');
       navigate(`${basePath}/residents`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to create resident';
+      const message = getApiErrorMessage(err, 'Unable to create resident');
       setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

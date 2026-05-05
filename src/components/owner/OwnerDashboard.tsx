@@ -16,7 +16,11 @@ import { facilityService } from '../../services/facilityService';
 import { branchService } from '../../services/branchService';
 import { residentService } from '../../services/residentService';
 import { Facility, Branch } from '../../types';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
+import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
 export const OwnerDashboard = () => {
+  const toast = useToast();
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [residents, setResidents] = useState([]);
@@ -51,7 +55,9 @@ export const OwnerDashboard = () => {
         setBranches(branchesData);
         setResidents(residentsData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+        const message = getApiErrorMessage(err, 'Failed to fetch data');
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
@@ -79,23 +85,7 @@ export const OwnerDashboard = () => {
   const ownerAlerts = mockAlerts.filter((a) => a.targetRoles.includes('owner'));
   const recentAlerts = ownerAlerts.slice(0, 4);
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Platform Overview
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Monitor all facilities and system health
-            </p>
-          </div>
-        </div>
-        <div className="flex justify-center items-center h-64">
-          <div className="text-slate-500">Loading dashboard data...</div>
-        </div>
-      </div>
-    );
+    return <AdminDashboardSkeleton />
   }
 
   if (error) {
