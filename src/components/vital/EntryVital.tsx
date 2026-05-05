@@ -114,7 +114,7 @@ export const VitalsEntry = () => {
     setIsSubmitting(true);
     setError(null);
     try {
-      await vitalService.createVital({
+      const saved = await vitalService.createVital({
         residentId: selectedResidentId,
         date: new Date().toISOString(),
         systolicBP: toNumberOrUndefined(form.systolicBP),
@@ -131,7 +131,10 @@ export const VitalsEntry = () => {
       const vitals = await vitalService.getVitalsByResident(selectedResidentId);
       setRecentVitals(vitals.slice(0, 3));
       setIsSubmitting(false);
-      toast.success("Vitals saved successfully.");
+      const statusMsg = saved.clinicalHealthState
+        ? `Vitals saved. Clinical status: ${saved.clinicalHealthState}.`
+        : "Vitals saved successfully.";
+      toast.success(statusMsg);
       navigate("/admin/residents");
     } catch (err) {
       const message = getApiErrorMessage(err, "Failed to save vitals");

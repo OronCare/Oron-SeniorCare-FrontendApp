@@ -22,6 +22,7 @@ import { Branch } from "../../types";
 import axios from "axios";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
+import TableSkeleton from "../skeletons/TableSkeleton";
 
 const StaffPage = () => {
   const { user } = useAuth();
@@ -247,6 +248,15 @@ const StaffPage = () => {
       setSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+        <TableSkeleton
+            rows={5}
+            columns={6}
+        />
+    );
+}
   // ---------------- UI ----------------
   return (
     <div className="space-y-6">
@@ -307,9 +317,6 @@ const StaffPage = () => {
           columns={staffColumnsConfig}
           actions={actions}
         />
-        {loading && (
-          <div className="p-4 text-sm text-slate-500">Loading staff...</div>
-        )}
       </Card>
 
       {/* ADD MODAL */}

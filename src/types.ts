@@ -106,6 +106,9 @@ export interface Vital {
   recordedBy?: string;
   recordedById?: string;
   thresholdEvaluation?: Record<string, unknown>;
+  /** Present when backend stored a clinical summary for this reading. */
+  clinicalHealthState?: ResidentHealthState | string;
+  recommendedAction?: string;
   notes?: string;
 }
 
@@ -241,3 +244,49 @@ export function getFullName(entity: {
   join(' ');
 }
 
+// Note type definition matching your backend
+export interface Note {
+  id: string;
+  residentId: string;
+  author: string;
+  content: string;
+  timestamp: string; // ISO date string
+  type: 'Observation' | 'Clinical' | 'General';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Request types
+export interface CreateNoteRequest {
+  residentId: string;
+  author: string;
+  content: string;
+  type: 'Observation' | 'Clinical' | 'General';
+  timestamp?: string; // Optional, will use current time if not provided
+}
+
+export interface UpdateNoteRequest {
+  residentId?: string;
+  author?: string;
+  content?: string;
+  type?: 'Observation' | 'Clinical' | 'General';
+  timestamp?: string;
+}
+
+// Filter types
+export interface NoteFilters {
+  residentId?: string;
+  type?: string;
+  author?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+// Note type constants (optional, for easier usage)
+export const NoteTypes = {
+  OBSERVATION: 'Observation' as const,
+  CLINICAL: 'Clinical' as const,
+  GENERAL: 'General' as const,
+} as const;
+
+export type NoteType = typeof NoteTypes[keyof typeof NoteTypes];

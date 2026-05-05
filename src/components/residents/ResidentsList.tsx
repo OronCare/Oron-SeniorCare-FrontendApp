@@ -15,6 +15,7 @@ import { residentService } from "../../services/residentService";
 import axios from "axios";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
+import TableSkeleton from "../skeletons/TableSkeleton";
 
 const Residents = () => {
     const { user, token } = useAuth();
@@ -25,7 +26,7 @@ const Residents = () => {
 
     const [residents, setResidents] = useState<Resident[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
@@ -38,6 +39,7 @@ const Residents = () => {
             const message = 'Unable to load residents. Missing API configuration or authentication.';
             setError(message);
             toast.error(message);
+            setLoading(false);
             return;
         }
 
@@ -142,6 +144,7 @@ const Residents = () => {
 
         return matchesSearch && matchesStatus && matchesBranch;
     });
+    
 
     // 🔹 Role-based config
 
@@ -160,6 +163,18 @@ const Residents = () => {
                 ? "View residents in your branch"
                 : "Manage resident profiles";
 
+                if (loading) {
+                    return (
+                        <TableSkeleton 
+                            title={title}
+                            description={description}
+                            showAddButton={isAdmin || isFacilityAdmin}
+                            showFilters={!isStaff}
+                            rows={5}
+                            columns={6}
+                        />
+                    );
+                }
 
     return (
         <div className="space-y-6">
@@ -244,17 +259,13 @@ const Residents = () => {
                 </div>
 
                 {/* TABLE */}
-                {loading ? (
-          <div className="p-8 text-center text-slate-500">Loading residents...</div>
-        ) : filteredResidents.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">No residents found</div>
-        ) : (
+                
                 <SmartTable
                     data={filteredResidents}
                     columns={Reidencecolumns}
                     actions={finalActions}
                 />
-                 )}
+                
             </Card>
 
             {/* BULK UPLOAD (only admin + facility admin) */}

@@ -15,6 +15,7 @@ import { Facility } from '../../types';
 import { facilityService, UpdateFacilityRequest } from '../../services/facilityService';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
+import TableSkeleton from '../skeletons/TableSkeleton';
 
 const emptyEditForm: UpdateFacilityRequest = {
   name: '',
@@ -35,7 +36,7 @@ export const FacilitiesList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState<Facility>();
@@ -173,6 +174,14 @@ export const FacilitiesList = () => {
       )
     }
   ];
+  if (loading) {
+    return (
+        <TableSkeleton
+            rows={5}
+            columns={6}
+        />
+    );
+}
 
   return (
     <div className="space-y-6">
@@ -221,23 +230,22 @@ export const FacilitiesList = () => {
               {error}
             </div>
           )}
-          {loading ? (
-            <div className="p-8 text-center text-slate-500">
-              Loading facilities...
-            </div>
-          ) : filteredFacilities.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">
-              No facilities found
+          {filteredFacilities.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="text-slate-400 mb-2">
+                <Search className="h-12 w-12 mx-auto" />
+              </div>
+              <p className="text-lg font-medium text-slate-900">No facilities found</p>
+              <p className="text-sm mt-1 text-slate-500">
+                Try adjusting your search or filters
+              </p>
             </div>
           ) : (
-            <>
-              {/* Table */}
-              <SmartTable
-                data={filteredFacilities}
-                columns={Faciltescolumns}
-                actions={actions}
-              />
-            </>
+            <SmartTable
+              data={filteredFacilities}
+              columns={Faciltescolumns}
+              actions={actions}
+            />
           )}
           <Modal
             isOpen={isEditModalOpen}

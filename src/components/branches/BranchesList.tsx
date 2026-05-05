@@ -7,6 +7,7 @@ import { Branch } from '../../types';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
+import TableSkeleton from '../skeletons/TableSkeleton';
 
 export const BranchLists = () => {
   const toast = useToast();
@@ -59,7 +60,14 @@ export const BranchLists = () => {
     const matchesStatus = statusFilter === 'All' || branch.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-
+  if (loading) {
+    return (
+        <TableSkeleton
+            rows={5}
+            columns={6}
+        />
+    );
+}
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -104,17 +112,13 @@ export const BranchLists = () => {
           </div>
         )}
 
-        {loading ? (
-          <div className="p-8 text-center text-slate-500">Loading branches...</div>
-        ) : filteredBranches.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">No branches found</div>
-        ) : (
+        
           <SmartTable
             columns={BranchesColumns}
             actions={BranchesActions}
             data={filteredBranches}
           />
-        )}
+        
 
         <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
           <p>
