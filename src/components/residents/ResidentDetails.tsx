@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -19,12 +19,11 @@ import { Card, Button, Badge, Input, Modal } from '../../components/UI';
 import {
   mockResidents,
   mockVitals,
-  mockCarePlans,
   mockNotes,
   mockTasks,
   mockStaffMembers } from
 '../../mockData';
-import { getFullName, Task } from '../../types';
+import { CarePlan, getFullName } from '../../types';
 import {
   LineChart,
   Line,
@@ -43,6 +42,7 @@ import { RiskSafetyProfile } from '../../components/care plans/RiskSafetyProfile
 import { GoalsOfCare } from '../../components/care plans/GoalsOfCare';
 import { PlannedInterventions } from '../../components/care plans/PlannedInterventions';
 import { PersonCenteredPreferences } from '../../components/care plans/PersonCenteredPreferences';
+import { carePlanService } from '../../services/carePlanService';
 
 export const ResidentDetails = () => {
   const { id } = useParams();
@@ -69,7 +69,40 @@ export const ResidentDetails = () => {
   const vitals = mockVitals.
   filter((v) => v.residentId === resident.id).
   sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const carePlan = mockCarePlans.find((cp) => cp.residentId === resident.id);
+
+  const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
+  const [carePlanLoading, setCarePlanLoading] = useState(false);
+  const [carePlanError, setCarePlanError] = useState<string | null>(null);
+
+  const carePlan = useMemo(() => {
+    if (!carePlans.length) return undefined;
+    return [...carePlans].sort(
+      (a, b) => new Date(b.generatedDate).getTime() - new Date(a.generatedDate).getTime(),
+    )[0];
+  }, [carePlans]);
+
+  const canManageCarePlans = !!user && (user.role === 'admin' || user.role === 'facility_admin');
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setCarePlanLoading(true);
+      setCarePlanError(null);
+      try {
+        const plans = await carePlanService.getCarePlansByResident(resident.id);
+        if (!cancelled) setCarePlans(plans);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Failed to fetch care plans';
+        if (!cancelled) setCarePlanError(message);
+      } finally {
+        if (!cancelled) setCarePlanLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [resident.id]);
   const notes = mockNotes.
   filter((n) => n.residentId === resident.id).
   sort(
@@ -754,13 +787,20 @@ export const ResidentDetails = () => {
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: -10 }}
   >
-    {carePlan ? (
+    {carePlanLoading ? (
+      <Card className="py-10 text-center text-slate-500">Loading care plan…</Card>
+    ) : carePlanError ? (
+      <Card className="py-10 text-center">
+        <h3 className="text-lg font-medium text-slate-900">Unable to load care plan</h3>
+        <p className="text-sm text-slate-500 mt-1">{carePlanError}</p>
+      </Card>
+    ) : carePlan ? (
       <div className="space-y-6">
         {/* METADATA BANNER – NEW */}
-        <MetadataBanner carePlan={carePlan} />
+        <MetadataBanner carePlan={carePlan} canManage={canManageCarePlans} />
 
         {/* EXISTING CARD (slightly restructured) */}
-        <Card>
+        {/* <Card>
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-brand-500" /> Care Plan
@@ -807,7 +847,7 @@ export const ResidentDetails = () => {
               ))}
             </ul>
           </div>
-        </Card>
+        </Card> */}
 
         {/* Future sections (Clinical, Risk, Goals, etc.) will be added here later */}
 
@@ -828,7 +868,7 @@ export const ResidentDetails = () => {
         <p className="text-sm text-slate-500 mt-1 mb-4">
           A care plan has not been generated for this resident yet.
         </p>
-        <Button>Generate Care Plan</Button>
+        {canManageCarePlans && <Button>Generate Care Plan</Button>}
       </Card>
     )}
   </motion.div>

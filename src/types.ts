@@ -177,10 +177,18 @@ export interface Rule {
   description: string;
 }
 
+export interface Medication {
+  name: string;
+  dosage: string;
+  schedule: string;
+  status: string;
+}
+
 export interface CarePlan {
   id: string;
   residentId: string;
   branchId: string;
+  facilityId?: string;
   generatedDate: string;
   reviewDate: string;
   // NEW fields for metadata banner
@@ -190,7 +198,9 @@ export interface CarePlan {
   author?: string;           // e.g., "Dr. Sarah Johnson"
   signed?: boolean;          // default false
   medications: Medication[];
-  actions: string[];
+  actions?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ─── Staff Member ───

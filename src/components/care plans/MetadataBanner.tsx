@@ -1,8 +1,13 @@
-// Metadata Banner Component (inside ResidentDetails.tsx, before the component definition)
-import { mockCarePlans } from '../../mockData';
+import { CarePlan } from '../../types';
 import { Badge, Button } from '../UI';
 
-export const MetadataBanner = ({ carePlan }: { carePlan: typeof mockCarePlans[0] }) => {
+export const MetadataBanner = ({
+  carePlan,
+  canManage,
+}: {
+  carePlan: CarePlan;
+  canManage: boolean;
+}) => {
     if (!carePlan) return null;
     
     return (
@@ -36,7 +41,7 @@ export const MetadataBanner = ({ carePlan }: { carePlan: typeof mockCarePlans[0]
               {carePlan.signed ? 'Signed' : 'Pending acknowledgment'}
             </Badge>
           </div>
-          {!carePlan.signed && (
+          {canManage && !carePlan.signed && (
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => alert('Acknowledge clicked')}>
               Acknowledge & Sign
             </Button>
