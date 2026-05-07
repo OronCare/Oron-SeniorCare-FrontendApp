@@ -24,14 +24,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
     const variants = {
       primary:
-      'bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500',
+      'bg-primary text-white hover:opacity-95 focus:ring-primary',
       secondary:
-      'bg-slate-100 text-slate-900 hover:bg-slate-200 focus:ring-slate-500',
+      'bg-card text-fg hover:opacity-95 focus:ring-primary border border-border',
       outline:
-      'border border-slate-300 bg-transparent hover:bg-slate-50 text-slate-700 focus:ring-brand-500',
+      'border border-border bg-transparent hover:bg-primarySoft text-fg focus:ring-primary',
       ghost:
-      'bg-transparent hover:bg-slate-100 text-slate-700 focus:ring-slate-500',
-      danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500'
+      'bg-transparent hover:bg-primarySoft text-fg focus:ring-primary',
+      danger: 'bg-error text-white hover:opacity-95 focus:ring-error'
     };
     const sizes = {
       sm: 'h-8 px-3 text-xs',
@@ -98,7 +98,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           }
           <input
             ref={ref}
-            className={`block w-full rounded-lg border ${error ? 'border-red-300 text-red-900 focus:ring-red-500 focus:border-red-500' : 'border-slate-300 text-slate-900 focus:ring-brand-500 focus:border-brand-500'} sm:text-sm px-3 py-2 bg-white shadow-sm transition-colors ${Icon ? 'pl-10' : ''} ${className}`}
+            className={`block w-full rounded-lg border ${error ? 'border-error text-fg focus:ring-error focus:border-error' : 'border-border text-fg focus:ring-primary focus:border-primary'} sm:text-sm px-3 py-2 bg-card shadow-sm transition-colors ${Icon ? 'pl-10' : ''} ${className}`}
             {...props} />
           
         </div>
@@ -119,7 +119,7 @@ export const Card = ({
 
 }: {children: React.ReactNode;className?: string;noPadding?: boolean;}) =>
 <div
-  className={`bg-white rounded-xl shadow-card border border-slate-200 overflow-hidden ${className}`}>
+  className={`bg-card rounded-xl shadow-card border border-border overflow-hidden ${className}`}>
   
     {!noPadding ? <div className="p-5">{children}</div> : children}
   </div>;
@@ -135,11 +135,11 @@ export const Badge = ({
 
 }: {children: React.ReactNode;variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';className?: string;}) => {
   const variants = {
-    default: 'bg-slate-100 text-slate-800 border-slate-200',
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    danger: 'bg-red-50 text-red-700 border-red-200',
-    info: 'bg-blue-50 text-blue-700 border-blue-200'
+    default: 'bg-primarySoft text-fg border-border',
+    success: 'bg-[color-mix(in_srgb,var(--color-success)_16%,transparent)] text-success border-[color-mix(in_srgb,var(--color-success)_35%,transparent)]',
+    warning: 'bg-[color-mix(in_srgb,var(--color-warning)_16%,transparent)] text-warning border-[color-mix(in_srgb,var(--color-warning)_35%,transparent)]',
+    danger: 'bg-[color-mix(in_srgb,var(--color-error)_16%,transparent)] text-error border-[color-mix(in_srgb,var(--color-error)_35%,transparent)]',
+    info: 'bg-[color-mix(in_srgb,var(--color-info)_16%,transparent)] text-info border-[color-mix(in_srgb,var(--color-info)_35%,transparent)]'
   };
   return (
     <span

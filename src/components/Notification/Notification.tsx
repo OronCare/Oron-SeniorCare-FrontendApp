@@ -12,6 +12,7 @@ import { Card, Button, Badge } from '../UI';
 import { mockBranches } from '../../mockData';
 import { Alert } from '../../types';
 import { alertsService } from '../../services/alertsService';
+import { NotificationsSkeleton } from '../skeletons/NotificationSkeleton';
 
 export const Notifications = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -125,6 +126,10 @@ export const Notifications = () => {
     return branch?.name;
   };
 
+  if(isLoading){
+    return <NotificationsSkeleton/>
+  }
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -164,9 +169,7 @@ export const Notifications = () => {
         </div>
 
         <div className="divide-y divide-slate-100">
-          {isLoading && (
-            <div className="p-6 text-sm text-slate-500">Loading notifications...</div>
-          )}
+          
           {!isLoading && error && (
             <div className="p-6 text-sm text-red-600">{error}</div>
           )}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
 import { User, Role } from '../types';
 import { getApiErrorMessage } from '../utils/apiMessage';
+import { syncOneSignalUser } from '../oneSignalBootstrap';
 
 interface AuthContextType {
   user: User | null;
@@ -59,6 +60,13 @@ export const AuthProvider: React.FC<{
   useEffect(() => {
     setIsAuthReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+    syncOneSignalUser(user?.id ?? null);
+  }, [isAuthReady, user?.id]);
 
   const login = async (email: string, password: string) => {
     const apiBaseUrl = import.meta.env.VITE_API_URL || '';

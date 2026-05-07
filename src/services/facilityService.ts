@@ -115,11 +115,30 @@ export const facilityService = {
     }
   },
 
-  async createFacility(data: CreateFacilityRequest): Promise<CreateFacilityResponse> {
+  async createFacility(
+    data: CreateFacilityRequest,
+    contractDocument?: File,
+  ): Promise<CreateFacilityResponse> {
     try {
-      const response = await axios.post(`${getApiBase()}/facilities`, data, {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('phone', data.phone);
+      formData.append('email', data.email);
+      formData.append('type', data.type);
+      formData.append('status', data.status);
+      formData.append('contractStart', data.contractStart);
+      formData.append('contractEnd', data.contractEnd);
+      formData.append('adminFirstName', data.adminFirstName);
+      formData.append('adminLastName', data.adminLastName);
+      formData.append('adminEmail', data.adminEmail);
+      formData.append('adminPassword', data.adminPassword);
+
+      if (contractDocument) {
+        formData.append('contractDocument', contractDocument);
+      }
+
+      const response = await axios.post(`${getApiBase()}/facilities`, formData, {
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${getAuthToken()}`,
         },
       });

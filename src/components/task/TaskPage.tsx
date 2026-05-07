@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Plus, Calendar, User, Filter, Eye, Clock, Activity, CheckCircle2 } from 'lucide-react';
-import { Button, Badge, Modal, Input } from '../../components/UI';
+import { Button, Badge, Modal } from '../../components/UI';
 import { Task, getFullName, Resident, User as AppUser } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { taskService } from '../../services/taskService';
 import { residentService } from '../../services/residentService';
 import { usersService } from '../../services/usersService';
-import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
+import { useNavigate } from 'react-router-dom';
+import { TaskManagementsSkeleton } from '../skeletons/TaskSkeleton';
 
 type TaskStatus = 'Todo' | 'In Progress' | 'Done';
 
 export const TaskManagements = () => {
   const { user } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const isBranchAdmin = user?.role === 'admin';
   const isStaff = user?.role === 'staff';
 
@@ -24,22 +26,11 @@ export const TaskManagements = () => {
   const [staffMembers, setStaffMembers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
-
-  const [createForm, setCreateForm] = useState({
-    title: '',
-    category: 'General' as Task['category'],
-    description: '',
-    residentId: '',
-    assignedToId: '',
-    dueDate: '',
-  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,7 +43,9 @@ export const TaskManagements = () => {
           usersService.getAllUsers(),
         ]);
 
-        setTaskList(tasks);
+        setTaskList(
+          isStaff && user?.id ? tasks.filter((t) => (t.assignedTo || '') === user.id) : tasks,
+        );
         setResidents(allResidents);
         setStaffMembers(
           users.filter((u) => {
@@ -71,7 +64,7 @@ export const TaskManagements = () => {
       }
     };
     fetchData();
-  }, [user?.branchId]);
+  }, [isStaff, user?.branchId, user?.id]);
 
   const columns: TaskStatus[] = ['Todo', 'In Progress', 'Done'];
 
@@ -108,47 +101,8 @@ export const TaskManagements = () => {
     }
   };
 
-  const handleCreateTask = async () => {
-    if (!user?.branchId || !user?.facilityId) return;
-    if (!createForm.title || !createForm.residentId || !createForm.assignedToId || !createForm.dueDate) {
-      const message = 'Please fill all required fields.';
-      setError(message);
-      toast.error(message);
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      const created = await taskService.createTask({
-        residentId: createForm.residentId,
-        branchId: user.branchId,
-        facilityId: user.facilityId,
-        title: createForm.title.trim(),
-        description: createForm.description.trim(),
-        category: createForm.category,
-        status: 'Todo',
-        dueDate: new Date(createForm.dueDate).toISOString(),
-        assignedToId: createForm.assignedToId,
-      });
-      setTaskList((prev) => [created, ...prev]);
-      setIsAddModalOpen(false);
-      setCreateForm({
-        title: '',
-        category: 'General',
-        description: '',
-        residentId: '',
-        assignedToId: '',
-        dueDate: '',
-      });
-      toast.success('Task created successfully.');
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to create task');
-      setError(message);
-      toast.error(message);
-    } finally {
-      setSubmitting(false);
-    }
+  const handleGoToCreateTask = () => {
+    navigate('/admin/tasks/new');
   };
 
   const getTaskCategoryColor = (category: string) => {
@@ -180,6 +134,9 @@ export const TaskManagements = () => {
     'Meal',
     'General'
   ];
+  if(loading){
+   return <TaskManagementsSkeleton/>
+  }
 
   return (
     <div className="space-y-6 h-[calc(100vh-8rem)] flex flex-col">
@@ -210,7 +167,7 @@ export const TaskManagements = () => {
           </div>
 
           {isBranchAdmin && (
-            <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>
+            <Button icon={Plus} onClick={handleGoToCreateTask}>
               Create Task
             </Button>
           )}
@@ -244,7 +201,7 @@ export const TaskManagements = () => {
                   <Badge variant="default">{columnTasks.length}</Badge>
                 </div>
 
-                <div className="flex-1 p-3 overflow-y-auto space-y-3">
+                <div className="flex-1 p-3 overflow-y-auto scrollbar-hide space-y-3">
                   <AnimatePresence>
                     {columnTasks.map((task) => {
                       const assignedStaff = staffMembers.find((s) => s.id === task.assignedTo);
@@ -262,7 +219,7 @@ export const TaskManagements = () => {
                           className={`bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow group ${!isStaff ? 'cursor-grab active:cursor-grabbing' : 'cursor-grab active:cursor-grabbing'
                             } ${draggedTaskId === task.id ? 'border-brand-500 ring-1 ring-brand-500 opacity-50' : 'border-slate-200'}`}
                           draggable={true}   
-                          onDragStart={(e) => handleDragStart(e, task.id)}
+                          onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent, task.id)}
                           onDragEnd={() => setDraggedTaskId(null)}>
 
                           {/* Task Header */}
@@ -391,105 +348,7 @@ export const TaskManagements = () => {
         </div>
       </div>
 
-      {isBranchAdmin && (
-        <Modal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          title="Create New Task">
-          <div className="space-y-4">
-            <Input
-              label="Task Title"
-              placeholder="e.g. Administer Medication"
-              value={createForm.title}
-              onChange={(e) => setCreateForm((prev) => ({ ...prev, title: e.target.value }))}
-            />
-
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700">
-                Category
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                value={createForm.category}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, category: e.target.value as Task['category'] }))}
-              >
-                <option value="Medication">Medication</option>
-                <option value="Bathing">Bathing</option>
-                <option value="Vitals">Vitals</option>
-                <option value="Therapy">Therapy</option>
-                <option value="Observation">Observation</option>
-                <option value="Meal">Meal</option>
-                <option value="General">General</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700">
-                Description
-              </label>
-              <textarea
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent min-h-[80px] resize-y"
-                placeholder="Task details..."
-                value={createForm.description}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  Assign To
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                  value={createForm.assignedToId}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, assignedToId: e.target.value }))}
-                >
-                  <option value="">Select staff</option>
-                  {staffMembers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {getFullName(s)} ({s.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  Resident
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                  value={createForm.residentId}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, residentId: e.target.value }))}
-                >
-                  <option value="">Select resident</option>
-                  {residents.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {getFullName(r)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <Input
-              label="Due Date & Time"
-              type="datetime-local"
-              value={createForm.dueDate}
-              onChange={(e) => setCreateForm((prev) => ({ ...prev, dueDate: e.target.value }))}
-            />
-
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
-              <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateTask}>
-                {submitting ? 'Creating...' : 'Create Task'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* Create Task moved to a separate page: /admin/tasks/new */}
 
       {/* VIEW TASK MODAL - Only for staff */}
       {isStaff && selectedTask && (

@@ -9,6 +9,7 @@ import { residentService } from "../../services/residentService";
 import { vitalService } from "../../services/vitalService";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
+import { VitalsEntryInitialSkeleton } from "../skeletons/VitalSkeleton";
 
 type VitalFormState = {
   systolicBP: string;
@@ -143,6 +144,9 @@ export const VitalsEntry = () => {
       setIsSubmitting(false);
     }
   };
+  if(isLoading){
+    return <VitalsEntryInitialSkeleton/>
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -155,10 +159,7 @@ export const VitalsEntry = () => {
       {error && (
         <Card className="border-red-200 bg-red-50 text-red-700 text-sm">{error}</Card>
       )}
-      {isLoading && (
-        <Card className="text-sm text-slate-500">Loading residents...</Card>
-      )}
-
+      
       <Card>
         <div className="space-y-1">
           <label className="block text-sm font-medium text-slate-700">
@@ -371,7 +372,7 @@ export const VitalsEntry = () => {
 
           {/* Context Sidebar */}
           <div className="space-y-6">
-            <Card className="bg-slate-50 border-slate-200">
+            <Card className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center text-slate-600 font-bold border border-slate-200">
                   {selectedResident?.firstName[0]}

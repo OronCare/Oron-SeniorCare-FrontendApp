@@ -104,6 +104,13 @@ export const staffService = {
     return extractArrayPayload(response.data).map(normalizeStaff);
   },
 
+  async getStaffById(id: string): Promise<StaffMember> {
+    const response = await axios.get(`${API_BASE}/staff/${id}`, {
+      headers: getHeaders(),
+    });
+    return normalizeStaff(extractSinglePayload(response.data));
+  },
+
   async createStaff(data: CreateStaffRequest): Promise<StaffMember> {
     const response = await axios.post(`${API_BASE}/staff`, data, {
       headers: getHeaders(),

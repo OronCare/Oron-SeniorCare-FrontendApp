@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, Filter, Plus, Upload, Network, Eye } from "lucide-react";
+import { Search, Filter, Plus, Upload, Network, Eye, Edit2 } from "lucide-react";
 import { Card, Button, Input } from "../../components/UI";
 import { getFullName, Resident, Branch } from "../../types";
 import { useAuth } from "../../context/AuthContext";
@@ -106,11 +106,28 @@ const Residents = () => {
             {
                 render: (resident: Resident) => (
                     <Link to={`/facility-admin/residents/${resident.id}`}>
-                        <Button variant="ghost" size="sm" icon={Eye}>
-                            View
-                        </Button>
+                        <span
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+                            title="View resident"
+                            aria-label="View resident"
+                        >
+                            <Eye className="h-4 w-4" />
+                        </span>
                     </Link>
                 )
+            },
+            {
+                render: (resident: Resident) => (
+                    <Link to={`/facility-admin/residents/${resident.id}/edit`}>
+                      <span
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+                        title="Edit resident"
+                        aria-label="Edit resident"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </span>
+                    </Link>
+                  )
             }
         ];
     } else if (isStaff) {
@@ -118,9 +135,13 @@ const Residents = () => {
             {
                 render: (resident: Resident) => (
                     <Link to={`/staff/residents/${resident.id}`}>
-                        <Button variant="ghost" size="sm" icon={Eye}>
-                            View
-                        </Button>
+                        <span
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+                            title="View resident"
+                            aria-label="View resident"
+                        >
+                            <Eye className="h-4 w-4" />
+                        </span>
                     </Link>
                 )
             }
@@ -144,7 +165,7 @@ const Residents = () => {
 
         return matchesSearch && matchesStatus && matchesBranch;
     });
-    
+
 
     // 🔹 Role-based config
 
@@ -163,18 +184,19 @@ const Residents = () => {
                 ? "View residents in your branch"
                 : "Manage resident profiles";
 
-                if (loading) {
-                    return (
-                        <TableSkeleton 
-                            title={title}
-                            description={description}
-                            showAddButton={isAdmin || isFacilityAdmin}
-                            showFilters={!isStaff}
-                            rows={5}
-                            columns={6}
-                        />
-                    );
-                }
+    if (loading) {
+        return (
+            <TableSkeleton
+                title={title}
+                description={description}
+                showAddButton={isAdmin || isFacilityAdmin}
+                showFilters={!isStaff}
+                rows={5}
+                columns={6}
+            />
+        );
+    }
+
 
     return (
         <div className="space-y-6">
@@ -226,9 +248,10 @@ const Residents = () => {
                     <div className="flex gap-2 flex-wrap">
                         {/* Branch filter ONLY for facility admin */}
                         {isFacilityAdmin && (
-                            <div className="flex items-center gap-2 border px-3 py-2 rounded-lg bg-white">
+                            <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
                                 <Network className="h-4 w-4" />
                                 <select
+                                    className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                                     value={branchFilter}
                                     onChange={(e) => setBranchFilter(e.target.value)}
                                 >
@@ -243,9 +266,10 @@ const Residents = () => {
                         )}
 
                         {/* Status filter */}
-                        <div className="flex items-center gap-2 border px-3 py-2 rounded-lg bg-white">
+                        <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
                             <Filter className="h-4 w-4" />
                             <select
+                                className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
@@ -259,14 +283,31 @@ const Residents = () => {
                 </div>
 
                 {/* TABLE */}
-                
+
                 <SmartTable
                     data={filteredResidents}
                     columns={Reidencecolumns}
                     actions={finalActions}
                 />
-                
+                <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
+                    <p>
+                        Showing <span className="font-medium text-slate-900">1</span> to{' '}
+                        <span className="font-medium text-slate-900">{filteredResidents.length}</span>{' '}
+                        of{' '}
+                        <span className="font-medium text-slate-900">{filteredResidents.length}</span>{' '}
+                        results
+                    </p>
+                    <div className="flex gap-1">
+                        <Button variant="outline" size="sm" disabled>
+                            Previous
+                        </Button>
+                        <Button variant="outline" size="sm" disabled>
+                            Next
+                        </Button>
+                    </div>
+                </div>
             </Card>
+
 
             {/* BULK UPLOAD (only admin + facility admin) */}
             {!isStaff && (
