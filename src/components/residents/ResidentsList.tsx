@@ -321,7 +321,6 @@ const Residents = () => {
                 />
             )}
         </div>
-    );
+  );
 };
-
 export default Residents;

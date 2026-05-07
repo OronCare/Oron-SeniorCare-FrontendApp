@@ -835,101 +835,121 @@ export const mockRules: Rule[] = [
 
 
 // ─── Care Plans ───
+// ─── Care Plans ───
 export const mockCarePlans: CarePlan[] = [
-{
-  id: 'cp1',
-  residentId: 'r1',
-  branchId: 'b1',
-  generatedDate: '2026-03-01T00:00:00Z',
-  reviewDate: '2026-06-01T00:00:00Z',
-  medications: [
   {
-    name: 'Lisinopril',
-    dosage: '10mg',
-    schedule: 'Morning',
-    status: 'Active'
+    id: 'cp1',
+    residentId: 'r1',
+    branchId: 'b1',
+    generatedDate: '2026-03-01T00:00:00Z',
+    reviewDate: '2026-06-01T00:00:00Z',
+    // New Metadata Fields
+    version: '1.2',
+    lastReviewDate: '2026-03-01T00:00:00Z',
+    nextReviewDate: '2026-06-01T00:00:00Z',
+    author: 'Dr. Sarah Johnson',
+    signed: true,
+    medications: [
+      {
+        name: 'Lisinopril',
+        dosage: '10mg',
+        schedule: 'Morning',
+        status: 'Active'
+      },
+      {
+        name: 'Metformin',
+        dosage: '500mg',
+        schedule: 'Morning, Evening',
+        status: 'Active'
+      },
+      {
+        name: 'Aspirin',
+        dosage: '81mg',
+        schedule: 'Morning',
+        status: 'Active'
+      }
+    ],
+    actions: [
+      'Monitor blood pressure daily',
+      'Check blood sugar before meals',
+      'Encourage 30 mins light activity',
+      'Low sodium diet adherence',
+      'Weekly weight check'
+    ]
   },
   {
-    name: 'Metformin',
-    dosage: '500mg',
-    schedule: 'Morning, Evening',
-    status: 'Active'
+    id: 'cp2',
+    residentId: 'r2',
+    branchId: 'b1',
+    generatedDate: '2026-02-15T00:00:00Z',
+    reviewDate: '2026-05-15T00:00:00Z',
+    // New Metadata Fields
+    version: '2.0',
+    lastReviewDate: '2025-11-15T00:00:00Z',
+    nextReviewDate: '2026-05-15T00:00:00Z',
+    author: 'Nurse Michael Chen',
+    signed: true,
+    medications: [
+      {
+        name: 'Donepezil',
+        dosage: '5mg',
+        schedule: 'Evening',
+        status: 'Active'
+      },
+      {
+        name: 'Vitamin D3',
+        dosage: '1000 IU',
+        schedule: 'Morning',
+        status: 'Active'
+      }
+    ],
+    actions: [
+      'Assist with daily walking',
+      'Monitor for confusion or agitation',
+      'Ensure clear pathways in room to prevent falls',
+      'Cognitive stimulation activities daily'
+    ]
   },
   {
-    name: 'Aspirin',
-    dosage: '81mg',
-    schedule: 'Morning',
-    status: 'Active'
-  }],
-
-  actions: [
-  'Monitor blood pressure daily',
-  'Check blood sugar before meals',
-  'Encourage 30 mins light activity',
-  'Low sodium diet adherence',
-  'Weekly weight check']
-
-},
-{
-  id: 'cp2',
-  residentId: 'r2',
-  branchId: 'b1',
-  generatedDate: '2026-02-15T00:00:00Z',
-  reviewDate: '2026-05-15T00:00:00Z',
-  medications: [
-  {
-    name: 'Donepezil',
-    dosage: '5mg',
-    schedule: 'Evening',
-    status: 'Active'
-  },
-  {
-    name: 'Vitamin D3',
-    dosage: '1000 IU',
-    schedule: 'Morning',
-    status: 'Active'
-  }],
-
-  actions: [
-  'Assist with daily walking',
-  'Monitor for confusion or agitation',
-  'Ensure clear pathways in room to prevent falls',
-  'Cognitive stimulation activities daily']
-
-},
-{
-  id: 'cp3',
-  residentId: 'r3',
-  branchId: 'b1',
-  generatedDate: '2026-01-10T00:00:00Z',
-  reviewDate: '2026-04-10T00:00:00Z',
-  medications: [
-  {
-    name: 'Alendronate',
-    dosage: '70mg',
-    schedule: 'Weekly',
-    status: 'Active'
-  },
-  {
-    name: 'Calcium',
-    dosage: '600mg',
-    schedule: 'Twice Daily',
-    status: 'Active'
-  },
-  {
-    name: 'Acetaminophen',
-    dosage: '500mg',
-    schedule: 'As needed',
-    status: 'Active'
-  }],
-
-  actions: [
-  'Assist with transfers',
-  'Monitor pain levels',
-  'Coordinate with physical therapy',
-  'Fall prevention protocol']
-
-}];
+    id: 'cp3',
+    residentId: 'r3',
+    branchId: 'b1',
+    generatedDate: '2026-01-10T00:00:00Z',
+    reviewDate: '2026-04-10T00:00:00Z',
+    // New Metadata Fields
+    version: '1.0',
+    lastReviewDate: '2026-01-10T00:00:00Z',
+    nextReviewDate: '2026-04-10T00:00:00Z',
+    author: 'Dr. Emily White',
+    signed: false, // Pending signature
+    medications: [
+      {
+        name: 'Alendronate',
+        dosage: '70mg',
+        schedule: 'Weekly',
+        status: 'Active'
+      },
+      {
+        name: 'Calcium',
+        dosage: '600mg',
+        schedule: 'Twice Daily',
+        status: 'Active'
+      },
+      {
+        name: 'Acetaminophen',
+        dosage: '500mg',
+        schedule: 'As needed',
+        status: 'Active'
+      }
+    ],
+    actions: [
+      'Assist with transfers',
+      'Monitor pain levels',
+      'Coordinate with physical therapy',
+      'Fall prevention protocol'
+    ]
+  }
+];
 
 
 // ─── Staff Members ───
@@ -1153,3 +1173,197 @@ export const mockNotes: Note[] = [
   timestamp: '2026-04-06T11:00:00Z',
   type: 'General'
 }];
+
+// mockData.ts - add this array
+export const mockClinicalAssessments = [
+  {
+    residentId: 'r1',
+    conditions: ['Hypertension', 'Type 2 Diabetes'],
+    allergies: ['Penicillin', 'Sulfa'],
+    adlScores: {
+      bathing: 'Moderate assist',
+      dressing: 'Independent',
+      toileting: 'Independent',
+      eating: 'Supervision',
+      transferring: 'Moderate assist',
+      continence: 'Continent',
+    },
+    mobility: 'Walks with cane',
+    cognitive: 'Mild cognitive impairment',
+  },
+  {
+    residentId: 'r2',
+    conditions: ['Alzheimer’s', 'Osteoarthritis'],
+    allergies: ['None'],
+    adlScores: {
+      bathing: 'Total assist',
+      dressing: 'Moderate assist',
+      toileting: 'Moderate assist',
+      eating: 'Supervision',
+      transferring: 'Total assist',
+      continence: 'Occasional accidents',
+    },
+    mobility: 'Wheelchair dependent',
+    cognitive: 'Moderate to severe impairment',
+  },
+  {
+    residentId: 'r3',
+    conditions: ['Osteoporosis', 'Chronic Pain'],
+    medications: [
+      { name: 'Alendronate', dose: '70mg', schedule: 'Weekly' },
+      { name: 'Calcium', dose: '600mg', schedule: 'Twice daily' },
+    ],
+    allergies: ['Codeine'],
+    adlScores: {
+      bathing: 'Supervision',
+      dressing: 'Independent',
+      toileting: 'Independent',
+      eating: 'Independent',
+      transferring: 'Moderate assist',
+      continence: 'Continent',
+    },
+    mobility: 'Uses walker',
+    cognitive: 'Intact',
+  },
+];
+
+// mockData.ts
+export const mockRiskProfiles = [
+  {
+    residentId: 'r1',
+    fallRiskScore: 68,                 // out of 100
+    mobilityTrend: 'Declining',
+    nearFallEvents: 2,
+    vitalsTrend: 'Stable',
+    narrativeInterpretation: 'Recent decline in mobility and two near‑falls increase fall risk. Recommend PT evaluation.',
+  },
+  {
+    residentId: 'r2',
+    fallRiskScore: 85,
+    mobilityTrend: 'Consistently low',
+    nearFallEvents: 0,
+    vitalsTrend: 'N/A',
+    narrativeInterpretation: 'High fall risk due to cognitive decline and wheelchair dependency. Ensure bed alarms and hourly rounding.',
+  },
+  {
+    residentId: 'r3',
+    fallRiskScore: 42,
+    mobilityTrend: 'Improving',
+    nearFallEvents: 1,
+    vitalsTrend: 'Stable',
+    narrativeInterpretation: 'Moderate risk. Pain management and walker use need reinforcement.',
+  },
+];
+
+
+// mockData.ts
+export const mockGoals = [
+  {
+    id: 'g1',
+    residentId: 'r1',
+    description: 'Reduce blood pressure to below 130/80 mmHg',
+    targetMetric: 'BP < 130/80',
+    timeframe: '3 months',
+    responsibleRole: 'Nurse',
+    status: 'Active',
+  },
+  {
+    id: 'g2',
+    residentId: 'r1',
+    description: 'Increase walking distance to 100 meters without rest',
+    targetMetric: '100 meters',
+    timeframe: '6 weeks',
+    responsibleRole: 'Physiotherapist',
+    status: 'Active',
+  },
+  {
+    id: 'g3',
+    residentId: 'r2',
+    description: 'Reduce frequency of agitation episodes by 50%',
+    targetMetric: 'Agitation < 3x/week',
+    timeframe: '2 months',
+    responsibleRole: 'Memory Care Specialist',
+    status: 'Active',
+  },
+  {
+    id: 'g4',
+    residentId: 'r3',
+    description: 'Maintain pain level at ≤ 3 out of 10',
+    targetMetric: 'Pain score ≤ 3',
+    timeframe: 'Ongoing',
+    responsibleRole: 'Nurse',
+    status: 'Active',
+  },
+];
+
+
+// mockData.ts
+export const mockInterventions = [
+  {
+    id: 'i1',
+    residentId: 'r1',
+    description: 'Monitor blood pressure twice daily',
+    responsibleStaffRole: 'Nurse',
+    frequency: 'Twice daily',
+    triggerConditions: 'If BP > 140/90, notify provider',
+    effectivenessMetric: 'BP below 130/80 for 1 week',
+  },
+  {
+    id: 'i2',
+    residentId: 'r1',
+    description: 'Physical therapy 3x per week',
+    responsibleStaffRole: 'Physiotherapist',
+    frequency: '3 times per week',
+    triggerConditions: 'N/A',
+    effectivenessMetric: 'Walk 100m without rest',
+  },
+  {
+    id: 'i3',
+    residentId: 'r2',
+    description: 'Bed alarm and hourly rounding',
+    responsibleStaffRole: 'Caregiver',
+    frequency: 'Every hour',
+    triggerConditions: 'If resident attempts to get up alone',
+    effectivenessMetric: 'Zero falls',
+  },
+  {
+    id: 'i4',
+    residentId: 'r3',
+    description: 'Administer pain medication before PT session',
+    responsibleStaffRole: 'Nurse',
+    frequency: 'Before PT (3x/week)',
+    triggerConditions: 'Pain score > 3',
+    effectivenessMetric: 'Pain score ≤ 3 during PT',
+  },
+];
+
+// mockData.ts
+export const mockPreferences = [
+  {
+    residentId: 'r1',
+    sleepPattern: '10:00 PM – 6:00 AM',
+    mealPref: 'Vegetarian, low salt',
+    communication: 'Prefers written notes, hard of hearing',
+    socialPref: 'Likes group bingo and gardening',
+    familyEngagement: 'Daughter visits every Sunday',
+    isNA: false,
+  },
+  {
+    residentId: 'r2',
+    sleepPattern: 'Frequent night awakenings, naps during day',
+    mealPref: 'Soft diet, needs feeding assistance',
+    communication: 'Responds to gentle tone, music therapy',
+    socialPref: 'Enjoys one‑on‑one conversation, dislikes loud groups',
+    familyEngagement: 'Wife calls daily',
+    isNA: false,
+  },
+  {
+    residentId: 'r3',
+    sleepPattern: 'Sleeps 9 PM – 7 AM',
+    mealPref: 'No restrictions, enjoys coffee',
+    communication: 'Clear speech, uses hearing aid',
+    socialPref: 'Likes card games and movie nights',
+    familyEngagement: 'Son visits every weekend',
+    isNA: false,
+  },
+];

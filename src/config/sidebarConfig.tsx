@@ -33,7 +33,6 @@ export const sidebarConfig = {
     { name: "Dashboard", path: "/admin", icon: BarChart3 },
     { name: "Residents", path: "/admin/residents", icon: Users },
     { name: "Vitals", path: "/admin/vitals", icon: Activity },
-    { name: "Care Plans", path: "/admin/care-plans", icon: ClipboardList },
     { name: "Tasks", path: "/admin/tasks", icon: ClipboardList },
     { name: "Staff", path: "/admin/staff", icon: Users },
     { name: "Reports", path: "/admin/reports", icon: FileText },

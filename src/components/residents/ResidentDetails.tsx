@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
   Phone,
   HeartPulse,
+  Heart,
   ClipboardList,
   Pill,
   MessageSquare,
@@ -13,15 +14,17 @@ import {
   Plus,
   Edit2,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  ShieldAlert,
+  Target,
 } from
   'lucide-react';
 import { Card, Button, Badge, Input, Modal } from '../../components/UI';
 import {
-  mockCarePlans,
+  // mockCarePlans,
 } from
   '../../mockData';
-import { CreateNoteRequest, getFullName, Note, Resident, Task, Vital } from '../../types';
+import { CarePlan, CreateNoteRequest, getFullName, Note, Resident, Task, Vital } from '../../types';
 import {
   LineChart,
   Line,
@@ -35,10 +38,25 @@ import {
   'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { MetadataBanner } from '../../components/care plans/MetadataBanner';
+import { ClinicalAssessment } from '../../components/care plans/ClinicalAssessment';
+import { RiskSafetyProfile } from '../../components/care plans/RiskSafetyProfile';
+import { GoalsOfCare } from '../../components/care plans/GoalsOfCare';
+import { PlannedInterventions } from '../../components/care plans/PlannedInterventions';
+import { PersonCenteredPreferences } from '../../components/care plans/PersonCenteredPreferences';
+import { CarePlanCreateSection } from '../../components/care plans/CarePlanCreateSection';
+import { carePlanService } from '../../services/carePlanService';
+import { clinicalAssessmentService } from '../../services/clinicalAssessmentService';
+import { riskProfileService } from '../../services/riskProfileService';
+import { goalsService } from '../../services/goalsService';
+import { interventionsService } from '../../services/interventionsService';
+import { preferencesService } from '../../services/preferencesService';
 import { notesService } from '../../services/notesService';
 import { residentService } from '../../services/residentService';
 import { vitalService } from '../../services/vitalService';
 import { taskService } from '../../services/taskService';
+import { branchService } from '../../services/branchService';
+import { facilityService } from '../../services/facilityService';
 import { ResidentDetailsSkeleton } from '../skeletons/DetailsSkeleton';
 
 export const ResidentDetails = () => {
@@ -57,7 +75,7 @@ export const ResidentDetails = () => {
   });
 
   const [newNote, setNewNote] = useState('');
-  const [noteType, setNoteType] = useState<'Observation' | 'Clinical' | 'General'>('Observation');
+  const [noteType, setNoteType] = useState<Note['type']>('Observation');
   const [isLoggingVitals, setIsLoggingVitals] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
@@ -70,8 +88,55 @@ export const ResidentDetails = () => {
   const [isPageLoading, setIsPageLoading] = useState(true);
   const apiBase = ((import.meta as any).env?.VITE_API_URL ?? '') as string;
 
+  const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
+  const [carePlanLoading, setCarePlanLoading] = useState(false);
+  const [carePlanError, setCarePlanError] = useState<string | null>(null);
+  const [showCarePlanCreate, setShowCarePlanCreate] = useState(false);
+  const [showCarePlanEdit, setShowCarePlanEdit] = useState(false);
+  const [carePlanMutating, setCarePlanMutating] = useState(false);
+  const [clinicalAssessmentExists, setClinicalAssessmentExists] = useState(false);
+  const [showClinicalAssessment, setShowClinicalAssessment] = useState(false);
+  const [startClinicalAssessmentEditing, setStartClinicalAssessmentEditing] = useState(false);
+  const [riskProfileExists, setRiskProfileExists] = useState(false);
+  const [showRiskProfile, setShowRiskProfile] = useState(false);
+  const [startRiskProfileEditing, setStartRiskProfileEditing] = useState(false);
+  const [goalsExist, setGoalsExist] = useState(false);
+  const [showGoalsOfCare, setShowGoalsOfCare] = useState(false);
+  const [startGoalsEditing, setStartGoalsEditing] = useState(false);
+  const [interventionsExist, setInterventionsExist] = useState(false);
+  const [showPlannedInterventions, setShowPlannedInterventions] = useState(false);
+  const [startInterventionsEditing, setStartInterventionsEditing] = useState(false);
+  const [preferencesExist, setPreferencesExist] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
+  const [startPreferencesEditing, setStartPreferencesEditing] = useState(false);
+  const [branchName, setBranchName] = useState<string>('');
+  const [facilityName, setFacilityName] = useState<string>('');
+  const [carePlanSubTab, setCarePlanSubTab] = useState<
+    'clinical' | 'risk' | 'goals' | 'interventions' | 'preferences'
+  >('clinical');
+
   const fullName = resident ? getFullName(resident) : '';
-  const carePlan = resident ? mockCarePlans.find((cp) => cp.residentId === resident.id) : undefined;
+  const carePlan = carePlans[0];
+  const canManageCarePlans = user?.role === 'facility_admin' || user?.role === 'admin';
+  const canManageClinicalAssessment = user?.role === 'facility_admin' || user?.role === 'admin';
+  const canManageRiskProfile = user?.role === 'facility_admin' || user?.role === 'admin';
+  const canManageGoals = user?.role === 'facility_admin' || user?.role === 'admin';
+  const canManageInterventions = user?.role === 'facility_admin' || user?.role === 'admin';
+  const canManagePreferences = user?.role === 'facility_admin' || user?.role === 'admin';
+
+  const refreshCarePlans = async () => {
+    if (!id) return;
+    setCarePlanLoading(true);
+    setCarePlanError(null);
+    try {
+      const plans = await carePlanService.getCarePlansByResident(id);
+      setCarePlans(plans);
+    } catch (err) {
+      setCarePlanError(err instanceof Error ? err.message : 'Failed to load care plan');
+    } finally {
+      setCarePlanLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) {
@@ -113,6 +178,168 @@ export const ResidentDetails = () => {
 
     void fetchResidentData();
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    void refreshCarePlans();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    clinicalAssessmentService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setClinicalAssessmentExists(exists);
+        if (exists) setShowClinicalAssessment(true);
+      })
+      .catch(() => {
+        setClinicalAssessmentExists(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    riskProfileService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setRiskProfileExists(exists);
+        if (exists) setShowRiskProfile(true);
+      })
+      .catch(() => {
+        setRiskProfileExists(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    goalsService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setGoalsExist(exists);
+        if (exists) setShowGoalsOfCare(true);
+      })
+      .catch(() => {
+        setGoalsExist(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    interventionsService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setInterventionsExist(exists);
+        if (exists) setShowPlannedInterventions(true);
+      })
+      .catch(() => {
+        setInterventionsExist(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    preferencesService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setPreferencesExist(exists);
+        if (exists) setShowPreferences(true);
+      })
+      .catch(() => {
+        setPreferencesExist(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    // reset creation/edit state when we have an active care plan
+    if (carePlan) {
+      setShowCarePlanCreate(false);
+      setShowCarePlanEdit(false);
+    }
+  }, [carePlan?.id]);
+
+  useEffect(() => {
+    if (clinicalAssessmentExists) {
+      setStartClinicalAssessmentEditing(false);
+    }
+  }, [clinicalAssessmentExists]);
+
+  useEffect(() => {
+    if (riskProfileExists) {
+      setStartRiskProfileEditing(false);
+    }
+  }, [riskProfileExists]);
+
+  useEffect(() => {
+    if (goalsExist) {
+      setStartGoalsEditing(false);
+    }
+  }, [goalsExist]);
+
+  useEffect(() => {
+    if (interventionsExist) {
+      setStartInterventionsEditing(false);
+    }
+  }, [interventionsExist]);
+
+  useEffect(() => {
+    if (preferencesExist) {
+      setStartPreferencesEditing(false);
+    }
+  }, [preferencesExist]);
+
+  const handleDeleteCarePlan = async () => {
+    if (!carePlan) return;
+    if (!confirm('Are you sure you want to delete this care plan?')) return;
+
+    setCarePlanMutating(true);
+    setCarePlanError(null);
+    try {
+      await carePlanService.deleteCarePlan(carePlan.id);
+      await refreshCarePlans();
+    } catch (err) {
+      setCarePlanError(err instanceof Error ? err.message : 'Failed to delete care plan');
+    } finally {
+      setCarePlanMutating(false);
+    }
+  };
+
+  const handleAcknowledgeCarePlan = async () => {
+    if (!carePlan) return;
+    if (!confirm('Acknowledge & sign this care plan?')) return;
+
+    setCarePlanMutating(true);
+    setCarePlanError(null);
+    try {
+      await carePlanService.updateCarePlan(carePlan.id, { signed: true });
+      await refreshCarePlans();
+    } catch (err) {
+      setCarePlanError(err instanceof Error ? err.message : 'Failed to acknowledge care plan');
+    } finally {
+      setCarePlanMutating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!resident) return;
+
+    Promise.all([
+      branchService.getBranchById(resident.branchId).catch(() => null),
+      facilityService.getFacilityById(resident.facilityId).catch(() => null),
+    ])
+      .then(([branch, facility]) => {
+        setBranchName(branch?.name ?? '');
+        setFacilityName(facility?.name ?? '');
+      })
+      .catch(() => {
+        setBranchName('');
+        setFacilityName('');
+      });
+  }, [resident]);
 
   //create note
   const handleCreateNote = async () => {
@@ -322,6 +549,12 @@ export const ResidentDetails = () => {
             <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
               {getAge(resident.dob)} years old • {resident.gender} • Room{' '}
               {resident.room}
+              {(facilityName || branchName) && (
+                <>
+                  {' '}
+                  • {facilityName || '—'} • {branchName || '—'}
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -844,95 +1077,280 @@ export const ResidentDetails = () => {
             </motion.div>
           }
 
-          {activeTab === 'careplan' &&
-            <motion.div
-              key="careplan"
-              initial={{
-                opacity: 0,
-                y: 10
-              }}
-              animate={{
-                opacity: 1,
-                y: 0
-              }}
-              exit={{
-                opacity: 0,
-                y: -10
-              }}>
+{activeTab === 'careplan' && (
+  <motion.div
+    key="careplan"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+  >
+    {carePlanLoading ? (
+      <Card className="py-10 text-center text-slate-500">Loading care plan…</Card>
+    ) : carePlanError ? (
+      <Card className="py-10 text-center">
+        <h3 className="text-lg font-medium text-slate-900">Unable to load care plan</h3>
+        <p className="text-sm text-slate-500 mt-1">{carePlanError}</p>
+      </Card>
+    ) : carePlan ? (
+      <div className="space-y-6">
+        {/* METADATA BANNER – NEW */}
+        <MetadataBanner
+          carePlan={carePlan}
+          canManage={canManageCarePlans}
+          isMutating={carePlanMutating}
+          onEdit={canManageCarePlans ? () => setShowCarePlanEdit((v) => !v) : undefined}
+          onDelete={canManageCarePlans ? handleDeleteCarePlan : undefined}
+          onAcknowledge={canManageCarePlans ? handleAcknowledgeCarePlan : undefined}
+        />
 
-              {carePlan ?
-                <div className="space-y-6">
-                  <Card>
-                    <div className="mb-6">
-                      <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                        <ClipboardList className="h-5 w-5 text-brand-500" />{' '}
-                        Care Plan
-                      </h2>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Evolving care plan based on staff inputs and
-                        assessments.
-                      </p>
-                    </div>
+        {canManageCarePlans && showCarePlanEdit && (
+          <CarePlanCreateSection
+            resident={resident}
+            facilityName={facilityName}
+            branchName={branchName}
+            mode="edit"
+            carePlan={carePlan}
+            onCancel={() => setShowCarePlanEdit(false)}
+            onSaved={async () => {
+              setShowCarePlanEdit(false);
+              await refreshCarePlans();
+            }}
+          />
+        )}
 
-                    <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-slate-400" />
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Generated Date
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {new Date(
-                              carePlan.generatedDate
-                            ).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-slate-400" />
-                        <div>
-                          <p className="text-xs text-slate-500">Next Review</p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {new Date(carePlan.reviewDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+        {/* Care Plan Sub Tabs */}
+        <Card className="py-2">
+          <nav className="flex flex-wrap gap-2">
+            {(
+              [
+                { id: 'clinical', label: 'Clinical', icon: ClipboardList },
+                { id: 'risk', label: 'Risk & Safety', icon: ShieldAlert },
+                { id: 'goals', label: 'Goals', icon: Target },
+                { id: 'interventions', label: 'Interventions', icon: Activity },
+                { id: 'preferences', label: 'Preferences', icon: Heart },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setCarePlanSubTab(t.id)}
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${
+                  carePlanSubTab === t.id
+                    ? 'bg-brand-50 text-brand-700 border-brand-200'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <t.icon className="h-4 w-4" />
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </Card>
 
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-medium text-slate-900 uppercase tracking-wider">
-                        Required Actions
-                      </h3>
-                      <ul className="space-y-2">
-                        {carePlan.actions.map((action, idx) =>
-                          <li
-                            key={idx}
-                            className="flex items-start gap-3 p-3 border border-slate-100 rounded-lg hover:border-brand-200 transition-colors">
+        {/* Empty-state helper */}
+        {(() => {
+          const EmptyState = ({
+            icon: Icon,
+            title,
+            description,
+            canCreate,
+            onCreate,
+            buttonText,
+          }: {
+            icon: React.ComponentType<{ className?: string }>;
+            title: string;
+            description: string;
+            canCreate: boolean;
+            onCreate?: () => void;
+            buttonText: string;
+          }) => {
+            return (
+              <Card className="py-10 text-center">
+                <Icon className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+                <h3 className="text-lg font-medium text-slate-900">{title}</h3>
+                <p className="text-sm text-slate-500 mt-1 mb-4">{description}</p>
+                {canCreate && onCreate && (
+                  <div className="flex justify-center">
+                    <Button icon={Plus} onClick={onCreate}>
+                      {buttonText}
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            );
+          };
 
-                            <div className="mt-0.5 h-4 w-4 rounded-full border-2 border-brand-500 flex-shrink-0"></div>
-                            <span className="text-sm text-slate-700">
-                              {action}
-                            </span>
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  </Card>
-                </div> :
-
-                <Card className="text-center py-12">
-                  <ClipboardList className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                  <h3 className="text-lg font-medium text-slate-900">
-                    No Active Care Plan
-                  </h3>
-                  <p className="text-sm text-slate-500 mt-1 mb-4">
-                    A care plan has not been generated for this resident yet.
-                  </p>
-                  <Button>Generate Care Plan</Button>
-                </Card>
-              }
-            </motion.div>
+          if (carePlanSubTab === 'clinical') {
+            if (!clinicalAssessmentExists && !showClinicalAssessment) {
+              return (
+                <EmptyState
+                  icon={ClipboardList}
+                  title="Clinical & Functional Assessment"
+                  description="No clinical assessment has been created for this resident yet."
+                  canCreate={canManageClinicalAssessment}
+                  buttonText="Create Clinical Assessment"
+                  onCreate={() => {
+                    setShowClinicalAssessment(true);
+                    setStartClinicalAssessmentEditing(true);
+                  }}
+                />
+              );
+            }
+            return (
+              <ClinicalAssessment
+                residentId={resident.id}
+                canManage={canManageClinicalAssessment}
+                isVisible={true}
+                startEditing={startClinicalAssessmentEditing}
+                onExistsChange={(exists) => setClinicalAssessmentExists(exists)}
+              />
+            );
           }
+
+          if (carePlanSubTab === 'risk') {
+            if (!riskProfileExists && !showRiskProfile) {
+              return (
+                <EmptyState
+                  icon={ShieldAlert}
+                  title="Risk & Safety Profile"
+                  description="No risk & safety profile has been created for this resident yet."
+                  canCreate={canManageRiskProfile}
+                  buttonText="Create Risk & Safety Profile"
+                  onCreate={() => {
+                    setShowRiskProfile(true);
+                    setStartRiskProfileEditing(true);
+                  }}
+                />
+              );
+            }
+            return (
+              <RiskSafetyProfile
+                residentId={resident.id}
+                canManage={canManageRiskProfile}
+                isVisible={true}
+                startEditing={startRiskProfileEditing}
+                onExistsChange={(exists) => setRiskProfileExists(exists)}
+              />
+            );
+          }
+
+          if (carePlanSubTab === 'goals') {
+            if (!goalsExist && !showGoalsOfCare) {
+              return (
+                <EmptyState
+                  icon={Target}
+                  title="Goals of Care"
+                  description="No goals have been created for this resident yet."
+                  canCreate={canManageGoals}
+                  buttonText="Create Goals of Care"
+                  onCreate={() => {
+                    setShowGoalsOfCare(true);
+                    setStartGoalsEditing(true);
+                  }}
+                />
+              );
+            }
+            return (
+              <GoalsOfCare
+                residentId={resident.id}
+                canManage={canManageGoals}
+                isVisible={true}
+                startEditing={startGoalsEditing}
+                onExistsChange={(exists) => setGoalsExist(exists)}
+              />
+            );
+          }
+
+          if (carePlanSubTab === 'interventions') {
+            if (!interventionsExist && !showPlannedInterventions) {
+              return (
+                <EmptyState
+                  icon={Activity}
+                  title="Planned Interventions"
+                  description="No planned interventions have been created for this resident yet."
+                  canCreate={canManageInterventions}
+                  buttonText="Create Planned Interventions"
+                  onCreate={() => {
+                    setShowPlannedInterventions(true);
+                    setStartInterventionsEditing(true);
+                  }}
+                />
+              );
+            }
+            return (
+              <PlannedInterventions
+                residentId={resident.id}
+                canManage={canManageInterventions}
+                isVisible={true}
+                startEditing={startInterventionsEditing}
+                onExistsChange={(exists) => setInterventionsExist(exists)}
+              />
+            );
+          }
+
+          if (carePlanSubTab === 'preferences') {
+            if (!preferencesExist && !showPreferences) {
+              return (
+                <EmptyState
+                  icon={Heart}
+                  title="Person Centered Preferences"
+                  description="No preferences have been created for this resident yet."
+                  canCreate={canManagePreferences}
+                  buttonText="Create Person Centered Preferences"
+                  onCreate={() => {
+                    setShowPreferences(true);
+                    setStartPreferencesEditing(true);
+                  }}
+                />
+              );
+            }
+            return (
+              <PersonCenteredPreferences
+                residentId={resident.id}
+                canManage={canManagePreferences}
+                isVisible={true}
+                startEditing={startPreferencesEditing}
+                onExistsChange={(exists) => setPreferencesExist(exists)}
+              />
+            );
+          }
+
+          return null;
+        })()}
+
+      </div>
+    ) : (
+      <Card className="text-center py-12">
+        <ClipboardList className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+        <h3 className="text-lg font-medium text-slate-900">No Active Care Plan</h3>
+        <p className="text-sm text-slate-500 mt-1 mb-4">
+          A care plan has not been generated for this resident yet.
+        </p>
+        {canManageCarePlans && !showCarePlanCreate && (
+          <div className="flex justify-center">
+            <Button onClick={() => setShowCarePlanCreate(true)}>Create Care Plan</Button>
+          </div>
+        )}
+
+        {canManageCarePlans && showCarePlanCreate && (
+          <div className="text-left">
+            <CarePlanCreateSection
+              resident={resident}
+              facilityName={facilityName}
+              branchName={branchName}
+              mode="create"
+              onCancel={() => setShowCarePlanCreate(false)}
+              onSaved={async () => {
+                setShowCarePlanCreate(false);
+                await refreshCarePlans();
+              }}
+            />
+          </div>
+        )}
+      </Card>
+    )}
+  </motion.div>
+)}
 
           {activeTab === 'medications' &&
             <motion.div
@@ -1334,6 +1752,7 @@ export const ResidentDetails = () => {
           </div>
         </div>
       </Modal>
+
     </div>);
 
 };
