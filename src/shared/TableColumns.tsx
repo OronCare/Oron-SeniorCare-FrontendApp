@@ -1,127 +1,127 @@
 // pages/Facilities.jsx
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Building2, FileText, Network, Users, Eye, ArrowUpRight, Activity, Mail, Edit2 } from "lucide-react";
-import { Button , Badge } from "../components/UI";
+import { Button, Badge } from "../components/UI";
 import { Facility } from "../types";
 
 import { useAuth } from "../context/AuthContext";
 
 
-  // Define columns with render functions
-  export const Faciltescolumns = [
-    {
-      label: "Facility Info",
-      render: (facility : Facility) => (
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 shrink-0">
-            <Building2 className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-semibold text-slate-900">{facility.name}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{facility.type}</p>
-          </div>
+// Define columns with render functions
+export const Faciltescolumns = [
+  {
+    label: "Facility Info",
+    render: (facility: Facility) => (
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 shrink-0">
+          <Building2 className="h-5 w-5" />
         </div>
-      )
-    },
-    {
-      label: "Admin Contact",
-      render: (facility : Facility) => (
-        <>
-          <p className="font-medium text-slate-900">{facility.facilityAdminName}</p>
-          <p className="text-xs text-slate-500">{facility.phone}</p>
-        </>
-      )
-    },
-    {
-      label: "Contract Period",
-      render: (facility : Facility) => (
-        <div className="flex items-center gap-2 text-slate-600">
-          <FileText className="h-4 w-4 text-slate-400" />
-          <span className="text-xs font-medium">
-            {new Date(facility.contractStart).toLocaleDateString()} - {new Date(facility.contractEnd).toLocaleDateString()}
-          </span>
+        <div>
+          <p className="font-semibold text-slate-900">{facility.name}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{facility.type}</p>
         </div>
-      )
-    },
-    {
-      label: "Branches",
-      render: (facility : Facility) => (
-        <div className="flex items-center gap-1.5 text-slate-700">
-          <Network className="h-4 w-4 text-slate-400" />
-          <span className="font-medium">{facility.totalBranches}</span>
-        </div>
-      )
-    },
-    {
-      label: "Residents",
-      render: (facility : Facility) => (
-        <div className="flex items-center gap-1.5 text-slate-700">
-          <Users className="h-4 w-4 text-slate-400" />
-          <span className="font-medium">{facility.totalResidents}</span>
-        </div>
-      )
-    },
-    {
-      label: "Status",
-      render: (facility : Facility) => (
-        <Badge
-          variant={
-            facility.status === 'Active' ? 'success' :
+      </div>
+    )
+  },
+  {
+    label: "Admin Contact",
+    render: (facility: Facility) => (
+      <>
+        <p className="font-medium text-slate-900">{facility.facilityAdminName}</p>
+        <p className="text-xs text-slate-500">{facility.phone}</p>
+      </>
+    )
+  },
+  {
+    label: "Contract Period",
+    render: (facility: Facility) => (
+      <div className="flex items-center gap-2 text-slate-600">
+        <FileText className="h-4 w-4 text-slate-400" />
+        <span className="text-xs font-medium">
+          {new Date(facility.contractStart).toLocaleDateString()} - {new Date(facility.contractEnd).toLocaleDateString()}
+        </span>
+      </div>
+    )
+  },
+  {
+    label: "Branches",
+    render: (facility: Facility) => (
+      <div className="flex items-center gap-1.5 text-slate-700">
+        <Network className="h-4 w-4 text-slate-400" />
+        <span className="font-medium">{facility.totalBranches}</span>
+      </div>
+    )
+  },
+  {
+    label: "Residents",
+    render: (facility: Facility) => (
+      <div className="flex items-center gap-1.5 text-slate-700">
+        <Users className="h-4 w-4 text-slate-400" />
+        <span className="font-medium">{facility.totalResidents}</span>
+      </div>
+    )
+  },
+  {
+    label: "Status",
+    render: (facility: Facility) => (
+      <Badge
+        variant={
+          facility.status === 'Active' ? 'success' :
             facility.status === 'Pending' ? 'warning' : 'danger'
-          }
-        >
-          {facility.status}
-        </Badge>
-      )
-    }
-  ];
+        }
+      >
+        {facility.status}
+      </Badge>
+    )
+  }
+];
 
-  // Define actions with render (optional - can also use simple path)
-export  const FacilitesActions = [
-    {
-      render: (facility : Facility) => (
-        <Link to={`/owner/facilities/${facility.id}`}>
-          <Button variant="ghost" size="sm" icon={Eye}>
-            View
-          </Button>
-        </Link>
-      )
-    },
-  ];
+// Define actions with render (optional - can also use simple path)
+export const FacilitesActions = [
+  {
+    render: (facility: Facility) => (
+      <Link to={`/owner/facilities/${facility.id}`}>
+        <Button variant="ghost" size="sm" icon={Eye}>
+          View
+        </Button>
+      </Link>
+    )
+  },
+];
 
-  export  const dashboardFacilitesActions = [
-    {
-      render: (facility : Facility) => (
-        <Link to={`/owner/facilities/${facility.id}`}>
-          <Button variant="ghost" size="sm" icon={Eye}>
-            View
-          </Button>
-        </Link>
-      )
-    },
-  ];
+export const dashboardFacilitesActions = [
+  {
+    render: (facility: Facility) => (
+      <Link to={`/owner/facilities/${facility.id}`}>
+        <Button variant="ghost" size="sm" icon={Eye}>
+          View
+        </Button>
+      </Link>
+    )
+  },
+];
 
 
 // Columns configuration
 export const RecentFaciltescolumns = [
-  { 
-    key: "name", 
+  {
+    key: "name",
     label: "Facility Name",
-    render: (facility ) => (
+    render: (facility) => (
       <div>
         <p className="font-medium text-slate-900">{facility.name}</p>
         <p className="text-xs text-slate-500">{facility.type}</p>
       </div>
     )
   },
-  { 
-    key: "status", 
+  {
+    key: "status",
     label: "Status",
     render: (facility) => (
       <Badge
         variant={
           facility.status === 'Active' ? 'success' :
-          facility.status === 'Pending' ? 'warning' : 'danger'
+            facility.status === 'Pending' ? 'warning' : 'danger'
         }
       >
         {facility.status}
@@ -143,7 +143,7 @@ const getAge = (dob) => {
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
-  
+
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
     age--;
   }
@@ -177,14 +177,14 @@ const getHealthStateColor = (healthState: string) => {
 };
 
 // 4. Format Date
-const formatDate = (dateString : string)  => {
+const formatDate = (dateString: string) => {
   if (!dateString) return 'N/A';
-  
+
   const date = new Date(dateString);
   const now = new Date();
   const diffTime = Math.abs(now - date);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 0) {
     return 'Today';
   } else if (diffDays === 1) {
@@ -192,8 +192,8 @@ const formatDate = (dateString : string)  => {
   } else if (diffDays < 7) {
     return `${diffDays} days ago`;
   } else {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
       day: 'numeric',
       year: 'numeric'
     });
@@ -205,18 +205,11 @@ export const Reidencecolumns = [
     label: "Resident",
     render: (resident) => {
       const fullName = getFullName(resident);
+      const initials = `${resident?.firstName?.[0] || ""}${resident?.lastName?.[0] || ""}`.toUpperCase() || "—";
       return (
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-medium shrink-0 overflow-hidden">
-            <img
-              src={`https://i.pravatar.cc/150?u=${resident.id}`}
-              alt={fullName}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement.innerText = `${resident.firstName[0]}${resident.lastName[0]}`;
-              }}
-            />
+          <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-semibold shrink-0">
+            {initials}
           </div>
           <div>
             <p className="font-semibold text-slate-900">{fullName}</p>
@@ -239,9 +232,11 @@ export const Reidencecolumns = [
   {
     label: "Health State",
     render: (resident) => (
-      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getHealthStateColor(resident.healthState)}`}>
+      <Badge
+        variant={resident.healthState === 'Stable' ? 'success' : resident.healthState === 'Slight Deviation' ? 'warning' : resident.healthState === 'Concerning Trend' ? 'danger' : resident.healthState === 'Early Deterioration' ? 'danger' : resident.healthState === 'Active Deterioration' ? 'danger' : resident.healthState === 'Recovery' ? 'success' : 'default'}
+      >
         {resident.healthState}
-      </span>
+      </Badge>
     )
   },
   {
@@ -250,7 +245,7 @@ export const Reidencecolumns = [
       <Badge
         variant={
           resident.status === 'InPatient' ? 'success' :
-          resident.status === 'Hospitalized' ? 'warning' : 'default'
+            resident.status === 'Hospitalized' ? 'warning' : 'default'
         }
       >
         {resident.status}
@@ -333,7 +328,7 @@ export const Aditlogscolumns = [
   {
     label: "Details",
     render: (log) => (
-      <div 
+      <div
         className="text-slate-600 max-w-md truncate"
         title={log.details}
       >
@@ -580,7 +575,7 @@ export const BranchesColumns = [
         (branch.currentResidents / branch.residentLimit) * 100
       );
       const barColor = usagePercent > 90 ? 'bg-red-500' : usagePercent > 75 ? 'bg-amber-500' : 'bg-brand-500';
-      
+
       return (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between text-xs">
@@ -607,7 +602,7 @@ export const BranchesColumns = [
       <Badge
         variant={
           branch.status === 'Active' ? 'success' :
-          branch.status === 'Pending' ? 'warning' : 'danger'
+            branch.status === 'Pending' ? 'warning' : 'danger'
         }
       >
         {branch.status}
@@ -621,9 +616,13 @@ export const BranchesActions = [
   {
     render: (branch) => (
       <Link to={`/facility-admin/branches/${branch.id}`}>
-        <Button variant="ghost" size="sm" icon={Eye}>
-          View
-        </Button>
+        <span
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+          title="View resident"
+          aria-label="View resident"
+        >
+          <Eye className="h-4 w-4" />
+        </span>
       </Link>
     )
   }
@@ -647,7 +646,7 @@ export const BranchesCompactColumns = [
       <Badge
         variant={
           branch.status === 'Active' ? 'success' :
-          branch.status === 'Pending' ? 'warning' : 'danger'
+            branch.status === 'Pending' ? 'warning' : 'danger'
         }
       >
         {branch.status}
@@ -661,7 +660,7 @@ export const BranchesCompactColumns = [
         (branch.currentResidents / branch.residentLimit) * 100
       );
       const barColor = usagePercent > 90 ? 'bg-red-500' : usagePercent > 75 ? 'bg-amber-500' : 'bg-brand-500';
-      
+
       return (
         <div className="flex items-center gap-2">
           <div className="w-full bg-slate-200 rounded-full h-2 max-w-[80px]">

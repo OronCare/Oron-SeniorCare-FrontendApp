@@ -82,6 +82,21 @@ export const branchService = {
     }
   },
 
+  async getBranchById(id: string): Promise<Branch> {
+    try {
+      const response = await axios.get(`${getApiBase()}/branches/${id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      });
+
+      return response.data as Branch;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to fetch branch details'));
+    }
+  },
+
   async createBranch(data: CreateBranchRequest): Promise<Branch> {
     try {
       const response = await axios.post(`${getApiBase()}/branches`, data, {

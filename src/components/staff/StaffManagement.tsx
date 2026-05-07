@@ -6,9 +6,11 @@ import {
   Plus,
   Network,
   Edit2,
+  Eye,
   Shield,
   Mail,
   Lock,
+  Filter,
 } from "lucide-react";
 
 import { Card, Button, Input, Modal } from "../../components/UI";
@@ -23,6 +25,7 @@ import axios from "axios";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
 import TableSkeleton from "../skeletons/TableSkeleton";
+import { Link } from "react-router-dom";
 
 const StaffPage = () => {
   const { user } = useAuth();
@@ -135,23 +138,35 @@ const StaffPage = () => {
   const actions = [
     {
       render: (staff: StaffMember) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={Edit2}
-          onClick={() => {
-            handleOpenEdit(staff);
-          }}
-        >
-          Edit
-        </Button>
+        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}`}>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+            title="View staff"
+            aria-label="View staff"
+          >
+            <Eye className="h-4 w-4" />
+          </span>
+        </Link>
+      ),
+    },
+    {
+      render: (staff: StaffMember) => (
+        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}/edit`}>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+            title="Edit staff"
+            aria-label="Edit staff"
+          >
+            <Edit2 className="h-4 w-4" />
+          </span>
+        </Link>
       ),
     },
   ];
 
-  const staffColumnsConfig = isFacilityAdmin 
-  ? StaffColumnsForFacilityAdmin(branches)
-  : StaffColumns;
+  const staffColumnsConfig = isFacilityAdmin
+    ? StaffColumnsForFacilityAdmin(branches)
+    : StaffColumns;
 
   const handleAddStaff = async () => {
     if (!user?.facilityId) return;
@@ -251,12 +266,12 @@ const StaffPage = () => {
 
   if (loading) {
     return (
-        <TableSkeleton
-            rows={5}
-            columns={6}
-        />
+      <TableSkeleton
+        rows={5}
+        columns={6}
+      />
     );
-}
+  }
   // ---------------- UI ----------------
   return (
     <div className="space-y-6">
@@ -286,18 +301,22 @@ const StaffPage = () => {
       {/* TABLE */}
       <Card noPadding>
         <div className="p-5 flex flex-col sm:flex-row gap-4 justify-between">
+          <div className="w-full sm:w-72">
           <Input
             placeholder="Search..."
             icon={Search}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+          </div>
 
           {/* ✅ Branch filter ONLY for facility admin */}
           {isFacilityAdmin && (
-            <div className="flex items-center gap-2">
-              <Network className="h-4 w-4" />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
+                <Filter className="h-4 w-4" />
               <select
+                className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                 value={branchFilter}
                 onChange={(e) => setBranchFilter(e.target.value)}
               >
@@ -305,9 +324,10 @@ const StaffPage = () => {
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
-                  </option>
-                ))}
-              </select>
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
         </div>
@@ -324,7 +344,7 @@ const StaffPage = () => {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         title="Add Staff Member">
-        
+
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input
@@ -408,23 +428,23 @@ const StaffPage = () => {
             </label>
             <div className="space-y-2">
               {permissionOptions.map((perm) =>
-              <label
-                key={perm}
-                className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
-                
+                <label
+                  key={perm}
+                  className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
+
                   <input
-                  type="checkbox"
-                  className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
-                  checked={addForm.permissions.includes(perm)}
-                  onChange={(e) =>
-                    setAddForm((prev) => ({
-                      ...prev,
-                      permissions: e.target.checked
-                        ? [...prev.permissions, perm]
-                        : prev.permissions.filter((p) => p !== perm),
-                    }))
-                  } />
-                
+                    type="checkbox"
+                    className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
+                    checked={addForm.permissions.includes(perm)}
+                    onChange={(e) =>
+                      setAddForm((prev) => ({
+                        ...prev,
+                        permissions: e.target.checked
+                          ? [...prev.permissions, perm]
+                          : prev.permissions.filter((p) => p !== perm),
+                      }))
+                    } />
+
                   <span className="text-sm text-slate-700">{perm}</span>
                 </label>
               )}
@@ -456,17 +476,17 @@ const StaffPage = () => {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title="Edit Staff Member">
-        
+
         {selectedStaff &&
-        <div className="space-y-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Input
-              label="First Name"
-              value={editForm.firstName}
-              onChange={(e) =>
-                setEditForm((prev) => ({ ...prev, firstName: e.target.value }))
-              } />
-            
+                label="First Name"
+                value={editForm.firstName}
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, firstName: e.target.value }))
+                } />
+
               <Input
                 label="Last Name"
                 value={editForm.lastName}
@@ -478,16 +498,16 @@ const StaffPage = () => {
 
             <div className="relative">
               <Input
-              label="Email Address"
-              type="email"
-              value={selectedStaff.email}
-              disabled
-              className="bg-slate-100 text-slate-500 cursor-not-allowed pr-10" />
-            
+                label="Email Address"
+                type="email"
+                value={selectedStaff.email}
+                disabled
+                className="bg-slate-100 text-slate-500 cursor-not-allowed pr-10" />
+
               <div
-              className="absolute right-3 top-[34px] text-slate-400"
-              title="Email cannot be changed">
-              
+                className="absolute right-3 top-[34px] text-slate-400"
+                title="Email cannot be changed">
+
                 <Lock className="h-4 w-4" />
               </div>
             </div>
@@ -497,15 +517,15 @@ const StaffPage = () => {
                 Role
               </label>
               <select
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-              value={editForm.role}
-              onChange={(e) =>
-                setEditForm((prev) => ({
-                  ...prev,
-                  role: e.target.value as StaffMember["role"],
-                }))
-              }>
-              
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                value={editForm.role}
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    role: e.target.value as StaffMember["role"],
+                  }))
+                }>
+
                 <option value="Caregiver">Caregiver</option>
                 <option value="Nurse">Nurse</option>
                 <option value="Coordinator">Coordinator</option>
@@ -537,34 +557,34 @@ const StaffPage = () => {
               </label>
               <div className="space-y-2">
                 {permissionOptions.map((perm) =>
-              <label
-                key={perm}
-                className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
-                
+                  <label
+                    key={perm}
+                    className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
+
                     <input
-                  type="checkbox"
-                  className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
-                  checked={editForm.permissions.includes(perm)}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      permissions: e.target.checked
-                        ? [...prev.permissions, perm]
-                        : prev.permissions.filter((p) => p !== perm),
-                    }))
-                  } />
-                
+                      type="checkbox"
+                      className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
+                      checked={editForm.permissions.includes(perm)}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          permissions: e.target.checked
+                            ? [...prev.permissions, perm]
+                            : prev.permissions.filter((p) => p !== perm),
+                        }))
+                      } />
+
                     <span className="text-sm text-slate-700">{perm}</span>
                   </label>
-              )}
+                )}
               </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
               <Button
-              variant="outline"
-              onClick={() => setIsEditModalOpen(false)}>
-              
+                variant="outline"
+                onClick={() => setIsEditModalOpen(false)}>
+
                 Cancel
               </Button>
               <Button onClick={handleSaveEdit}>

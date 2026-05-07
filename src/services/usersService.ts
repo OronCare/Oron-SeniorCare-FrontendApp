@@ -66,4 +66,18 @@ export const usersService = {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch users'));
     }
   },
+
+  async getUserById(id: string): Promise<User> {
+    try {
+      const response = await axios.get(`${getApiBase()}/users/${id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      });
+      return response.data as User;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to fetch user'));
+    }
+  },
 };

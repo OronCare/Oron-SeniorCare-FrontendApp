@@ -1,4 +1,4 @@
-import React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Network,
@@ -10,25 +10,60 @@ import {
   Users } from
 'lucide-react';
 import { Card, Button, Badge } from '../../components/UI';
-import {
-  mockBranches,
-  mockAuditLogs,
-  mockResidents,
-  mockStaffMembers } from
-'../../mockData';
+import { branchService } from '../../services/branchService';
+import { Branch } from '../../types';
+import { ResidentDetailsSkeleton } from '../skeletons/DetailsSkeleton';
 
 
 export const BranchDetails = () => {
   const { id } = useParams();
-  const branch = mockBranches.find((b) => b.id === id) || mockBranches[0];
-  const branchLogs = mockAuditLogs.
-  filter((log) => log.branchId === branch.id).
-  slice(0, 5);
-  const branchResidents = mockResidents.filter((r) => r.branchId === branch.id);
-  const branchStaff = mockStaffMembers.filter((s) => s.branchId === branch.id);
-  const usagePercent = Math.round(
-    branch.currentResidents / branch.residentLimit * 100
-  );
+  const [branch, setBranch] = useState<Branch | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      setError('Branch ID is missing');
+      return;
+    }
+
+    const fetchBranch = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await branchService.getBranchById(id);
+        setBranch(data);
+        sessionStorage.setItem(`breadcrumb:branches:${data.id}`, data.name);
+        window.dispatchEvent(new Event('oron:breadcrumb:update'));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load branch details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchBranch();
+  }, [id]);
+
+  const usagePercent = useMemo(() => {
+    if (!branch?.residentLimit) return 0;
+    return Math.round((branch.currentResidents / branch.residentLimit) * 100);
+  }, [branch?.currentResidents, branch?.residentLimit]);
+
+  if (loading) {
+    return <ResidentDetailsSkeleton />;
+  }
+
+  if (!branch) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <p className="text-sm text-red-600">{error || 'Branch not found'}</p>
+        </Card>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -116,7 +151,7 @@ export const BranchDetails = () => {
                   <Users className="h-5 w-5 text-brand-500" />
                   Residents
                 </h2>
-                <Badge variant="default">{branchResidents.length}</Badge>
+                <Badge variant="default">{branch.currentResidents}</Badge>
               </div>
               <p className="text-sm text-slate-600 mb-4">
                 Manage residents for this branch.
@@ -134,7 +169,7 @@ export const BranchDetails = () => {
                   <User className="h-5 w-5 text-brand-500" />
                   Staff
                 </h2>
-                <Badge variant="default">{branchStaff.length}</Badge>
+                <Badge variant="default">—</Badge>
               </div>
               <p className="text-sm text-slate-600 mb-4">
                 Manage staff for this branch.
@@ -187,32 +222,9 @@ export const BranchDetails = () => {
             </div>
             <div className="p-0">
               <div className="divide-y divide-slate-100">
-                {branchLogs.map((log) =>
-                <div
-                  key={log.id}
-                  className="p-4 hover:bg-slate-50 transition-colors">
-                  
-                    <p className="text-sm font-medium text-slate-900">
-                      {log.action}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {log.details}
-                    </p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-                        {log.user}
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {new Date(log.timestamp).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                {branchLogs.length === 0 &&
                 <div className="p-6 text-center text-slate-500 text-sm">
-                    No recent activity
-                  </div>
-                }
+                  Activity feed not wired yet.
+                </div>
               </div>
             </div>
           </Card>

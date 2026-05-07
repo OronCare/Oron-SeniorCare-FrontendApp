@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Filter,
@@ -7,29 +7,16 @@ import {
   Edit2
 } from
   'lucide-react';
-import { Card, Button, Input, Modal } from '../../components/UI';
+import { Card, Button, Input } from '../../components/UI';
 import { Link } from 'react-router-dom';
 import SmartTable from '../../shared/Table';
 import { Faciltescolumns } from '../../shared/TableColumns';
 import { Facility } from '../../types';
-import { facilityService, UpdateFacilityRequest } from '../../services/facilityService';
+import { facilityService } from '../../services/facilityService';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
-
-const emptyEditForm: UpdateFacilityRequest = {
-  name: '',
-  phone: '',
-  email: '',
-  type: 'Senior Living',
-  status: 'Active',
-  contractStart: '',
-  contractEnd: '',
-  adminFirstName: '',
-  adminLastName: '',
-  adminEmail: '',
-  adminPassword: '',
-};
+import { Pagination } from '../Pagination';
 
 export const FacilitiesList = () => {
   const toast = useToast();
@@ -38,10 +25,9 @@ export const FacilitiesList = () => {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedFacility, setSelectedFacility] = useState<Facility>();
-  const [editForm, setEditForm] = useState<UpdateFacilityRequest>(emptyEditForm);
-  const [isSaving, setIsSaving] = useState(false);
+  const [page, setPage] = useState(1);
+
+  const PAGE_SIZE = 5;
 
   // Fetch facilities on mount
   useEffect(() => {
@@ -66,81 +52,6 @@ export const FacilitiesList = () => {
 
   const safeFacilities = Array.isArray(facilities) ? facilities : [];
 
-  const formatDateForInput = (value: string) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    return date.toISOString().split('T')[0];
-  };
-
-  const handleOpenEditModal = (facility: Facility) => {
-    const [adminFirstName = '', adminLastName = ''] = (facility.facilityAdminName || '')
-      .trim()
-      .split(/\s+/, 2);
-
-    setSelectedFacility(facility);
-    setEditForm({
-      name: facility.name,
-      phone: facility.phone,
-      email: facility.email,
-      type: facility.type,
-      status: facility.status,
-      contractStart: formatDateForInput(facility.contractStart),
-      contractEnd: formatDateForInput(facility.contractEnd),
-      adminFirstName,
-      adminLastName,
-      adminEmail: '',
-      adminPassword: '',
-    });
-    setIsEditModalOpen(true);
-  };
-
-  const handleEditInputChange = (field: keyof UpdateFacilityRequest, value: string) => {
-    setEditForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleUpdateFacility = async () => {
-    if (!selectedFacility) {
-      return;
-    }
-
-    if (!editForm.adminEmail) {
-      const message = 'Facility admin email is required to update facility details.';
-      setError(message);
-      toast.error(message);
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      setError(null);
-      const payload: UpdateFacilityRequest = {
-        ...editForm,
-        adminPassword: editForm.adminPassword?.trim() || undefined,
-      };
-
-      const updatedFacility = await facilityService.updateFacility(selectedFacility.id, payload);
-      setFacilities((prev) =>
-        prev.map((facility) =>
-          facility.id === selectedFacility.id ? { ...facility, ...updatedFacility } : facility,
-        ),
-      );
-      setIsEditModalOpen(false);
-      setSelectedFacility(undefined);
-      setEditForm(emptyEditForm);
-      toast.success('Facility updated successfully.');
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to update facility');
-      setError(message);
-      toast.error(message);
-      console.error(err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const filteredFacilities = safeFacilities.filter((facility) => {
     const matchesSearch =
       facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -151,38 +62,49 @@ export const FacilitiesList = () => {
       statusFilter === 'All' || facility.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter, facilities.length]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredFacilities.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const pagedFacilities = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredFacilities.slice(start, start + PAGE_SIZE);
+  }, [filteredFacilities, safePage]);
+
+  const showingFrom =
+    filteredFacilities.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const showingTo = Math.min(safePage * PAGE_SIZE, filteredFacilities.length);
   const actions = [
       {
       render: (facility : Facility) => (
         <Link to={`/owner/facilities/${facility.id}`}>
-          <Button variant="ghost" size="sm" icon={Eye}>
-            View
-          </Button>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+            title="View facility"
+            aria-label="View facility"
+          >
+            <Eye className="h-4 w-4" />
+          </span>
         </Link>
       )
     },
     {
       render: (facility: Facility) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={Edit2}
-          onClick={() => handleOpenEditModal(facility)}
-        >
-          Edit
-        </Button>
+        <Link to={`/owner/facilities/${facility.id}/edit`}>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+            title="Edit facility"
+            aria-label="Edit facility"
+          >
+            <Edit2 className="h-4 w-4" />
+          </span>
+        </Link>
       )
     }
   ];
-  if (loading) {
-    return (
-        <TableSkeleton
-            rows={5}
-            columns={6}
-        />
-    );
-}
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -225,12 +147,15 @@ export const FacilitiesList = () => {
           </div>
         </div>
         <div className="w-full overflow-x-auto ">
+          {loading ? (
+            <TableSkeleton rows={5} columns={6} />
+          ) : null}
           {error && (
             <div className="p-4 bg-red-50 text-red-700 rounded-lg m-4">
               {error}
             </div>
           )}
-          {filteredFacilities.length === 0 ? (
+          {!loading && filteredFacilities.length === 0 ? (
             <div className="p-8 text-center">
               <div className="text-slate-400 mb-2">
                 <Search className="h-12 w-12 mx-auto" />
@@ -241,125 +166,30 @@ export const FacilitiesList = () => {
               </p>
             </div>
           ) : (
-            <SmartTable
-              data={filteredFacilities}
-              columns={Faciltescolumns}
-              actions={actions}
-            />
+            !loading && (
+              <SmartTable
+                data={pagedFacilities}
+                columns={Faciltescolumns}
+                actions={actions}
+              />
+            )
+            
           )}
-          <Modal
-            isOpen={isEditModalOpen}
-            onClose={() => {
-              setIsEditModalOpen(false);
-              setSelectedFacility(undefined);
-              setEditForm(emptyEditForm);
-            }}
-            title="Edit Facility Details">
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2">
-                Facility Information
-              </h3>
-              <Input
-                label="Facility Name"
-                value={editForm.name}
-                onChange={(e) => handleEditInputChange('name', e.target.value)}
-              />
-              <Input
-                label="Phone Number"
-                value={editForm.phone}
-                onChange={(e) => handleEditInputChange('phone', e.target.value)}
-              />
-              <Input
-                label="Email"
-                type='email'
-                value={editForm.email}
-                onChange={(e) => handleEditInputChange('email', e.target.value)}
-              />
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  Facility Type
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                  value={editForm.type}
-                  onChange={(e) => handleEditInputChange('type', e.target.value)}>
-                  <option>Senior Living</option>
-                  <option>Assisted Living</option>
-                  <option>Memory Care</option>
-                  <option>Multi-Specialty</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  Status
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                  value={editForm.status}
-                  onChange={(e) => handleEditInputChange('status', e.target.value)}>
-                  <option>Active</option>
-                  <option>Pending</option>
-                  <option>Suspended</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Contract Start Date"
-                  type="date"
-                  value={editForm.contractStart}
-                  onChange={(e) => handleEditInputChange('contractStart', e.target.value)}
-                />
-                <Input
-                  label="Contract End Date"
-                  type="date"
-                  value={editForm.contractEnd}
-                  onChange={(e) => handleEditInputChange('contractEnd', e.target.value)}
-                />
-              </div>
-
-              <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2 mt-6">
-                Facility Admin Account
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="First Name"
-                  value={editForm.adminFirstName}
-                  onChange={(e) => handleEditInputChange('adminFirstName', e.target.value)}
-                />
-                <Input
-                  label="Last Name"
-                  value={editForm.adminLastName}
-                  onChange={(e) => handleEditInputChange('adminLastName', e.target.value)}
-                />
-              </div>
-              <Input
-                label="Admin Email"
-                type="email"
-                value={editForm.adminEmail}
-                onChange={(e) => handleEditInputChange('adminEmail', e.target.value)}
-                placeholder="Enter facility admin email"
-              />
-              <Input
-                label="New Admin Password (optional)"
-                type="password"
-                value={editForm.adminPassword || ''}
-                onChange={(e) => handleEditInputChange('adminPassword', e.target.value)}
-                placeholder="Leave blank to keep current password"
-              />
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="w-full sm:w-auto"
-                  disabled={isSaving}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpdateFacility} className="w-full sm:w-auto" isLoading={isSaving}>
-                  Save Changes
-                </Button>
-              </div>
-            </div>
-          </Modal>
+          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
+          <p>
+            Showing <span className="font-medium text-slate-900">{showingFrom}</span> to{' '}
+            <span className="font-medium text-slate-900">{showingTo}</span>{' '}
+            of{' '}
+            <span className="font-medium text-slate-900">{filteredFacilities.length}</span>{' '}
+            results
+          </p>
+          <Pagination
+            page={safePage}
+            totalItems={filteredFacilities.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </div>
         </div>
       </Card>
     </div>);

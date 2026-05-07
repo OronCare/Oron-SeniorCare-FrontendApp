@@ -24,6 +24,7 @@ export interface Facility {
   status: 'Active' | 'Pending' | 'Suspended';
   contractStart: string;
   contractEnd: string;
+  contractDocumentUrl?: string;
   facilityAdminId: string;
   facilityAdminName: string;
   totalBranches: number;
@@ -86,6 +87,7 @@ export interface Resident {
   allergies?: string;
   primaryDiagnosis?: string;
   lastVitalsDate?: string;
+  photoUrl?: string;
 }
 
 // ─── Vitals ───
