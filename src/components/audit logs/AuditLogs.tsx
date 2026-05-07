@@ -6,12 +6,16 @@ import SmartTable from '../../shared/Table';
 import { Aditlogscolumns } from '../../shared/TableColumns';
 import { auditLogService } from '../../services/auditLogService';
 import { AuditLog as AuditLogType } from '../../types';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
+import TableSkeleton from '../skeletons/TableSkeleton';
 
 
 export const AuditLog = () => {
   const { user, isAuthenticated } = useAuth();
+  const toast = useToast();
   const [logs, setLogs] = useState<AuditLogType[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
@@ -25,8 +29,9 @@ export const AuditLog = () => {
         const data = await auditLogService.getAuditLogs();
         setLogs(data);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load audit logs';
+        const message = getApiErrorMessage(err, 'Failed to load audit logs');
         setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
@@ -67,6 +72,14 @@ export const AuditLog = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+  if (loading) {
+    return (
+        <TableSkeleton
+            rows={5}
+            columns={6}
+        />
+    );
+}
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -123,7 +136,7 @@ export const AuditLog = () => {
         )}
         {/*Table*/}
             <SmartTable
-            data={loading ? [] : filteredLogs}
+            data={filteredLogs}
             columns={Aditlogscolumns}
             />
             {loading && <div className="p-4 text-sm text-slate-500">Loading audit logs...</div>}

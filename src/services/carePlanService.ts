@@ -61,5 +61,69 @@ export const carePlanService = {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch care plans'));
     }
   },
+
+  async createCarePlan(data: {
+    residentId: string;
+    branchId: string;
+    generatedDate: string;
+    reviewDate: string;
+    version: string;
+    lastReviewDate: string;
+    nextReviewDate: string;
+    signed?: boolean;
+    medications: Array<{
+      name: string;
+      dosage: string;
+      schedule: string;
+      status: string;
+    }>;
+  }): Promise<CarePlan> {
+    try {
+      const response = await axios.post(`${API_BASE}/care-plans`, data, {
+        headers: getHeaders(),
+      });
+      return response.data as CarePlan;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to create care plan'));
+    }
+  },
+
+  async updateCarePlan(
+    id: string,
+    data: Partial<{
+      generatedDate: string;
+      reviewDate: string;
+      version: string;
+      lastReviewDate: string;
+      nextReviewDate: string;
+      signed: boolean;
+      medications: Array<{
+        name: string;
+        dosage: string;
+        schedule: string;
+        status: string;
+      }>;
+    }>,
+  ): Promise<CarePlan> {
+    try {
+      const response = await axios.put(`${API_BASE}/care-plans/${id}`, data, {
+        headers: getHeaders(),
+      });
+      return response.data as CarePlan;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to update care plan'));
+    }
+  },
+
+  async deleteCarePlan(id: string): Promise<boolean> {
+    try {
+      const response = await axios.delete(`${API_BASE}/care-plans/${id}`, {
+        headers: getHeaders(),
+      });
+      return (response.data as unknown) === true;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to delete care plan'));
+    }
+  },
 };
 

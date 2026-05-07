@@ -1,12 +1,21 @@
 import { CarePlan } from '../../types';
 import { Badge, Button } from '../UI';
+import { Edit2, Trash2 } from 'lucide-react';
 
 export const MetadataBanner = ({
   carePlan,
   canManage,
+  onEdit,
+  onDelete,
+  onAcknowledge,
+  isMutating,
 }: {
   carePlan: CarePlan;
   canManage: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onAcknowledge?: () => void;
+  isMutating?: boolean;
 }) => {
     if (!carePlan) return null;
     
@@ -31,7 +40,7 @@ export const MetadataBanner = ({
           </div>
           <div>
             <p className="text-xs text-slate-500 font-medium">Author</p>
-            <p className="text-sm text-slate-700">{carePlan.author || 'System'}</p>
+            <p className="text-sm text-slate-700">{carePlan.author}</p>
           </div>
         </div>
         <div className="mt-3 border-t border-slate-100 pt-3 flex justify-between items-center">
@@ -41,11 +50,43 @@ export const MetadataBanner = ({
               {carePlan.signed ? 'Signed' : 'Pending acknowledgment'}
             </Badge>
           </div>
-          {canManage && !carePlan.signed && (
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => alert('Acknowledge clicked')}>
-              Acknowledge & Sign
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {canManage && onEdit && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={onEdit}
+                disabled={isMutating}
+              >
+                <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                Edit
+              </Button>
+            )}
+            {canManage && onDelete && (
+              <Button
+                size="sm"
+                variant="danger"
+                className="h-7 text-xs"
+                onClick={onDelete}
+                disabled={isMutating}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Delete
+              </Button>
+            )}
+            {canManage && !carePlan.signed && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={onAcknowledge}
+                disabled={isMutating}
+              >
+                Acknowledge & Sign
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import axios, { AxiosError } from 'axios';
 import { Branch } from '../types';
 
@@ -79,6 +80,21 @@ export const branchService = {
       return [];
     } catch (error) {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch branches'));
+    }
+  },
+
+  async getBranchById(id: string): Promise<Branch> {
+    try {
+      const response = await axios.get(`${getApiBase()}/branches/${id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      });
+
+      return response.data as Branch;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to fetch branch'));
     }
   },
 

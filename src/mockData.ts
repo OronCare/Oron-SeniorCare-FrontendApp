@@ -1179,10 +1179,6 @@ export const mockClinicalAssessments = [
   {
     residentId: 'r1',
     conditions: ['Hypertension', 'Type 2 Diabetes'],
-    medications: [
-      { name: 'Lisinopril', dose: '10mg', schedule: 'Morning' },
-      { name: 'Metformin', dose: '500mg', schedule: 'Twice daily' },
-    ],
     allergies: ['Penicillin', 'Sulfa'],
     adlScores: {
       bathing: 'Moderate assist',
@@ -1198,10 +1194,6 @@ export const mockClinicalAssessments = [
   {
     residentId: 'r2',
     conditions: ['Alzheimer’s', 'Osteoarthritis'],
-    medications: [
-      { name: 'Donepezil', dose: '5mg', schedule: 'Evening' },
-      { name: 'Acetaminophen', dose: '500mg', schedule: 'As needed' },
-    ],
     allergies: ['None'],
     adlScores: {
       bathing: 'Total assist',
@@ -1243,7 +1235,6 @@ export const mockRiskProfiles = [
     mobilityTrend: 'Declining',
     nearFallEvents: 2,
     vitalsTrend: 'Stable',
-    dataSource: 'SeniorLife',          // system-generated
     narrativeInterpretation: 'Recent decline in mobility and two near‑falls increase fall risk. Recommend PT evaluation.',
   },
   {
@@ -1252,7 +1243,6 @@ export const mockRiskProfiles = [
     mobilityTrend: 'Consistently low',
     nearFallEvents: 0,
     vitalsTrend: 'N/A',
-    dataSource: 'Staff assessment',
     narrativeInterpretation: 'High fall risk due to cognitive decline and wheelchair dependency. Ensure bed alarms and hourly rounding.',
   },
   {
@@ -1261,7 +1251,6 @@ export const mockRiskProfiles = [
     mobilityTrend: 'Improving',
     nearFallEvents: 1,
     vitalsTrend: 'Stable',
-    dataSource: 'SeniorLife + Welltra',
     narrativeInterpretation: 'Moderate risk. Pain management and walker use need reinforcement.',
   },
 ];

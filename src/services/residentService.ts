@@ -104,4 +104,15 @@ export const residentService = {
       throw new Error(getApiErrorMessage(error, 'Failed to create resident'));
     }
   },
+
+  async getResidentById(id: string): Promise<Resident> {
+    try {
+      const response = await axios.get(`${API_BASE}/residents/${id}`, {
+        headers: getHeaders(),
+      });
+      return response.data as Resident;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to fetch resident details'));
+    }
+  },
 };

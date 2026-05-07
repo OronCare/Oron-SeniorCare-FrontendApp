@@ -1,26 +1,46 @@
-import { useState } from 'react';
-import { mockPreferences } from '../../mockData';
-import { mockResidents } from '../../mockData';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, Badge, Button } from '../UI';
-import { Heart, Edit2, Save } from 'lucide-react';  
-import { toast } from 'react-toastify';
+import { Heart, Edit2, Save, Trash2 } from 'lucide-react';
+import type { Preference } from '../../types';
+import { preferencesService } from '../../services/preferencesService';
 
-export const PersonCenteredPreferences = ({ residentId }: { residentId: string }) => {
-    if (!residentId) return null;
-    const resident = mockResidents.find(r => r.id === residentId);
-    if (!resident) return null;
+type Props = {
+  residentId: string;
+  canManage: boolean;
+  /** If false, component will render nothing (parent shows a button first). */
+  isVisible?: boolean;
+  /** When creating (no existing record), open in edit mode automatically. */
+  startEditing?: boolean;
+  onExistsChange?: (exists: boolean) => void;
+};
+
+const defaultDraft = {
+  sleepPattern: '',
+  mealPref: '',
+  communication: '',
+  socialPref: '',
+  familyEngagement: '',
+  isNA: false,
+};
+
+type NaField = 'sleepPattern' | 'mealPref' | 'communication' | 'socialPref' | 'familyEngagement';
+
+export const PersonCenteredPreferences = ({
+  residentId,
+  canManage,
+  isVisible = true,
+  startEditing = false,
+  onExistsChange,
+}: Props) => {
+  if (!residentId) return null;
+
   const [isEditing, setIsEditing] = useState(false);
-  const [prefs, setPrefs] = useState(() => {
-    const mock = mockPreferences.find(p => p.residentId === residentId);
-    return mock || {
-      sleepPattern: '',
-      mealPref: '',
-      communication: '',
-      socialPref: '',
-      familyEngagement: '',
-      isNA: false,
-    };
-  });
+  const [loading, setLoading] = useState(false);
+  const [mutating, setMutating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [preference, setPreference] = useState<Preference | null>(null);
+  const [prefs, setPrefs] = useState(defaultDraft);
 
   // Track N/A flags per field (if you want per‑field N/A – client spec suggests structured N/A option, but per field is more flexible)
   // We'll implement per‑field N/A toggles to match "each field can be N/A".
@@ -32,18 +52,123 @@ export const PersonCenteredPreferences = ({ residentId }: { residentId: string }
     familyEngagement: false,
   });
 
-  const handleSave = () => {
-    toast.success('Preferences saved (dummy)');
-    setIsEditing(false);
+  const exists = !!preference;
+
+  useEffect(() => {
+    onExistsChange?.(exists);
+  }, [exists, onExistsChange]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    if (!canManage) return;
+    if (!startEditing) return;
+    if (preference) return;
+    setIsEditing(true);
+  }, [canManage, isVisible, preference, startEditing]);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await preferencesService.getByResident(residentId);
+      const latest = rows[0] ?? null;
+      setPreference(latest);
+      if (latest) {
+        setPrefs({
+          sleepPattern: latest.sleepPattern ?? '',
+          mealPref: latest.mealPref ?? '',
+          communication: latest.communication ?? '',
+          socialPref: latest.socialPref ?? '',
+          familyEngagement: latest.familyEngagement ?? '',
+          isNA: latest.isNA ?? false,
+        });
+      } else {
+        setPrefs(defaultDraft);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load preferences');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateField = (field: string, value: any) => {
-    setPrefs(prev => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (!isVisible) return;
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [residentId, isVisible]);
+
+  const updateField = (field: string, value: string | boolean) => {
+    setPrefs((prev) => ({ ...prev, [field]: value }));
   };
 
-  const toggleNaFlag = (field: string) => {
-    setNaFlags(prev => ({ ...prev, [field]: !prev[field] }));
+  const toggleNaFlag = (field: NaField) => {
+    setNaFlags((prev) => ({ ...prev, [field]: !prev[field] }));
   };
+
+  const handleSave = async () => {
+    if (!canManage) return;
+    setMutating(true);
+    setError(null);
+    try {
+      if (!preference) {
+        const created = await preferencesService.create({
+          residentId,
+          sleepPattern: naFlags.sleepPattern ? '' : prefs.sleepPattern,
+          mealPref: naFlags.mealPref ? '' : prefs.mealPref,
+          communication: naFlags.communication ? '' : prefs.communication,
+          socialPref: naFlags.socialPref ? '' : prefs.socialPref,
+          familyEngagement: naFlags.familyEngagement ? '' : prefs.familyEngagement,
+          isNA: prefs.isNA,
+        });
+        setPreference(created);
+        setIsEditing(false);
+        return;
+      }
+
+      const updated = await preferencesService.update(preference.id, {
+        sleepPattern: naFlags.sleepPattern ? '' : prefs.sleepPattern,
+        mealPref: naFlags.mealPref ? '' : prefs.mealPref,
+        communication: naFlags.communication ? '' : prefs.communication,
+        socialPref: naFlags.socialPref ? '' : prefs.socialPref,
+        familyEngagement: naFlags.familyEngagement ? '' : prefs.familyEngagement,
+        isNA: prefs.isNA,
+      });
+      setPreference(updated);
+      setIsEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save preferences');
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!canManage || !preference) return;
+    if (!confirm('Delete these preferences?')) return;
+    setMutating(true);
+    setError(null);
+    try {
+      await preferencesService.remove(preference.id);
+      setPreference(null);
+      setPrefs(defaultDraft);
+      setIsEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete preferences');
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const canEdit = canManage && isVisible;
+  const showToolbar = isVisible && (canManage || preference);
+  const titleBadge = useMemo(() => {
+    if (loading) return 'Loading';
+    if (!preference) return 'Not created';
+    return 'Saved';
+  }, [loading, preference]);
+
+  if (!isVisible) return null;
 
   return (
     <Card>
@@ -52,19 +177,46 @@ export const PersonCenteredPreferences = ({ residentId }: { residentId: string }
           <Heart className="h-5 w-5 text-brand-500" />
           Person‑Centered Preferences
         </h2>
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          className="p-1 text-slate-400 hover:text-brand-600 transition-colors"
-        >
-          <Edit2 className="h-4 w-4" />
-        </button>
+        {showToolbar && (
+          <div className="flex items-center gap-2">
+            <Badge variant={preference ? 'success' : 'warning'} className="text-xs">
+              {titleBadge}
+            </Badge>
+            {canManage && preference && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="p-1 text-slate-400 hover:text-red-600 transition-colors disabled:opacity-50"
+                disabled={mutating}
+                title="Delete"
+                aria-label="Delete preferences"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => setIsEditing((v) => !v)}
+                className="p-1 text-slate-400 hover:text-brand-600 transition-colors disabled:opacity-50"
+                disabled={mutating}
+                title="Edit"
+                aria-label="Edit preferences"
+              >
+                <Edit2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
       {/* Sleep Pattern */}
       <div className="mb-4">
         <div className="flex justify-between items-center">
           <p className="text-xs text-slate-500 font-medium">Sleep Pattern</p>
-          {isEditing && (
+          {isEditing && canEdit && (
             <label className="flex items-center gap-1 text-xs text-slate-500">
               <input
                 type="checkbox"
@@ -75,7 +227,7 @@ export const PersonCenteredPreferences = ({ residentId }: { residentId: string }
             </label>
           )}
         </div>
-        {isEditing ? (
+        {isEditing && canEdit ? (
           <input
             type="text"
             className="w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
@@ -95,13 +247,13 @@ export const PersonCenteredPreferences = ({ residentId }: { residentId: string }
       <div className="mb-4">
         <div className="flex justify-between items-center">
           <p className="text-xs text-slate-500 font-medium">Meal Preferences</p>
-          {isEditing && (
+          {isEditing && canEdit && (
             <label className="flex items-center gap-1 text-xs text-slate-500">
               <input type="checkbox" checked={naFlags.mealPref} onChange={() => toggleNaFlag('mealPref')} /> N/A
             </label>
           )}
         </div>
-        {isEditing ? (
+        {isEditing && canEdit ? (
           <select
             className="w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
             value={naFlags.mealPref ? '' : prefs.mealPref}
@@ -126,13 +278,13 @@ export const PersonCenteredPreferences = ({ residentId }: { residentId: string }
       <div className="mb-4">
         <div className="flex justify-between items-center">
           <p className="text-xs text-slate-500 font-medium">Communication Needs</p>
-          {isEditing && (
+          {isEditing && canEdit && (
             <label className="flex items-center gap-1 text-xs text-slate-500">
               <input type="checkbox" checked={naFlags.communication} onChange={() => toggleNaFlag('communication')} /> N/A
             </label>
           )}
         </div>
-        {isEditing ? (
+        {isEditing && canEdit ? (
           <input
             type="text"
             className="w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
@@ -152,13 +304,13 @@ export const PersonCenteredPreferences = ({ residentId }: { residentId: string }
       <div className="mb-4">
         <div className="flex justify-between items-center">
           <p className="text-xs text-slate-500 font-medium">Social Preferences</p>
-          {isEditing && (
+          {isEditing && canEdit && (
             <label className="flex items-center gap-1 text-xs text-slate-500">
               <input type="checkbox" checked={naFlags.socialPref} onChange={() => toggleNaFlag('socialPref')} /> N/A
             </label>
           )}
         </div>
-        {isEditing ? (
+        {isEditing && canEdit ? (
           <input
             type="text"
             className="w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
@@ -178,13 +330,13 @@ export const PersonCenteredPreferences = ({ residentId }: { residentId: string }
       <div className="mb-4">
         <div className="flex justify-between items-center">
           <p className="text-xs text-slate-500 font-medium">Family Engagement Preferences</p>
-          {isEditing && (
+          {isEditing && canEdit && (
             <label className="flex items-center gap-1 text-xs text-slate-500">
               <input type="checkbox" checked={naFlags.familyEngagement} onChange={() => toggleNaFlag('familyEngagement')} /> N/A
             </label>
           )}
         </div>
-        {isEditing ? (
+        {isEditing && canEdit ? (
           <input
             type="text"
             className="w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
@@ -201,9 +353,9 @@ export const PersonCenteredPreferences = ({ residentId }: { residentId: string }
       </div>
 
       {/* Save Button (only when editing) */}
-      {isEditing && (
+      {isEditing && canEdit && (
         <div className="mt-6 flex justify-end">
-          <Button onClick={handleSave} icon={Save}>
+          <Button onClick={handleSave} icon={Save} isLoading={mutating}>
             Save Preferences
           </Button>
         </div>

@@ -151,13 +151,22 @@ const getAge = (dob) => {
 };
 
 // 3. Get Health State Color
-const getHealthStateColor = (healthState : string
-) => {
-  switch(healthState) {
-    case 'Good':
-      return 'bg-green-50 text-green-700 border-green-200';
+const getHealthStateColor = (healthState: string) => {
+  switch (healthState) {
     case 'Stable':
       return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'Slight Deviation':
+      return 'bg-amber-50 text-amber-800 border-amber-200';
+    case 'Concerning Trend':
+      return 'bg-orange-50 text-orange-800 border-orange-200';
+    case 'Early Deterioration':
+      return 'bg-rose-50 text-rose-800 border-rose-200';
+    case 'Active Deterioration':
+      return 'bg-red-50 text-red-800 border-red-200';
+    case 'Recovery':
+      return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+    case 'Good':
+      return 'bg-green-50 text-green-700 border-green-200';
     case 'Critical':
       return 'bg-red-50 text-red-700 border-red-200';
     case 'Recovering':

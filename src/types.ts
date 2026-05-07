@@ -106,6 +106,9 @@ export interface Vital {
   recordedBy?: string;
   recordedById?: string;
   thresholdEvaluation?: Record<string, unknown>;
+  /** Present when backend stored a clinical summary for this reading. */
+  clinicalHealthState?: ResidentHealthState | string;
+  recommendedAction?: string;
   notes?: string;
 }
 
@@ -196,9 +199,98 @@ export interface CarePlan {
   lastReviewDate?: string;   // ISO date
   nextReviewDate?: string;   // ISO date
   author?: string;           // e.g., "Dr. Sarah Johnson"
+  updatedBy?: string | null;
   signed?: boolean;          // default false
+  signedBy?: string | null;
+  signedAt?: string | null;
   medications: Medication[];
   actions?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ─── Clinical Assessment ───
+export interface ClinicalAssessment {
+  id: string;
+  residentId: string;
+  branchId: string;
+  facilityId: string;
+  conditions: string[];
+  allergies: string[];
+  adlScores: Record<string, string>;
+  mobility: string;
+  cognitive: string;
+  author: string;
+  updatedBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ─── Risk & Safety Profile ───
+export interface RiskProfile {
+  id: string;
+  residentId: string;
+  branchId: string;
+  facilityId: string;
+  fallRiskScore: number;
+  mobilityTrend: string;
+  nearFallEvents: number;
+  vitalsTrend: string;
+  narrativeInterpretation: string;
+  author: string;
+  updatedBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ─── Goals ───
+export interface Goal {
+  id: string;
+  residentId: string;
+  branchId: string;
+  facilityId: string;
+  description: string;
+  targetMetric: string;
+  timeframe: string;
+  responsibleRole: string;
+  status: string;
+  author: string;
+  updatedBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ─── Planned Interventions ───
+export interface Intervention {
+  id: string;
+  residentId: string;
+  branchId: string;
+  facilityId: string;
+  description: string;
+  responsibleStaffRole: string;
+  frequency: string;
+  triggerConditions: string;
+  effectivenessMetric: string;
+  author: string;
+  updatedBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ─── Person Centered Preferences ───
+export interface Preference {
+  id: string;
+  residentId: string;
+  branchId: string;
+  facilityId: string;
+  sleepPattern: string;
+  mealPref: string;
+  communication: string;
+  socialPref: string;
+  familyEngagement: string;
+  isNA: boolean;
+  author: string;
+  updatedBy?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -251,3 +343,49 @@ export function getFullName(entity: {
   join(' ');
 }
 
+// Note type definition matching your backend
+export interface Note {
+  id: string;
+  residentId: string;
+  author: string;
+  content: string;
+  timestamp: string; // ISO date string
+  type: 'Observation' | 'Clinical' | 'General';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Request types
+export interface CreateNoteRequest {
+  residentId: string;
+  author: string;
+  content: string;
+  type: 'Observation' | 'Clinical' | 'General';
+  timestamp?: string; // Optional, will use current time if not provided
+}
+
+export interface UpdateNoteRequest {
+  residentId?: string;
+  author?: string;
+  content?: string;
+  type?: 'Observation' | 'Clinical' | 'General';
+  timestamp?: string;
+}
+
+// Filter types
+export interface NoteFilters {
+  residentId?: string;
+  type?: string;
+  author?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+// Note type constants (optional, for easier usage)
+export const NoteTypes = {
+  OBSERVATION: 'Observation' as const,
+  CLINICAL: 'Clinical' as const,
+  GENERAL: 'General' as const,
+} as const;
+
+export type NoteType = typeof NoteTypes[keyof typeof NoteTypes];
