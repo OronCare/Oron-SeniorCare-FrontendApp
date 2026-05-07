@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
@@ -45,6 +45,7 @@ export const ResidentDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Get the active tab from location state (if coming from care plans)
   const [activeTab, setActiveTab] = useState(() => {
@@ -56,7 +57,7 @@ export const ResidentDetails = () => {
   });
 
   const [newNote, setNewNote] = useState('');
-  const [noteType, setNoteType] = useState('Observation');
+  const [noteType, setNoteType] = useState<'Observation' | 'Clinical' | 'General'>('Observation');
   const [isLoggingVitals, setIsLoggingVitals] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
@@ -67,6 +68,7 @@ export const ResidentDetails = () => {
   const [vitals, setVitals] = useState<Vital[]>([]);
   const [residentTasks, setResidentTasks] = useState<Task[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
+  const apiBase = ((import.meta as any).env?.VITE_API_URL ?? '') as string;
 
   const fullName = resident ? getFullName(resident) : '';
   const carePlan = resident ? mockCarePlans.find((cp) => cp.residentId === resident.id) : undefined;
@@ -90,6 +92,11 @@ export const ResidentDetails = () => {
         ]);
 
         setResident(residentData);
+        sessionStorage.setItem(
+          `breadcrumb:residents:${residentData.id}`,
+          getFullName(residentData),
+        );
+        window.dispatchEvent(new Event('oron:breadcrumb:update'));
         setVitals(
           [...vitalsData].sort(
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
@@ -282,7 +289,7 @@ export const ResidentDetails = () => {
         <div className="flex-1 flex flex-col md:flex-row items-center gap-4">
           <div className="h-14 w-14 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xl border-2 border-white shadow-sm overflow-hidden">
             <img
-              src={`https://i.pravatar.cc/150?u=${resident.id}`}
+              src={resident.photoUrl ? `${apiBase}${resident.photoUrl}` : `https://i.pravatar.cc/150?u=${resident.id}`}
               alt={fullName}
               className="h-full w-full object-cover"
               onError={(e) => {
@@ -305,11 +312,12 @@ export const ResidentDetails = () => {
 
                 {resident.status}
               </Badge>
-              <span
-                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getHealthStateColor(resident.healthState)}`}>
-
+              
+              <Badge
+              variant={resident.healthState === 'Stable' ? 'success' : resident.healthState === 'Slight Deviation' ? 'warning' : resident.healthState === 'Concerning Trend' ? 'danger' : resident.healthState === 'Early Deterioration' ? 'danger' : resident.healthState === 'Active Deterioration' ? 'danger' : resident.healthState === 'Recovery' ? 'success' : 'default'}
+              >
                 {resident.healthState}
-              </span>
+              </Badge>
             </div>
             <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
               {getAge(resident.dob)} years old • {resident.gender} • Room{' '}
@@ -321,7 +329,12 @@ export const ResidentDetails = () => {
           <Button
             variant="outline"
             icon={Edit2}
-            onClick={() => setIsEditProfileOpen(true)}>
+            onClick={() => {
+              if (!id) return;
+              if (user?.role === 'staff') return;
+              const basePath = user?.role === 'admin' ? '/admin' : '/facility-admin';
+              navigate(`${basePath}/residents/${id}/edit`);
+            }}>
 
             Edit Profile
           </Button>
@@ -1117,7 +1130,7 @@ export const ResidentDetails = () => {
                 </h2>
                 <div className="space-y-3">
                   <div className="flex gap-2 mb-2">
-                    {['Observation', 'Clinical', 'General'].map((type) =>
+                    {(['Observation', 'Clinical', 'General'] as const).map((type) =>
                       <button
                         key={type}
                         onClick={() => setNoteType(type)}

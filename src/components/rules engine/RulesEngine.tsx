@@ -13,6 +13,7 @@ import { rulesService } from '../../services/rulesService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
+import { RulesEnginesSkeleton } from '../skeletons/RulesSkeleton';
 export const RulesEngines = () => {
   const { user } = useAuth();
   const toast = useToast();
@@ -188,6 +189,10 @@ export const RulesEngines = () => {
       </div>);
 
   };
+
+  if(loading){
+    return <RulesEnginesSkeleton/>
+  }
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

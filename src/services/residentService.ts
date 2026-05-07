@@ -17,8 +17,12 @@ if (!API_BASE) {
   throw new Error('Missing VITE_API_URL. Set your backend API URL in frontend .env.');
 }
 
-const getHeaders = () => ({
+const getJsonHeaders = () => ({
   'Content-Type': 'application/json',
+  Authorization: `Bearer ${getAuthToken()}`,
+});
+
+const getAuthHeaders = () => ({
   Authorization: `Bearer ${getAuthToken()}`,
 });
 
@@ -72,7 +76,7 @@ export const residentService = {
   async getAllResidents(): Promise<Resident[]> {
     try {
       const response = await axios.get(`${API_BASE}/residents`, {
-        headers: getHeaders(),
+        headers: getJsonHeaders(),
       });
 
       const payload = response.data;
@@ -93,10 +97,34 @@ export const residentService = {
     }
   },
 
-  async createResident(data: CreateResidentRequest): Promise<Resident> {
+  async createResident(data: CreateResidentRequest, residentPhoto?: File): Promise<Resident> {
     try {
-      const response = await axios.post(`${API_BASE}/residents`, data, {
-        headers: getHeaders(),
+      const formData = new FormData();
+      formData.append('branchId', data.branchId);
+      formData.append('facilityId', data.facilityId);
+      formData.append('firstName', data.firstName);
+      if (data.middleName) formData.append('middleName', data.middleName);
+      formData.append('lastName', data.lastName);
+      formData.append('dob', data.dob);
+      formData.append('gender', data.gender);
+      formData.append('room', data.room);
+      formData.append('status', data.status);
+      formData.append('healthState', data.healthState);
+      formData.append('admissionDate', data.admissionDate);
+      formData.append('weight', String(data.weight));
+      formData.append('height', data.height);
+      formData.append('emergencyContacts', JSON.stringify(data.emergencyContacts));
+      formData.append('medicalHistory', data.medicalHistory);
+      formData.append('allergies', data.allergies);
+      formData.append('primaryDiagnosis', data.primaryDiagnosis);
+      formData.append('lastVitalsDate', data.lastVitalsDate);
+
+      if (residentPhoto) {
+        formData.append('residentPhoto', residentPhoto);
+      }
+
+      const response = await axios.post(`${API_BASE}/residents`, formData, {
+        headers: getAuthHeaders(),
       });
 
       return response.data as Resident;
@@ -108,11 +136,51 @@ export const residentService = {
   async getResidentById(id: string): Promise<Resident> {
     try {
       const response = await axios.get(`${API_BASE}/residents/${id}`, {
-        headers: getHeaders(),
+        headers: getJsonHeaders(),
       });
       return response.data as Resident;
     } catch (error) {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch resident details'));
+    }
+  },
+
+  async updateResident(
+    id: string,
+    data: CreateResidentRequest,
+    residentPhoto?: File,
+  ): Promise<Resident> {
+    try {
+      const formData = new FormData();
+      formData.append('branchId', data.branchId);
+      formData.append('facilityId', data.facilityId);
+      formData.append('firstName', data.firstName);
+      if (data.middleName) formData.append('middleName', data.middleName);
+      formData.append('lastName', data.lastName);
+      formData.append('dob', data.dob);
+      formData.append('gender', data.gender);
+      formData.append('room', data.room);
+      formData.append('status', data.status);
+      formData.append('healthState', data.healthState);
+      formData.append('admissionDate', data.admissionDate);
+      formData.append('weight', String(data.weight));
+      formData.append('height', data.height);
+      formData.append('emergencyContacts', JSON.stringify(data.emergencyContacts));
+      formData.append('medicalHistory', data.medicalHistory);
+      formData.append('allergies', data.allergies);
+      formData.append('primaryDiagnosis', data.primaryDiagnosis);
+      formData.append('lastVitalsDate', data.lastVitalsDate);
+
+      if (residentPhoto) {
+        formData.append('residentPhoto', residentPhoto);
+      }
+
+      const response = await axios.put(`${API_BASE}/residents/${id}`, formData, {
+        headers: getAuthHeaders(),
+      });
+
+      return response.data as Resident;
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to update resident'));
     }
   },
 };

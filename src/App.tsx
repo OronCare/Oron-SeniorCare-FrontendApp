@@ -3,6 +3,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { Login } from "./pages/Login";
 import { Notifications } from "./components/Notification/Notification";
 import { OwnerLayout } from "./pages/dashboard/OwnerLayout";
@@ -28,7 +29,9 @@ import Residents from "./components/residents/ResidentsList";
 import { AddRes } from "./components/residents/AddResident";
 import { RulesEngines } from "./components/rules engine/RulesEngine";
 import StaffPage from "./components/staff/StaffManagement";
+import { StaffDetails } from "./components/staff/StaffDetails";
 import { TaskManagements } from "./components/task/TaskPage";
+import { CreateTask } from "./components/task/CreateTask";
 import { VitalsEntry } from "./components/vital/EntryVital";
 
 
@@ -44,6 +47,7 @@ const AppRoutes = () => {
         <Route index element={<OwnerDashboard />} />
         <Route path="facilities" element={<FacilitiesList />} />
         <Route path="facilities/new" element={<FacilityOnboarding />} />
+        <Route path="facilities/:id/edit" element={<FacilityOnboarding />} />
         <Route path="facilities/:id" element={<FacilityDetails />} />
         <Route path="rules" element={<RulesEngines />} />
         <Route path="reports" element={<OwnerReport />} />
@@ -58,8 +62,10 @@ const AppRoutes = () => {
         <Route path="branches/:id" element={<BranchDetails />} />
         <Route path="residents" element={<Residents />} />
         <Route path="residents/new" element={<AddRes />} />
+        <Route path="residents/:id/edit" element={<AddRes />} />
         <Route path="residents/:id" element={<ResidentDetails />} />
         <Route path="staff" element={<StaffPage />} />
+        <Route path="staff/:id" element={<StaffDetails />} />
         <Route path="reports" element={<FacAdminReport />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>
@@ -69,11 +75,14 @@ const AppRoutes = () => {
         <Route index element={<AdminDashboard />} />
         <Route path="residents" element={<Residents  />} />
         <Route path="residents/new" element={<AddRes/>} />
+        <Route path="residents/:id/edit" element={<AddRes/>} />
         <Route path="residents/:id" element={<ResidentDetails />} />
         <Route path="vitals" element={<VitalsEntry />} />
         <Route path="care-plans" element={<CarePlan />} />
         <Route path="staff" element={<StaffPage />} />
+        <Route path="staff/:id" element={<StaffDetails />} />
         <Route path="tasks" element={<TaskManagements />} />
+        <Route path="tasks/new" element={<CreateTask />} />
         <Route path="reports" element={<AdminReport />} />
         <Route path="logs" element={<AuditLog />} />
         <Route path="notifications" element={<Notifications />} />
@@ -95,12 +104,14 @@ const AppRoutes = () => {
 
 export function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
-      </ToastProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <Router>
+            <AppRoutes />
+          </Router>
+        </ToastProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

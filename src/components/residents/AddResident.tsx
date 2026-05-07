@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Save,
@@ -65,17 +65,26 @@ export const AddRes = () => {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const { id: residentId } = useParams();
+  const isEditMode = Boolean(residentId);
   const [formData, setFormData] = useState(defaultResidentForm);
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([
     defaultContact,
   ]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [residentPhoto, setResidentPhoto] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const role = user?.role;
   const basePath = role === 'admin' ? '/admin' : '/facility-admin';
+
+  const pageTitle = useMemo(() => (isEditMode ? 'Edit Resident' : 'Add New Resident'), [isEditMode]);
+  const pageDescription = useMemo(
+    () => (isEditMode ? 'Update resident details and save changes.' : 'Enter resident details to create a new profile.'),
+    [isEditMode],
+  );
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -89,6 +98,57 @@ export const AddRes = () => {
 
     fetchBranches();
   }, []);
+
+  useEffect(() => {
+    if (!isEditMode || !residentId) return;
+
+    const fetchResident = async () => {
+      setError(null);
+      try {
+        const resident = await residentService.getResidentById(residentId);
+        setFormData({
+          branchId: resident.branchId,
+          facilityId: resident.facilityId,
+          firstName: resident.firstName ?? '',
+          middleName: resident.middleName ?? '',
+          lastName: resident.lastName ?? '',
+          dob: resident.dob ?? '',
+          gender: resident.gender ?? '',
+          room: resident.room ?? '',
+          status: resident.status ?? 'InPatient',
+          healthState: resident.healthState ?? 'Stable',
+          admissionDate: resident.admissionDate ?? new Date().toISOString().split('T')[0],
+          weight: resident.weight ?? 0,
+          height: resident.height ?? '',
+          medicalHistory: resident.medicalHistory ?? '',
+          allergies: resident.allergies ?? '',
+          primaryDiagnosis: resident.primaryDiagnosis ?? '',
+          lastVitalsDate: resident.lastVitalsDate ?? new Date().toISOString().split('T')[0],
+        });
+        setEmergencyContacts(
+          resident.emergencyContacts?.length ? resident.emergencyContacts : [defaultContact],
+        );
+
+        // Show existing photo if present (no file selected yet)
+        if (resident.photoUrl) {
+          const apiBase = (import.meta as any).env?.VITE_API_URL as string;
+          const img = document.getElementById('preview-image') as HTMLImageElement | null;
+          const icon = document.getElementById('placeholder-icon');
+          if (img && apiBase) {
+            img.src = `${apiBase}${resident.photoUrl}`;
+            img.classList.remove('hidden');
+            if (icon) icon.classList.add('hidden');
+          }
+        }
+      } catch (err) {
+        const message = getApiErrorMessage(err, 'Unable to load resident for editing');
+        setError(message);
+        toast.error(message);
+      }
+    };
+
+    void fetchResident();
+  }, [isEditMode, residentId]);
 
   const branchOptions = branches.filter(
     (branch) => !user?.facilityId || branch.facilityId === user.facilityId,
@@ -138,6 +198,20 @@ export const AddRes = () => {
     setSuccess(null);
     setIsSubmitting(true);
 
+    if (formData.dob) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dob = new Date(formData.dob);
+      dob.setHours(0, 0, 0, 0);
+      if (dob.getTime() > today.getTime()) {
+        const message = 'Date of birth cannot be in the future.';
+        setError(message);
+        toast.error(message);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const selectedBranch = branches.find((branch) => branch.id === formData.branchId);
     const payload: CreateResidentRequest = {
       ...formData,
@@ -146,12 +220,18 @@ export const AddRes = () => {
     };
 
     try {
-      await residentService.createResident(payload);
-      setSuccess('Resident created successfully.');
-      toast.success('Resident created successfully.');
+      if (isEditMode && residentId) {
+        await residentService.updateResident(residentId, payload, residentPhoto ?? undefined);
+        setSuccess('Resident updated successfully.');
+        toast.success('Resident updated successfully.');
+      } else {
+        await residentService.createResident(payload, residentPhoto ?? undefined);
+        setSuccess('Resident created successfully.');
+        toast.success('Resident created successfully.');
+      }
       navigate(`${basePath}/residents`);
     } catch (err) {
-      const message = getApiErrorMessage(err, 'Unable to create resident');
+      const message = getApiErrorMessage(err, isEditMode ? 'Unable to update resident' : 'Unable to create resident');
       setError(message);
       toast.error(message);
     } finally {
@@ -170,10 +250,10 @@ export const AddRes = () => {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
-              Add New Resident
+              {pageTitle}
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Enter resident details to create a new profile.
+              {pageDescription}
             </p>
           </div>
         </div>
@@ -182,7 +262,7 @@ export const AddRes = () => {
             Cancel
           </Button>
           <Button icon={Save} isLoading={isSubmitting} onClick={handleSubmit}>
-            Save Resident
+            {isEditMode ? 'Save Changes' : 'Save Resident'}
           </Button>
         </div>
       </div>
@@ -210,6 +290,7 @@ export const AddRes = () => {
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
+                    setResidentPhoto(file);
                     const reader = new FileReader();
                     reader.onload = (e) => {
                       const img = document.getElementById(
@@ -337,6 +418,7 @@ export const AddRes = () => {
                   label="Date of Birth"
                   type="date"
                   value={formData.dob}
+                  max={new Date().toISOString().split('T')[0]}
                   onChange={(e) => setField('dob', e.target.value)}
                 />
                 <div className="space-y-1">

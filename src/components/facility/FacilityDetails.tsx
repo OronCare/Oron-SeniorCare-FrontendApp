@@ -24,6 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage, getApiSuccessMessage } from '../../utils/apiMessage';
+import { ResidentDetailsSkeleton } from '../skeletons/DetailsSkeleton';
 
 const generateTemporaryPassword = () => {
   return `Oron@${Math.random().toString(36).slice(-8)}A1`;
@@ -191,7 +192,7 @@ export const FacilityDetails = () => {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-500">Loading facility details...</div>;
+    return <ResidentDetailsSkeleton/>
   }
 
   if (error) {

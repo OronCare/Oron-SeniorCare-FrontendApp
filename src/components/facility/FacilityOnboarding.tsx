@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Building2,
   FileText,
@@ -11,8 +11,8 @@ import {
   'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreateFacilityRequest } from '../../services/facilityService';
-import axios from 'axios';
+import { CreateFacilityRequest, facilityService, UpdateFacilityRequest } from '../../services/facilityService';
+import { usersService } from '../../services/usersService';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage, getApiSuccessMessage } from '../../utils/apiMessage';
 
@@ -23,6 +23,8 @@ const generateTemporaryPassword = () => {
 export const FacilityOnboarding = () => {
   const navigate = useNavigate();
   const toast = useToast();
+  const { id: facilityId } = useParams();
+  const isEditMode = Boolean(facilityId);
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +45,52 @@ export const FacilityOnboarding = () => {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 const [fileName, setFileName] = useState('');
+
+  const pageTitle = useMemo(
+    () => (isEditMode ? 'Edit Facility' : 'Onboard New Facility'),
+    [isEditMode],
+  );
+  const pageDescription = useMemo(
+    () =>
+      isEditMode
+        ? 'Update facility details and save changes.'
+        : 'Set up a new facility and generate admin credentials.',
+    [isEditMode],
+  );
+
+  useEffect(() => {
+    const load = async () => {
+      if (!isEditMode || !facilityId) return;
+      setError(null);
+      try {
+        const facility = await facilityService.getFacilityById(facilityId);
+        const adminUser = facility.facilityAdminId
+          ? await usersService.getUserById(facility.facilityAdminId)
+          : null;
+
+        setFormData({
+          name: facility.name ?? '',
+          phone: facility.phone ?? '',
+          email: facility.email ?? '',
+          type: facility.type ?? 'Senior Living',
+          status: facility.status ?? 'Active',
+          contractStart: facility.contractStart ? facility.contractStart.split('T')[0] : '',
+          contractEnd: facility.contractEnd ? facility.contractEnd.split('T')[0] : '',
+          adminFirstName: adminUser?.firstName ?? (facility.facilityAdminName?.split(' ')[0] ?? ''),
+          adminLastName: adminUser?.lastName ?? (facility.facilityAdminName?.split(' ').slice(1).join(' ') ?? ''),
+          adminEmail: adminUser?.email ?? '',
+          // Do not generate/change password on edit unless user explicitly enters one
+          adminPassword: '',
+        });
+      } catch (err) {
+        const message = getApiErrorMessage(err, 'Failed to load facility');
+        setError(message);
+        toast.error(message);
+      }
+    };
+
+    void load();
+  }, [facilityId, isEditMode]);
 
   const handleInputChange = (field: keyof CreateFacilityRequest, value: string) => {
     setFormData(prev => ({
@@ -83,24 +131,40 @@ const [fileName, setFileName] = useState('');
     try {
       setIsSubmitting(true);
       setError(null);
-      const apiBase = (import.meta as any).env?.VITE_API_URL as string;
-      const auth = localStorage.getItem('oron_auth');
-      const token = auth ? (JSON.parse(auth) as { token?: string }).token || '' : '';
-      const createdFacilityResponse = await axios.post(`${apiBase}/facilities`, formData, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token || ''}`,
-        },
-      });
-      void createdFacilityResponse; // response not used directly; navigation below
-      toast.success(getApiSuccessMessage(createdFacilityResponse.data, 'Facility created successfully.'));
+      if (isEditMode && facilityId) {
+        if (!formData.adminEmail) {
+          throw new Error('Facility admin email is required.');
+        }
+
+        const updatePayload: UpdateFacilityRequest = {
+          name: formData.name,
+          phone: formData.phone,
+          email: formData.email,
+          type: formData.type,
+          status: formData.status,
+          contractStart: formData.contractStart,
+          contractEnd: formData.contractEnd,
+          adminFirstName: formData.adminFirstName,
+          adminLastName: formData.adminLastName,
+          adminEmail: formData.adminEmail,
+          adminPassword: formData.adminPassword?.trim() || undefined,
+        };
+        await facilityService.updateFacility(facilityId, updatePayload);
+        toast.success('Facility updated successfully.');
+      } else {
+        const createdFacilityResponse = await facilityService.createFacility(
+          formData,
+          selectedFile ?? undefined,
+        );
+        toast.success(getApiSuccessMessage(createdFacilityResponse, 'Facility created successfully.'));
+      }
 
       setTimeout(() => {
         setIsSubmitting(false);
         navigate('/owner/facilities');
       }, 1500);
     } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to create facility');
+      const message = getApiErrorMessage(err, isEditMode ? 'Failed to update facility' : 'Failed to create facility');
       setError(message);
       toast.error(message);
       setIsSubmitting(false);
@@ -112,10 +176,10 @@ const [fileName, setFileName] = useState('');
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">
-          Onboard New Facility
+          {pageTitle}
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Set up a new facility and generate admin credentials.
+          {pageDescription}
         </p>
       </div>
 
