@@ -17,7 +17,8 @@ export const sidebarConfig = {
     { name: "Facilities", path: "/owner/facilities", icon: Building2 },
     { name: "Rules Engine", path: "/owner/rules", icon: Settings },
     { name: "Reports", path: "/owner/reports", icon: FileText },
-    { name: "Audit Logs", path: "/owner/audit-logs", icon: FileText }
+    { name: "Audit Logs", path: "/owner/audit-logs", icon: FileText },
+    { name: "Notifications", path: "/owner/notifications", icon: Bell }
   ],
 
   facility_admin: [

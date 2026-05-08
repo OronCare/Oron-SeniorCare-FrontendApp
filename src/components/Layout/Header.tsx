@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Menu, Bell, ChevronRight } from "lucide-react";
 import { alertsService } from "../../services/alertsService";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 import { Alert } from "../../types";
 
 type Props = {
@@ -13,9 +14,12 @@ const Header = ({ setIsMobileMenuOpen }: Props) => {
   const location = useLocation();
   const [, setBreadcrumbTick] = useState(0);
   const { user } = useAuth();
+  const toast = useToast();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const seenAlertIdsRef = useRef<Set<string>>(new Set());
+  const hasHydratedAlertsRef = useRef(false);
 
   const paths = useMemo(
     () => location.pathname.split("/").filter(Boolean),
@@ -54,6 +58,9 @@ const Header = ({ setIsMobileMenuOpen }: Props) => {
 
   useEffect(() => {
     let isMounted = true;
+    // Reset hydration when role changes (prevents cross-role toast noise)
+    hasHydratedAlertsRef.current = false;
+    seenAlertIdsRef.current = new Set();
 
     const loadAlerts = async () => {
       try {
@@ -67,6 +74,32 @@ const Header = ({ setIsMobileMenuOpen }: Props) => {
 
         filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setAlerts(filtered);
+
+        // On first load after a refresh, don't toast existing notifications.
+        // Just mark current unread as "seen" so future arrivals can toast.
+        if (!hasHydratedAlertsRef.current) {
+          filtered
+            .filter((a) => a.status === "Unread")
+            .forEach((a) => seenAlertIdsRef.current.add(a.id));
+          hasHydratedAlertsRef.current = true;
+          return;
+        }
+
+        // In-app notification toast for NEW unread alerts (tasks/vitals/etc.)
+        // Shows once per alert id per session.
+        const unseenUnread = filtered.filter(
+          (a) => a.status === "Unread" && !seenAlertIdsRef.current.has(a.id),
+        );
+        if (unseenUnread.length > 0) {
+          // Show newest only to avoid spam if multiple arrive together.
+          const newest = unseenUnread[0];
+          seenAlertIdsRef.current.add(newest.id);
+          const short =
+            newest.message.length > 120 ? `${newest.message.slice(0, 117)}...` : newest.message;
+          toast.info(`${newest.title} — ${short}`);
+          // Mark the rest as seen (without popping multiple toasts)
+          unseenUnread.slice(1).forEach((a) => seenAlertIdsRef.current.add(a.id));
+        }
       } catch {
         // ignore header notification fetch failures
       }
