@@ -26,14 +26,7 @@ function SmartTable<T extends { id: string | number }>({
   columns, 
   actions = [] 
 }: SmartTableProps<T>) {
-  if (data.length === 0) {
-    return (
-      <div className="p-6 text-center border rounded-lg">
-        <p className="text-lg font-medium text-slate-900">No Data Found</p>
-        <p className="text-sm mt-1 text-slate-500">Try adjusting your search or filters.</p>
-      </div>
-    );
-  }
+  
 
   return (
     <div className=" overflow-x-auto border rounded-lg">

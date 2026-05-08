@@ -1,8 +1,7 @@
-import React, { useState } from "react";
-import { Search, Filter, Plus, Upload, Network, Eye } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Search, Filter, Plus, Upload, Network, Eye, Edit2 } from "lucide-react";
 import { Card, Button, Input } from "../../components/UI";
-import { mockResidents, mockBranches } from "../../mockData";
-import { getFullName } from "../../types";
+import { getFullName, Resident, Branch } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import SmartTable from "../../shared/Table";
@@ -12,35 +11,89 @@ import {
     StaffResidenceactions,
 } from "../../shared/TableColumns";
 import { BulkUploadModal } from "../../components/BulkUploadModal";
+import { residentService } from "../../services/residentService";
+import axios from "axios";
+import { useToast } from "../../context/ToastContext";
+import { getApiErrorMessage } from "../../utils/apiMessage";
+import TableSkeleton from "../skeletons/TableSkeleton";
 
 const Residents = () => {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
+    const toast = useToast();
     const navigate = useNavigate();
 
     const role = user?.role;
 
+    const [residents, setResidents] = useState<Resident[]>([]);
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [branchFilter, setBranchFilter] = useState("All");
     const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
-    // 🔹 Role-based data logic
-    let residents = [];
+    useEffect(() => {
+        const apiBase = import.meta.env.VITE_API_URL;
+        if (!apiBase || !token) {
+            const message = 'Unable to load residents. Missing API configuration or authentication.';
+            setError(message);
+            toast.error(message);
+            setLoading(false);
+            return;
+        }
 
-    if (role === "facility_admin") {
-        const myBranches = mockBranches.filter(
-            (b) => b.facilityId === user?.facilityId
-        );
-        const branchIds = myBranches.map((b) => b.id);
+        const fetchResidents = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const payload = await residentService.getAllResidents();
+                setResidents(payload);
+            } catch (err) {
+                const message = getApiErrorMessage(err, 'Failed to load residents');
+                setError(message);
+                toast.error(message);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        residents = mockResidents.filter((r) =>
-            branchIds.includes(r.branchId)
-        );
-    } else {
-        residents = mockResidents.filter(
-            (r) => r.branchId === user?.branchId
-        );
-    }
+        const fetchBranches = async () => {
+            if (role !== "facility_admin") return;
+            try {
+                const response = await axios.get<Branch[]>(`${import.meta.env.VITE_API_URL}/branches`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                setBranches(response.data);
+            } catch (err) {
+                console.warn('Unable to fetch branch list for filters', err);
+            }
+        };
+
+        fetchResidents();
+        fetchBranches();
+    }, [role, token]);
+
+    const branchOptions = useMemo(() => {
+        if (branches.length > 0) {
+            return branches.filter((branch) => branch.facilityId === user?.facilityId);
+        }
+
+        return Array.from(new Set(residents.map((resident) => resident.branchId))).map((id) => ({
+            id,
+            facilityId: user?.facilityId || '',
+            name: id,
+            address: '',
+            phone: '',
+            type: '',
+            status: '',
+            residentLimit: 0,
+            currentResidents: 0,
+        } as Branch));
+    }, [branches, residents, user?.facilityId]);
+
     const isFacilityAdmin = role === "facility_admin";
     const isAdmin = role === "admin";
     const isStaff = role === "staff";
@@ -51,23 +104,44 @@ const Residents = () => {
     if (isFacilityAdmin) {
         finalActions = [
             {
-                render: (resident) => (
+                render: (resident: Resident) => (
                     <Link to={`/facility-admin/residents/${resident.id}`}>
-                        <Button variant="ghost" size="sm" icon={Eye}>
-                            View
-                        </Button>
+                        <span
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+                            title="View resident"
+                            aria-label="View resident"
+                        >
+                            <Eye className="h-4 w-4" />
+                        </span>
                     </Link>
                 )
+            },
+            {
+                render: (resident: Resident) => (
+                    <Link to={`/facility-admin/residents/${resident.id}/edit`}>
+                      <span
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+                        title="Edit resident"
+                        aria-label="Edit resident"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </span>
+                    </Link>
+                  )
             }
         ];
     } else if (isStaff) {
         finalActions = [
             {
-                render: (resident) => (
+                render: (resident: Resident) => (
                     <Link to={`/staff/residents/${resident.id}`}>
-                        <Button variant="ghost" size="sm" icon={Eye}>
-                            View
-                        </Button>
+                        <span
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+                            title="View resident"
+                            aria-label="View resident"
+                        >
+                            <Eye className="h-4 w-4" />
+                        </span>
                     </Link>
                 )
             }
@@ -92,6 +166,7 @@ const Residents = () => {
         return matchesSearch && matchesStatus && matchesBranch;
     });
 
+
     // 🔹 Role-based config
 
 
@@ -108,6 +183,19 @@ const Residents = () => {
             : role === "staff"
                 ? "View residents in your branch"
                 : "Manage resident profiles";
+
+    if (loading) {
+        return (
+            <TableSkeleton
+                title={title}
+                description={description}
+                showAddButton={isAdmin || isFacilityAdmin}
+                showFilters={!isStaff}
+                rows={5}
+                columns={6}
+            />
+        );
+    }
 
 
     return (
@@ -160,28 +248,28 @@ const Residents = () => {
                     <div className="flex gap-2 flex-wrap">
                         {/* Branch filter ONLY for facility admin */}
                         {isFacilityAdmin && (
-                            <div className="flex items-center gap-2 border px-3 py-2 rounded-lg bg-white">
+                            <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
                                 <Network className="h-4 w-4" />
                                 <select
+                                    className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                                     value={branchFilter}
                                     onChange={(e) => setBranchFilter(e.target.value)}
                                 >
                                     <option value="All">All Branches</option>
-                                    {mockBranches
-                                        .filter((b) => b.facilityId === user?.facilityId)
-                                        .map((b) => (
-                                            <option key={b.id} value={b.id}>
-                                                {b.name}
-                                            </option>
-                                        ))}
+                                    {branchOptions.map((branch) => (
+                                        <option key={branch.id} value={branch.id}>
+                                            {branch.name || branch.id}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         )}
 
                         {/* Status filter */}
-                        <div className="flex items-center gap-2 border px-3 py-2 rounded-lg bg-white">
+                        <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
                             <Filter className="h-4 w-4" />
                             <select
+                                className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
@@ -195,12 +283,31 @@ const Residents = () => {
                 </div>
 
                 {/* TABLE */}
+
                 <SmartTable
                     data={filteredResidents}
                     columns={Reidencecolumns}
                     actions={finalActions}
                 />
+                <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
+                    <p>
+                        Showing <span className="font-medium text-slate-900">1</span> to{' '}
+                        <span className="font-medium text-slate-900">{filteredResidents.length}</span>{' '}
+                        of{' '}
+                        <span className="font-medium text-slate-900">{filteredResidents.length}</span>{' '}
+                        results
+                    </p>
+                    <div className="flex gap-1">
+                        <Button variant="outline" size="sm" disabled>
+                            Previous
+                        </Button>
+                        <Button variant="outline" size="sm" disabled>
+                            Next
+                        </Button>
+                    </div>
+                </div>
             </Card>
+
 
             {/* BULK UPLOAD (only admin + facility admin) */}
             {!isStaff && (
@@ -214,7 +321,6 @@ const Residents = () => {
                 />
             )}
         </div>
-    );
+  );
 };
-
 export default Residents;

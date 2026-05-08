@@ -1,30 +1,77 @@
-import React, { useState, createElement } from 'react';
-import { FileText, Search, Filter, Download, Calendar } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Search, Filter, Download, Calendar } from 'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
-import { mockAuditLogs } from '../../mockData';
 import { useAuth } from '../../context/AuthContext';
 import SmartTable from '../../shared/Table';
 import { Aditlogscolumns } from '../../shared/TableColumns';
+import { auditLogService } from '../../services/auditLogService';
+import { AuditLog as AuditLogType } from '../../types';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
+import TableSkeleton from '../skeletons/TableSkeleton';
+import { Pagination } from '../Pagination';
 
 
 export const AuditLog = () => {
-  const { user } = useAuth();
-  const branchId = user?.branchId;
+  const { user, isAuthenticated } = useAuth();
+  const toast = useToast();
+  const [logs, setLogs] = useState<AuditLogType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
-  // Filter logs by branch
-  const branchLogs = mockAuditLogs.filter((log) => log.branchId === branchId);
+  const [page, setPage] = useState(1);
+
+  const PAGE_SIZE = 5;
+
+  useEffect(() => {
+    const fetchAuditLogs = async () => {
+      if (!isAuthenticated || !user) return;
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await auditLogService.getAuditLogs();
+        setLogs(data);
+      } catch (err) {
+        const message = getApiErrorMessage(err, 'Failed to load audit logs');
+        setError(message);
+        toast.error(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchAuditLogs();
+  }, [isAuthenticated, user]);
+
   const uniqueActions = [
   'All',
-  ...Array.from(new Set(branchLogs.map((log) => log.action)))];
+  ...Array.from(new Set(logs.map((log) => log.action)))];
 
-  const filteredLogs = branchLogs.filter((log) => {
+  const filteredLogs = logs.filter((log) => {
     const matchesSearch =
     log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
     log.details.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesAction = actionFilter === 'All' || log.action === actionFilter;
     return matchesSearch && matchesAction;
   });
+
+  // Reset to first page on filter/search changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, actionFilter, logs.length]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const pagedLogs = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredLogs.slice(start, start + PAGE_SIZE);
+  }, [filteredLogs, safePage]);
+
+  const showingFrom = filteredLogs.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const showingTo = Math.min(safePage * PAGE_SIZE, filteredLogs.length);
+
+
   const handleExportCSV = () => {
     const headers = ['Timestamp', 'User', 'Action', 'Details'];
     const csvContent = [
@@ -46,6 +93,14 @@ export const AuditLog = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+  if (loading) {
+    return (
+        <TableSkeleton
+            rows={5}
+            columns={6}
+        />
+    );
+}
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -95,11 +150,31 @@ export const AuditLog = () => {
             </div>
           </div>
         </div>
+        {error && (
+          <div className="p-4 bg-red-50 text-red-700 rounded-lg m-4">
+            {error}
+          </div>
+        )}
         {/*Table*/}
-            <SmartTable 
-            data={mockAuditLogs}
+            <SmartTable
+            data={pagedLogs}
             columns={Aditlogscolumns}
             />
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
+          <p>
+            Showing <span className="font-medium text-slate-900">{showingFrom}</span> to{' '}
+            <span className="font-medium text-slate-900">{showingTo}</span>{' '}
+            of{' '}
+            <span className="font-medium text-slate-900">{filteredLogs.length}</span>{' '}
+            results
+          </p>
+          <Pagination
+            page={safePage}
+            totalItems={filteredLogs.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </div>
       </Card>
     </div>);
 

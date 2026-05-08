@@ -1,59 +1,104 @@
 // pages/Staff/StaffPage.tsx
 
-import React, { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Plus,
-  Network,
   Edit2,
+  Eye,
   Shield,
-  Mail,
   Lock,
+  Filter,
 } from "lucide-react";
 
 import { Card, Button, Input, Modal } from "../../components/UI";
-import { mockStaffMembers, mockBranches } from "../../mockData";
 import { getFullName, StaffMember } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import SmartTable from "../../shared/Table";
 import { StaffColumns, StaffColumnsForFacilityAdmin } from "../../shared/TableColumns";
+import { staffService } from "../../services/staffService";
+import { branchService } from "../../services/branchService";
+import { Branch } from "../../types";
+import axios from "axios";
+import { useToast } from "../../context/ToastContext";
+import { getApiErrorMessage } from "../../utils/apiMessage";
+import TableSkeleton from "../skeletons/TableSkeleton";
+import { Link } from "react-router-dom";
 
 const StaffPage = () => {
   const { user } = useAuth();
-
- 
+  const toast = useToast();
 
   const isFacilityAdmin = user?.role === "facility_admin";
   const isAdmin = user?.role === "admin";
 
-  
-
-  // ✅ Data filtering based on role
-  let staffData: StaffMember[] = [];
-  let branches = [];
-
-  if (isFacilityAdmin) {
-    const facilityId = user?.facilityId;
-    branches = mockBranches.filter((b) => b.facilityId === facilityId);
-    const branchIds = branches.map((b) => b.id);
-
-    staffData = mockStaffMembers.filter((s) =>
-      branchIds.includes(s.branchId)
-    );
-  }
-
-  if (isAdmin) {
-    const branchId = user?.branchId;
-    staffData = mockStaffMembers.filter((s) => s.branchId === branchId);
-  }
-
   // ---------------- STATE ----------------
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [branchFilter, setBranchFilter] = useState("All");
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] =
     useState<StaffMember | null>(null);
+  const permissionOptions = [
+    "View Residents",
+    "Edit Vitals",
+    "Manage Care Plans",
+    "View Reports",
+    "Manage Tasks",
+  ];
+
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    role: "Caregiver" as StaffMember["role"],
+    status: "Active" as StaffMember["status"],
+    permissions: [] as string[],
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [staffPayload, branchPayload] = await Promise.all([
+          staffService.getAllStaff(),
+          isFacilityAdmin ? branchService.getAllBranches() : Promise.resolve([]),
+        ]);
+
+        setStaffList(staffPayload);
+        if (isFacilityAdmin) {
+          const facilityBranches = branchPayload.filter(
+            (branch) => branch.facilityId === user?.facilityId
+          );
+          setBranches(facilityBranches);
+        }
+      } catch (err) {
+        const message = getApiErrorMessage(err, "Failed to load staff data");
+        setError(message);
+        toast.error(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isFacilityAdmin, user?.facilityId]);
+
+  const staffData = useMemo(() => {
+    if (isFacilityAdmin) {
+      const branchIds = branches.map((b) => b.id);
+      return staffList.filter((s) => branchIds.includes(s.branchId));
+    }
+    if (isAdmin) {
+      return staffList.filter((s) => s.branchId === user?.branchId);
+    }
+    return staffList;
+  }, [branches, isAdmin, isFacilityAdmin, staffList, user?.branchId]);
 
   // ---------------- FILTER ----------------
   const filteredStaff = staffData.filter((staff) => {
@@ -75,37 +120,75 @@ const StaffPage = () => {
   const actions = [
     {
       render: (staff: StaffMember) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={Edit2}
-          onClick={() => {
-            setSelectedStaff(staff);
-            setIsEditModalOpen(true);
-          }}
-        >
-          Edit
-        </Button>
+        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}`}>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+            title="View staff"
+            aria-label="View staff"
+          >
+            <Eye className="h-4 w-4" />
+          </span>
+        </Link>
+      ),
+    },
+    {
+      render: (staff: StaffMember) => (
+        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}/edit`}>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+            title="Edit staff"
+            aria-label="Edit staff"
+          >
+            <Edit2 className="h-4 w-4" />
+          </span>
+        </Link>
       ),
     },
   ];
 
-  
-  if (isAdmin) {
-    // Don't need branches for admin
-    staffData = mockStaffMembers.filter((s) => s.branchId === user?.branchId);
-  }
+  const staffColumnsConfig = isFacilityAdmin
+    ? StaffColumnsForFacilityAdmin(branches)
+    : StaffColumns;
 
-  const staffColumnsConfig = isFacilityAdmin 
-  ? StaffColumnsForFacilityAdmin(branches)  // ← Call the function with branches
-  : StaffColumns;
-
-  console.log(branches)
-
-  const handleAddStaff = () => {
-    setIsAddModalOpen(false);
-    // Mock action
+  const handleSaveEdit = async () => {
+    if (!selectedStaff) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await staffService.updateStaff(selectedStaff.id, {
+        firstName: editForm.firstName.trim(),
+        middleName: editForm.middleName.trim() || undefined,
+        lastName: editForm.lastName.trim(),
+        role: editForm.role,
+        status: editForm.status,
+        permissions: editForm.permissions,
+      });
+      setStaffList((prev) =>
+        prev.map((staff) => (staff.id === selectedStaff.id ? updated : staff))
+      );
+      setIsEditModalOpen(false);
+      setSelectedStaff(null);
+      toast.success("Staff member updated successfully.");
+    } catch (err) {
+      const message =
+        axios.isAxiosError(err) && err.response?.status === 404
+          ? "Staff update API is not available yet on backend. Add PUT /staff/:id (or PATCH /staff/:id) to enable edit."
+          : getApiErrorMessage(err, "Failed to update staff member");
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <TableSkeleton
+        rows={5}
+        columns={6}
+      />
+    );
+  }
   // ---------------- UI ----------------
   return (
     <div className="space-y-6">
@@ -122,26 +205,35 @@ const StaffPage = () => {
           </p>
         </div>
 
-        <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>
-          Add Staff Member
-        </Button>
+        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/new`}>
+          <Button icon={Plus}>Add Staff Member</Button>
+        </Link>
       </div>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* TABLE */}
       <Card noPadding>
         <div className="p-5 flex flex-col sm:flex-row gap-4 justify-between">
+          <div className="w-full sm:w-72">
           <Input
             placeholder="Search..."
             icon={Search}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+          </div>
 
           {/* ✅ Branch filter ONLY for facility admin */}
           {isFacilityAdmin && (
-            <div className="flex items-center gap-2">
-              <Network className="h-4 w-4" />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
+                <Filter className="h-4 w-4" />
               <select
+                className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                 value={branchFilter}
                 onChange={(e) => setBranchFilter(e.target.value)}
               >
@@ -149,123 +241,57 @@ const StaffPage = () => {
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
-                  </option>
-                ))}
-              </select>
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
         </div>
 
         <SmartTable
-          data={filteredStaff}
+          data={loading ? [] : filteredStaff}
           columns={staffColumnsConfig}
           actions={actions}
         />
       </Card>
-
-      {/* ADD MODAL */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title="Add Staff Member">
-        
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input label="First Name" placeholder="Jane" />
-            <Input label="Middle Name (Optional)" placeholder="A." />
-            <Input label="Last Name" placeholder="Doe" />
-          </div>
-
-          <Input
-            label="Email Address"
-            type="email"
-            placeholder="jane@facility.com" />
-          
-
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">
-              Role
-            </label>
-            <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
-              <option>Caregiver</option>
-              <option>Nurse</option>
-              <option>Coordinator</option>
-            </select>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100">
-            <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-brand-500" /> Permissions
-            </label>
-            <div className="space-y-2">
-              {[
-              'View Residents',
-              'Edit Vitals',
-              'Manage Care Plans',
-              'View Reports',
-              'Manage Tasks'].
-              map((perm, idx) =>
-              <label
-                key={idx}
-                className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
-                
-                  <input
-                  type="checkbox"
-                  className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
-                  defaultChecked={idx < 2} />
-                
-                  <span className="text-sm text-slate-700">{perm}</span>
-                </label>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm flex items-start gap-2">
-            <Mail className="h-4 w-4 mt-0.5 shrink-0" />
-            <p>
-              An invitation email will be sent to this address to set up their
-              password.
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
-            <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddStaff}>Create Account</Button>
-          </div>
-        </div>
-      </Modal>
-
-
       {/* EDIT MODAL */}
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title="Edit Staff Member">
-        
+
         {selectedStaff &&
-        <div className="space-y-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Input
-              label="First Name"
-              defaultValue={selectedStaff.firstName} />
-            
-              <Input label="Last Name" defaultValue={selectedStaff.lastName} />
+                label="First Name"
+                value={editForm.firstName}
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, firstName: e.target.value }))
+                } />
+
+              <Input
+                label="Last Name"
+                value={editForm.lastName}
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, lastName: e.target.value }))
+                }
+              />
             </div>
 
             <div className="relative">
               <Input
-              label="Email Address"
-              type="email"
-              defaultValue={selectedStaff.email}
-              disabled
-              className="bg-slate-100 text-slate-500 cursor-not-allowed pr-10" />
-            
+                label="Email Address"
+                type="email"
+                value={selectedStaff.email}
+                disabled
+                className="bg-slate-100 text-slate-500 cursor-not-allowed pr-10" />
+
               <div
-              className="absolute right-3 top-[34px] text-slate-400"
-              title="Email cannot be changed">
-              
+                className="absolute right-3 top-[34px] text-slate-400"
+                title="Email cannot be changed">
+
                 <Lock className="h-4 w-4" />
               </div>
             </div>
@@ -275,12 +301,37 @@ const StaffPage = () => {
                 Role
               </label>
               <select
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-              defaultValue={selectedStaff.role}>
-              
-                <option>Caregiver</option>
-                <option>Nurse</option>
-                <option>Coordinator</option>
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                value={editForm.role}
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    role: e.target.value as StaffMember["role"],
+                  }))
+                }>
+
+                <option value="Caregiver">Caregiver</option>
+                <option value="Nurse">Nurse</option>
+                <option value="Coordinator">Coordinator</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">
+                Status
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                value={editForm.status}
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    status: e.target.value as StaffMember["status"],
+                  }))
+                }
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
               </select>
             </div>
 
@@ -289,37 +340,39 @@ const StaffPage = () => {
                 <Shield className="h-4 w-4 text-brand-500" /> Permissions
               </label>
               <div className="space-y-2">
-                {[
-              'View Residents',
-              'Edit Vitals',
-              'Manage Care Plans',
-              'View Reports',
-              'Manage Tasks'].
-              map((perm, idx) =>
-              <label
-                key={idx}
-                className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
-                
+                {permissionOptions.map((perm) =>
+                  <label
+                    key={perm}
+                    className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
+
                     <input
-                  type="checkbox"
-                  className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
-                  defaultChecked={selectedStaff.permissions.includes(perm)} />
-                
+                      type="checkbox"
+                      className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
+                      checked={editForm.permissions.includes(perm)}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          permissions: e.target.checked
+                            ? [...prev.permissions, perm]
+                            : prev.permissions.filter((p) => p !== perm),
+                        }))
+                      } />
+
                     <span className="text-sm text-slate-700">{perm}</span>
                   </label>
-              )}
+                )}
               </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
               <Button
-              variant="outline"
-              onClick={() => setIsEditModalOpen(false)}>
-              
+                variant="outline"
+                onClick={() => setIsEditModalOpen(false)}>
+
                 Cancel
               </Button>
-              <Button onClick={() => setIsEditModalOpen(false)}>
-                Save Changes
+              <Button onClick={handleSaveEdit}>
+                {submitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </div>

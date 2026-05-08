@@ -1,33 +1,78 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Settings,
   Activity,
-  ShieldAlert,
   Edit2,
   Save,
   Info } from
 'lucide-react';
-import { Card, Badge, Button } from '../../components/UI';
-import { mockRules } from '../../mockData';
+import { Card, Button } from '../../components/UI';
 import { Rule, RuleThreshold } from '../../types';
 import { motion } from 'framer-motion';
+import { rulesService } from '../../services/rulesService';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
+import { RulesEnginesSkeleton } from '../skeletons/RulesSkeleton';
 export const RulesEngines = () => {
-  const [rules, setRules] = useState<Rule[]>(mockRules);
+  const { user } = useAuth();
+  const toast = useToast();
+  const isOwner = user?.role === 'owner';
+  const [rules, setRules] = useState<Rule[]>([]);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [editThresholds, setEditThresholds] = useState<RuleThreshold | null>(
     null
   );
-  const toggleRule = (id: string) => {
-    setRules(
-      rules.map((r) =>
-      r.id === id ?
-      {
-        ...r,
-        isActive: !r.isActive
-      } :
-      r
-      )
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savingRuleId, setSavingRuleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRules = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await rulesService.getAllRules();
+        setRules(data);
+      } catch (err) {
+        const message = getApiErrorMessage(err, 'Failed to load rules');
+        setError(message);
+        toast.error(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRules();
+  }, []);
+  const toggleRule = async (id: string) => {
+    const currentRule = rules.find((rule) => rule.id === id);
+    if (!currentRule) return;
+
+    const nextState = !currentRule.isActive;
+    setSavingRuleId(id);
+    setError(null);
+
+    setRules((prevRules) =>
+      prevRules.map((r) => (r.id === id ? { ...r, isActive: nextState } : r)),
     );
+
+    try {
+      const updated = await rulesService.updateRule(id, { isActive: nextState });
+      setRules((prevRules) =>
+        prevRules.map((r) => (r.id === id ? updated : r)),
+      );
+      toast.success(`Rule ${nextState ? 'enabled' : 'disabled'} successfully.`);
+    } catch (err) {
+      setRules((prevRules) =>
+        prevRules.map((r) => (r.id === id ? { ...r, isActive: currentRule.isActive } : r)),
+      );
+      const message = getApiErrorMessage(err, 'Failed to update rule status');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSavingRuleId(null);
+    }
   };
   const startEditing = (rule: Rule) => {
     setEditingRuleId(rule.id);
@@ -35,21 +80,30 @@ export const RulesEngines = () => {
       ...rule.thresholds
     });
   };
-  const saveEditing = (id: string) => {
-    if (editThresholds) {
-      setRules(
-        rules.map((r) =>
-        r.id === id ?
-        {
-          ...r,
-          thresholds: editThresholds
-        } :
-        r
-        )
-      );
+  const saveEditing = async (id: string) => {
+    if (!editThresholds) {
+      setEditingRuleId(null);
+      setEditThresholds(null);
+      return;
     }
-    setEditingRuleId(null);
-    setEditThresholds(null);
+
+    setSavingRuleId(id);
+    setError(null);
+    try {
+      const updated = await rulesService.updateRule(id, { thresholds: editThresholds });
+      setRules((prevRules) =>
+        prevRules.map((r) => (r.id === id ? updated : r)),
+      );
+      setEditingRuleId(null);
+      setEditThresholds(null);
+      toast.success('Rule thresholds updated successfully.');
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to save rule thresholds');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSavingRuleId(null);
+    }
   };
   const handleThresholdChange = (field: keyof RuleThreshold, value: number) => {
     if (editThresholds) {
@@ -135,6 +189,10 @@ export const RulesEngines = () => {
       </div>);
 
   };
+
+  if(loading){
+    return <RulesEnginesSkeleton/>
+  }
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -174,8 +232,24 @@ export const RulesEngines = () => {
           </div>
         </div>
       </Card>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      {!isOwner && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Only platform owner can edit rules. You currently have view-only access.
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {loading && (
+        <Card>
+          <p className="text-sm text-slate-500">Loading rules...</p>
+        </Card>
+      )}
+
+      {!loading && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {rules.map((rule, idx) =>
         <motion.div
           key={rule.id}
@@ -207,6 +281,7 @@ export const RulesEngines = () => {
                 </div>
                 <button
                 onClick={() => toggleRule(rule.id)}
+                disabled={savingRuleId === rule.id || !isOwner}
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${rule.isActive ? 'bg-brand-500' : 'bg-slate-200'}`}>
                 
                   <span
@@ -226,7 +301,7 @@ export const RulesEngines = () => {
                   variant="ghost"
                   size="sm"
                   icon={Edit2}
-                  disabled={!rule.isActive}
+                  disabled={!rule.isActive || savingRuleId === rule.id || !isOwner}
                   onClick={() => startEditing(rule)}>
                   
                       Edit Thresholds
@@ -322,6 +397,7 @@ export const RulesEngines = () => {
                     <Button
                   size="sm"
                   icon={Save}
+                  disabled={savingRuleId === rule.id}
                   onClick={() => saveEditing(rule.id)}>
                   
                       Save Changes
@@ -332,7 +408,7 @@ export const RulesEngines = () => {
             </Card>
           </motion.div>
         )}
-      </div>
+      </div>}
     </div>);
 
 };

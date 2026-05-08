@@ -1,65 +1,110 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-  Building2,
   Search,
   Filter,
   Plus,
-  MoreVertical,
-  FileText,
-  Network,
-  Users,
   Eye,
   Edit2
 } from
   'lucide-react';
-import { Card, Button, Badge, Input, Modal } from '../../components/UI';
-import { mockFacilities } from '../../mockData';
+import { Card, Button, Input } from '../../components/UI';
 import { Link } from 'react-router-dom';
 import SmartTable from '../../shared/Table';
-import { FacilitesActions, Faciltescolumns } from '../../shared/TableColumns';
+import { Faciltescolumns } from '../../shared/TableColumns';
 import { Facility } from '../../types';
-export const FacilitiesLists = () => {
+import { facilityService } from '../../services/facilityService';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
+import TableSkeleton from '../skeletons/TableSkeleton';
+import { Pagination } from '../Pagination';
+
+export const FacilitiesList = () => {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const filteredFacilities = mockFacilities.filter((facility) => {
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  const PAGE_SIZE = 5;
+
+  // Fetch facilities on mount
+  useEffect(() => {
+    fetchFacilities();
+  }, []);
+
+  const fetchFacilities = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await facilityService.getAllFacilities();
+      setFacilities(Array.isArray(data) ? data : []);
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to fetch facilities');
+      setError(message);
+      toast.error(message);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const safeFacilities = Array.isArray(facilities) ? facilities : [];
+
+  const filteredFacilities = safeFacilities.filter((facility) => {
     const matchesSearch =
       facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      facility.facilityAdminName.
+      (facility.facilityAdminName || '').
         toLowerCase().
         includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === 'All' || facility.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const  [selectFaciltes , setSelectFacilties] = useState<Facility>()
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter, facilities.length]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredFacilities.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const pagedFacilities = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredFacilities.slice(start, start + PAGE_SIZE);
+  }, [filteredFacilities, safePage]);
+
+  const showingFrom =
+    filteredFacilities.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const showingTo = Math.min(safePage * PAGE_SIZE, filteredFacilities.length);
   const actions = [
       {
       render: (facility : Facility) => (
         <Link to={`/owner/facilities/${facility.id}`}>
-          <Button variant="ghost" size="sm" icon={Eye}>
-            View
-          </Button>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+            title="View facility"
+            aria-label="View facility"
+          >
+            <Eye className="h-4 w-4" />
+          </span>
         </Link>
       )
     },
     {
-      render: (selectFaciltes) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={Edit2}
-          onClick={() => {
-            setSelectFacilties(selectFaciltes);
-            setIsEditModalOpen(true);
-          }}
-        >
-          Edit
-        </Button>
+      render: (facility: Facility) => (
+        <Link to={`/owner/facilities/${facility.id}/edit`}>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+            title="Edit facility"
+            aria-label="Edit facility"
+          >
+            <Edit2 className="h-4 w-4" />
+          </span>
+        </Link>
       )
     }
   ];
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -102,68 +147,49 @@ export const FacilitiesLists = () => {
           </div>
         </div>
         <div className="w-full overflow-x-auto ">
-
-          {/* Table */}
-          <SmartTable
-            data={filteredFacilities}
-            columns={Faciltescolumns}
-            actions={actions}
+          {loading ? (
+            <TableSkeleton rows={5} columns={6} />
+          ) : null}
+          {error && (
+            <div className="p-4 bg-red-50 text-red-700 rounded-lg m-4">
+              {error}
+            </div>
+          )}
+          {!loading && filteredFacilities.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="text-slate-400 mb-2">
+                <Search className="h-12 w-12 mx-auto" />
+              </div>
+              <p className="text-lg font-medium text-slate-900">No facilities found</p>
+              <p className="text-sm mt-1 text-slate-500">
+                Try adjusting your search or filters
+              </p>
+            </div>
+          ) : (
+            !loading && (
+              <SmartTable
+                data={pagedFacilities}
+                columns={Faciltescolumns}
+                actions={actions}
+              />
+            )
+            
+          )}
+          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
+          <p>
+            Showing <span className="font-medium text-slate-900">{showingFrom}</span> to{' '}
+            <span className="font-medium text-slate-900">{showingTo}</span>{' '}
+            of{' '}
+            <span className="font-medium text-slate-900">{filteredFacilities.length}</span>{' '}
+            results
+          </p>
+          <Pagination
+            page={safePage}
+            totalItems={filteredFacilities.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
           />
-          <Modal
-            isOpen={isEditModalOpen}
-            onClose={() => setIsEditModalOpen(false)}
-            title="Edit Facility Details">
-            <div className="space-y-4">
-              <Input label="Facility Name" defaultValue={selectFaciltes?.name} />
-              <Input label="Phone Number" type='number' defaultValue={selectFaciltes?.phone} />
-              <Input label="Email" type='email' defaultValue={selectFaciltes?.email} />
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700">
-                  Facility Type
-                </label>
-                <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                  defaultValue={selectFaciltes?.type}>
-                  <option>Senior Living</option>
-                  <option>Assisted Living</option>
-                  <option>Memory Care</option>
-                  <option>Multi-Specialty</option>
-                </select>
-              </div>
-              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
-                <Button variant="outline" onClick={() => setIsEditModalOpen(false)} className="w-full sm:w-auto">
-                  Cancel
-                </Button>
-                <Button onClick={() => setIsEditModalOpen(false)} className="w-full sm:w-auto">
-                  Save Changes
-                </Button>
-              </div>
-            </div>
-          </Modal>
-
-
-          {/* Pagination (Mock) */}
-          <div className="p-4  border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
-            <p>
-              Showing <span className="font-medium text-slate-900">1</span> to{' '}
-              <span className="font-medium text-slate-900">
-                {filteredFacilities.length}
-              </span>{' '}
-              of{' '}
-              <span className="font-medium text-slate-900">
-                {filteredFacilities.length}
-              </span>{' '}
-              results
-            </p>
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" disabled>
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                Next
-              </Button>
-            </div>
-          </div>
+        </div>
         </div>
       </Card>
     </div>);
