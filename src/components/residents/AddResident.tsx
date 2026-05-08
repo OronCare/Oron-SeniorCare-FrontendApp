@@ -154,6 +154,7 @@ export const AddRes = () => {
   );
 
   const currentBranch = branches.find((branch) => branch.id === user?.branchId);
+  const branchDisplayName = currentBranch?.name || 'Assigned branch';
 
   useEffect(() => {
     const branchId = user?.branchId;
@@ -339,7 +340,7 @@ export const AddRes = () => {
                 {role === 'admin' ? (
                   <input
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-100 text-slate-700 cursor-not-allowed"
-                    value={currentBranch?.name || formData.branchId || 'Assigned branch'}
+                    value={branchDisplayName}
                     disabled
                   />
                 ) : (
