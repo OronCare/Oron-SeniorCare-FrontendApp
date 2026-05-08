@@ -428,11 +428,6 @@ export const ResidentDetails = () => {
       icon: Pill
     },
     {
-      id: 'tasks',
-      label: 'Tasks',
-      icon: CheckCircle2
-    },
-    {
       id: 'notes',
       label: 'Notes',
       icon: MessageSquare
@@ -1373,9 +1368,6 @@ export const ResidentDetails = () => {
                   <h2 className="text-lg font-semibold text-slate-900">
                     Current Medications
                   </h2>
-                  <Button size="sm" icon={Plus}>
-                    Add Medication
-                  </Button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
@@ -1436,94 +1428,6 @@ export const ResidentDetails = () => {
             </motion.div>
           }
 
-          {activeTab === 'tasks' &&
-            <motion.div
-              key="tasks"
-              initial={{
-                opacity: 0,
-                y: 10
-              }}
-              animate={{
-                opacity: 1,
-                y: 0
-              }}
-              exit={{
-                opacity: 0,
-                y: -10
-              }}>
-
-              <Card noPadding>
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Resident Tasks
-                  </h2>
-                  <Button
-                    size="sm"
-                    icon={Plus}
-                    onClick={() => setIsCreateTaskOpen(true)}>
-
-                    Create Task
-                  </Button>
-                </div>
-                <div className="p-5 space-y-4">
-                  {residentTasks.map((task) => {
-                    return (
-                      <div
-                        key={task.id}
-                        className="p-4 rounded-lg border border-slate-200 bg-white hover:shadow-sm transition-shadow">
-
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium text-slate-900">
-                              {task.title}
-                            </h3>
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${getTaskCategoryColor(task.category)}`}>
-
-                              {task.category}
-                            </span>
-                          </div>
-                          <Badge
-                            variant={
-                              task.status === 'Todo' ?
-                                'default' :
-                                task.status === 'In Progress' ?
-                                  'info' :
-                                  'success'
-                            }>
-
-                            {task.status}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-500 mb-3">
-                          {task.description}
-                        </p>
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <div className="flex items-center gap-1.5">
-                            <User className="h-3.5 w-3.5" />
-                            <span>
-                              {task.assignedTo || 'Unassigned'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5" />
-                            <span>
-                              Due: {new Date(task.dueDate).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>);
-
-                  })}
-                  {residentTasks.length === 0 &&
-                    <div className="text-center py-8 text-slate-500 text-sm">
-                      No tasks assigned for this resident.
-                    </div>
-                  }
-                </div>
-              </Card>
-            </motion.div>
-          }
 
           {activeTab === 'notes' &&
             <motion.div
