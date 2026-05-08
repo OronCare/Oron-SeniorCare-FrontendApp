@@ -7,7 +7,6 @@ import {
   Mail,
   FileText,
   Download,
-  Trash2,
   ShieldAlert,
   ArrowLeft,
   Activity,
@@ -50,6 +49,7 @@ export const FacilityDetails = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
+  const [isRefreshingContractUrl, setIsRefreshingContractUrl] = useState(false);
   const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddBranchModalOpen, setIsAddBranchModalOpen] = useState(false);
@@ -188,6 +188,25 @@ export const FacilityDetails = () => {
       console.error(err);
     } finally {
       setIsCreatingBranch(false);
+    }
+  };
+
+  const handleDownloadContract = async () => {
+    if (!id) return;
+    try {
+      setIsRefreshingContractUrl(true);
+      // Always refetch facility before download so we get a fresh signed URL.
+      const freshFacility = await facilityService.getFacilityById(id);
+      setFacility(freshFacility);
+      if (freshFacility.contractDocumentUrl) {
+        window.open(freshFacility.contractDocumentUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        toast.error('No contract document available.');
+      }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to refresh contract download link'));
+    } finally {
+      setIsRefreshingContractUrl(false);
     }
   };
 
@@ -422,29 +441,44 @@ export const FacilityDetails = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="px-3 sm:px-5 py-3 sm:py-4">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-brand-500 shrink-0" />
-                        <span className="font-medium text-slate-900 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
-                          Master_Service_Agreement_2025.pdf
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 text-slate-500 text-xs sm:text-sm hidden sm:table-cell">
-                      Jan 1, 2025
-                    </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
-                      <div className="flex items-center justify-end gap-1 sm:gap-2">
-                        <Button variant="ghost" size="sm" icon={Download} className="text-xs sm:text-sm">
-                          Download
-                        </Button>
-                        <button className="p-1 sm:p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors">
-                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  {facility.contractDocumentUrl ? (
+                    <tr className="hover:bg-slate-50/50">
+                      <td className="px-3 sm:px-5 py-3 sm:py-4">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-brand-500 shrink-0" />
+                          <span className="font-medium text-slate-900 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
+                            Contract Document
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-slate-500 text-xs sm:text-sm hidden sm:table-cell">
+                        {facility.contractStart
+                          ? new Date(facility.contractStart).toLocaleDateString()
+                          : '—'}
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
+                        <div className="flex items-center justify-end gap-1 sm:gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={Download}
+                            isLoading={isRefreshingContractUrl}
+                            onClick={handleDownloadContract}
+                            className="text-xs sm:text-sm">
+                            Download
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="px-3 sm:px-5 py-6 text-center text-slate-500 text-xs sm:text-sm">
+                        No contract document uploaded.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

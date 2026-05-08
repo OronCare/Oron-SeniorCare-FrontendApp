@@ -208,8 +208,22 @@ export const Reidencecolumns = [
       const initials = `${resident?.firstName?.[0] || ""}${resident?.lastName?.[0] || ""}`.toUpperCase() || "—";
       return (
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-semibold shrink-0">
-            {initials}
+          <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-semibold shrink-0 overflow-hidden">
+            {resident.photoUrl ? (
+              <img
+                src={resident.photoUrl}
+                alt={fullName}
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  // Signed URL may expire; fall back to initials (list view keeps it simple).
+                  e.currentTarget.style.display = 'none';
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) parent.textContent = initials;
+                }}
+              />
+            ) : (
+              initials
+            )}
           </div>
           <div>
             <p className="font-semibold text-slate-900">{fullName}</p>

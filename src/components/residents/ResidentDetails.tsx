@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { useEffect, useState } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -64,6 +65,7 @@ export const ResidentDetails = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const hasRetriedPhotoRef = useRef(false);
 
   // Get the active tab from location state (if coming from care plans)
   const [activeTab, setActiveTab] = useState(() => {
@@ -86,7 +88,6 @@ export const ResidentDetails = () => {
   const [vitals, setVitals] = useState<Vital[]>([]);
   const [residentTasks, setResidentTasks] = useState<Task[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
-  const apiBase = ((import.meta as any).env?.VITE_API_URL ?? '') as string;
 
   const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
   const [carePlanLoading, setCarePlanLoading] = useState(false);
@@ -442,25 +443,6 @@ export const ResidentDetails = () => {
   // Rest of your component remains exactly the same...
   // (All the helper functions and JSX remain unchanged)
 
-  const getHealthStateColor = (state: string) => {
-    switch (state) {
-      case 'Stable':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case 'Slight Deviation':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Concerning Trend':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'Early Deterioration':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'Active Deterioration':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'Recovery':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
   const getTaskCategoryColor = (category: string) => {
     switch (category) {
       case 'Medication':
@@ -516,12 +498,31 @@ export const ResidentDetails = () => {
         <div className="flex-1 flex flex-col md:flex-row items-center gap-4">
           <div className="h-14 w-14 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xl border-2 border-white shadow-sm overflow-hidden">
             <img
-              src={resident.photoUrl ? `${apiBase}${resident.photoUrl}` : `https://i.pravatar.cc/150?u=${resident.id}`}
+              src={resident.photoUrl ? resident.photoUrl : `https://i.pravatar.cc/150?u=${resident.id}`}
               alt={fullName}
               className="h-full w-full object-cover"
               onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement!.innerText = `${resident.firstName[0]}${resident.lastName[0]}`;
+                // Signed URLs can expire. Retry once by refetching the resident (backend returns a fresh signed URL).
+                if (!id || !resident.photoUrl || hasRetriedPhotoRef.current) {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement!.innerText = `${resident.firstName[0]}${resident.lastName[0]}`;
+                  return;
+                }
+
+                hasRetriedPhotoRef.current = true;
+                residentService
+                  .getResidentById(id)
+                  .then((fresh) => {
+                    setResident(fresh);
+                    if (fresh.photoUrl) {
+                      e.currentTarget.style.display = '';
+                      e.currentTarget.src = fresh.photoUrl;
+                    }
+                  })
+                  .catch(() => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerText = `${resident.firstName[0]}${resident.lastName[0]}`;
+                  });
               }} />
 
           </div>
