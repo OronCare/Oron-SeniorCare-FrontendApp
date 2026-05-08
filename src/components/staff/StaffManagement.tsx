@@ -4,11 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Plus,
-  Network,
   Edit2,
   Eye,
   Shield,
-  Mail,
   Lock,
   Filter,
 } from "lucide-react";
@@ -42,7 +40,6 @@ const StaffPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [branchFilter, setBranchFilter] = useState("All");
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] =
     useState<StaffMember | null>(null);
@@ -53,16 +50,6 @@ const StaffPage = () => {
     "View Reports",
     "Manage Tasks",
   ];
-
-  const [addForm, setAddForm] = useState({
-    firstName: "",
-    middleName: "",
-    lastName: "",
-    email: "",
-    role: "Caregiver" as StaffMember["role"],
-    branchId: "",
-    permissions: permissionOptions.slice(0, 2),
-  });
 
   const [editForm, setEditForm] = useState({
     firstName: "",
@@ -89,11 +76,6 @@ const StaffPage = () => {
             (branch) => branch.facilityId === user?.facilityId
           );
           setBranches(facilityBranches);
-          setAddForm((prev) =>
-            !prev.branchId && facilityBranches[0]?.id
-              ? { ...prev, branchId: facilityBranches[0].id }
-              : prev
-          );
         }
       } catch (err) {
         const message = getApiErrorMessage(err, "Failed to load staff data");
@@ -168,71 +150,6 @@ const StaffPage = () => {
     ? StaffColumnsForFacilityAdmin(branches)
     : StaffColumns;
 
-  const handleAddStaff = async () => {
-    if (!user?.facilityId) return;
-    if (!addForm.firstName || !addForm.lastName || !addForm.email) {
-      const message = "Please fill first name, last name, and email.";
-      setError(message);
-      toast.error(message);
-      return;
-    }
-
-    const targetBranchId = isAdmin ? user.branchId || "" : addForm.branchId;
-    if (!targetBranchId) {
-      const message = "Please select a branch.";
-      setError(message);
-      toast.error(message);
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      const created = await staffService.createStaff({
-        branchId: targetBranchId,
-        facilityId: user.facilityId,
-        firstName: addForm.firstName.trim(),
-        middleName: addForm.middleName.trim() || undefined,
-        lastName: addForm.lastName.trim(),
-        email: addForm.email.trim(),
-        role: addForm.role,
-        status: "Active",
-        permissions: addForm.permissions,
-      });
-      setStaffList((prev) => [created, ...prev]);
-      setIsAddModalOpen(false);
-      setAddForm((prev) => ({
-        ...prev,
-        firstName: "",
-        middleName: "",
-        lastName: "",
-        email: "",
-        role: "Caregiver",
-        permissions: permissionOptions.slice(0, 2),
-      }));
-      toast.success("Staff member created successfully.");
-    } catch (err) {
-      const message = getApiErrorMessage(err, "Failed to create staff member");
-      setError(message);
-      toast.error(message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleOpenEdit = (staff: StaffMember) => {
-    setSelectedStaff(staff);
-    setEditForm({
-      firstName: staff.firstName,
-      middleName: staff.middleName || "",
-      lastName: staff.lastName,
-      role: staff.role,
-      status: staff.status,
-      permissions: staff.permissions || [],
-    });
-    setIsEditModalOpen(true);
-  };
-
   const handleSaveEdit = async () => {
     if (!selectedStaff) return;
     setSubmitting(true);
@@ -288,9 +205,9 @@ const StaffPage = () => {
           </p>
         </div>
 
-        <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>
-          Add Staff Member
-        </Button>
+        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/new`}>
+          <Button icon={Plus}>Add Staff Member</Button>
+        </Link>
       </div>
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -338,139 +255,6 @@ const StaffPage = () => {
           actions={actions}
         />
       </Card>
-
-      {/* ADD MODAL */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title="Add Staff Member">
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input
-              label="First Name"
-              placeholder="Jane"
-              value={addForm.firstName}
-              onChange={(e) =>
-                setAddForm((prev) => ({ ...prev, firstName: e.target.value }))
-              }
-            />
-            <Input
-              label="Middle Name (Optional)"
-              placeholder="A."
-              value={addForm.middleName}
-              onChange={(e) =>
-                setAddForm((prev) => ({ ...prev, middleName: e.target.value }))
-              }
-            />
-            <Input
-              label="Last Name"
-              placeholder="Doe"
-              value={addForm.lastName}
-              onChange={(e) =>
-                setAddForm((prev) => ({ ...prev, lastName: e.target.value }))
-              }
-            />
-          </div>
-
-          <Input
-            label="Email Address"
-            type="email"
-            placeholder="jane@facility.com"
-            value={addForm.email}
-            onChange={(e) =>
-              setAddForm((prev) => ({ ...prev, email: e.target.value }))
-            }
-          />
-          {isFacilityAdmin && (
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700">Branch</label>
-              <select
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                value={addForm.branchId}
-                onChange={(e) =>
-                  setAddForm((prev) => ({ ...prev, branchId: e.target.value }))
-                }
-              >
-                <option value="">Select Branch</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">
-              Role
-            </label>
-            <select
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-              value={addForm.role}
-              onChange={(e) =>
-                setAddForm((prev) => ({
-                  ...prev,
-                  role: e.target.value as StaffMember["role"],
-                }))
-              }
-            >
-              <option value="Caregiver">Caregiver</option>
-              <option value="Nurse">Nurse</option>
-              <option value="Coordinator">Coordinator</option>
-            </select>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100">
-            <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-brand-500" /> Permissions
-            </label>
-            <div className="space-y-2">
-              {permissionOptions.map((perm) =>
-                <label
-                  key={perm}
-                  className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
-
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500"
-                    checked={addForm.permissions.includes(perm)}
-                    onChange={(e) =>
-                      setAddForm((prev) => ({
-                        ...prev,
-                        permissions: e.target.checked
-                          ? [...prev.permissions, perm]
-                          : prev.permissions.filter((p) => p !== perm),
-                      }))
-                    } />
-
-                  <span className="text-sm text-slate-700">{perm}</span>
-                </label>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm flex items-start gap-2">
-            <Mail className="h-4 w-4 mt-0.5 shrink-0" />
-            <p>
-              An invitation email will be sent to this address to set up their
-              password.
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
-            <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddStaff}>
-              {submitting ? "Creating..." : "Create Account"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-
       {/* EDIT MODAL */}
       <Modal
         isOpen={isEditModalOpen}

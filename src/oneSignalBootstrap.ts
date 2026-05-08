@@ -1,4 +1,6 @@
 const APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID;
+const DISABLE_BROWSER_NOTIFICATIONS =
+  String(import.meta.env.VITE_DISABLE_BROWSER_NOTIFICATIONS || '').toLowerCase() === 'true';
 
 declare global {
   interface Window {
@@ -12,7 +14,7 @@ type OneSignalInstance = {
   logout: () => Promise<void>;
 };
 
-if (APP_ID) {
+if (APP_ID && !DISABLE_BROWSER_NOTIFICATIONS) {
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   const script = document.createElement('script');
   script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
@@ -28,7 +30,7 @@ if (APP_ID) {
 }
 
 export function syncOneSignalUser(userId: string | null): void {
-  if (!APP_ID) {
+  if (!APP_ID || DISABLE_BROWSER_NOTIFICATIONS) {
     return;
   }
   window.OneSignalDeferred = window.OneSignalDeferred || [];
