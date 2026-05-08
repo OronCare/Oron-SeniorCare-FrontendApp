@@ -93,9 +93,13 @@ export const dashboardFacilitesActions = [
   {
     render: (facility: Facility) => (
       <Link to={`/owner/facilities/${facility.id}`}>
-        <Button variant="ghost" size="sm" icon={Eye}>
-          View
-        </Button>
+       <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+            title="View resident"
+            aria-label="View resident"
+          >
+            <Eye className="h-4 w-4" />
+          </span>
       </Link>
     )
   },
