@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { Facility } from '../types';
 
 export interface CreateFacilityRequest {
@@ -56,20 +56,36 @@ const getApiBase = () => {
   return API_BASE;
 };
 
-const getApiErrorMessage = (error: unknown, fallback: string) => {
-  if (error instanceof AxiosError) {
-    const payload = error.response?.data;
-    if (typeof payload === 'string') {
-      if (payload.includes('<!doctype') || payload.includes('<html')) {
-        return 'Facility API returned HTML instead of JSON. Check VITE_API_URL points to backend.';
-      }
-      return payload || fallback;
-    }
-    if (payload && typeof payload === 'object') {
-      const message = (payload as { message?: unknown }).message;
-      if (typeof message === 'string') return message;
-    }
+const asText = (value: unknown): string | null => {
+  if (typeof value === 'string') return value.trim() || null;
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean);
+    return parts.length ? parts.join(', ') : null;
   }
+  return null;
+};
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  if (!axios.isAxiosError(error)) return fallback;
+
+  const payload = error.response?.data;
+
+  if (typeof payload === 'string') {
+    if (payload.toLowerCase().includes('<!doctype') || payload.toLowerCase().includes('<html')) {
+      return 'Facility API returned HTML instead of JSON. Check VITE_API_URL points to backend.';
+    }
+    return payload.trim() || fallback;
+  }
+
+  if (payload && typeof payload === 'object') {
+    const message = (payload as { message?: unknown; error?: unknown }).message;
+    const text = asText(message) || asText((payload as { error?: unknown }).error);
+    if (text) return text;
+  }
+
+  if (error.message) return error.message;
   return fallback;
 };
 
