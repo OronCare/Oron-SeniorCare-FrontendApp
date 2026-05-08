@@ -282,11 +282,27 @@ export const Reidencecolumns = [
 export const Residenceactions = [
   {
     render: (resident) => (
-      <Link to={`/admin/residents/${resident.id}`}>
-        <Button variant="ghost" size="sm" icon={Eye}>
-          View
-        </Button>
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link to={`/admin/residents/${resident.id}`}>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+            title="View resident"
+            aria-label="View resident"
+          >
+            <Eye className="h-4 w-4" />
+          </span>
+        </Link>
+
+        <Link to={`/admin/residents/${resident.id}/edit`}>
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+            title="Edit resident"
+            aria-label="Edit resident"
+          >
+            <Edit2 className="h-4 w-4" />
+          </span>
+        </Link>
+      </div>
     )
   }
 ];
@@ -697,9 +713,13 @@ export const BranchesCompactActions = [
   {
     render: (branch) => (
       <Link to={`/facility-admin/branches/${branch.id}`}>
-        <Button variant="ghost" size="sm">
-          View
-        </Button>
+        <span
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+          title="View branch"
+          aria-label="View branch"
+        >
+          <Eye className="h-4 w-4" />
+        </span>
       </Link>
     )
   }

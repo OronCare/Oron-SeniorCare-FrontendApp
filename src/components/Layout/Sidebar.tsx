@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { sidebarConfig, roleDisplay } from "../../config/sidebarConfig";
 import { getFullName } from "../../types";
@@ -64,7 +64,11 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleC
       >
         <div className={`h-16 flex items-center ${isCollapsed ? "px-4" : "px-6"} py-2 border-b border-slate-800`}>
           <div className={`flex items-center ${isCollapsed ? "justify-center w-full" : "gap-2"} text-brand-400`}>
-            <Activity className="h-6 w-6 text-primary" />
+            <img
+              src="/oron-logo.svg"
+              alt="Oron logo"
+              className="h-9 w-9 rounded-xl ring-1 ring-white/10"
+            />
             {!isCollapsed && (
               <span className="text-xl font-bold text-white">
                 ORON<span className="text-primary">Health</span>
@@ -141,9 +145,16 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleC
 
           <aside className="fixed top-0 left-0 h-full w-64 bg-slate-900 text-white z-50 md:hidden flex flex-col">
             <div className="h-16 flex items-center px-6 border-b border-slate-800">
-              <span className="text-xl font-bold">
-                ORON<span className="text-primary">Health</span>
-              </span>
+              <div className="flex items-center gap-2">
+                <img
+                  src="/oron-logo.svg"
+                  alt="Oron logo"
+                  className="h-9 w-9 rounded-xl ring-1 ring-white/10"
+                />
+                <span className="text-xl font-bold">
+                  ORON<span className="text-primary">Health</span>
+                </span>
+              </div>
             </div>
 
             <nav className="flex-1 px-4 py-6 space-y-1">

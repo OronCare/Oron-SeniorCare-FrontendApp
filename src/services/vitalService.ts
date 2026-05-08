@@ -77,6 +77,13 @@ export const vitalService = {
     return normalizeVital(response.data as Partial<Vital>);
   },
 
+  async getAllVitals(): Promise<Vital[]> {
+    const response = await axios.get(`${API_BASE}/vitals`, {
+      headers: getHeaders(),
+    });
+    return extractArrayPayload(response.data).map(normalizeVital);
+  },
+
   async getVitalsByResident(residentId: string): Promise<Vital[]> {
     const response = await axios.get(`${API_BASE}/vitals/resident/${residentId}`, {
       headers: getHeaders(),

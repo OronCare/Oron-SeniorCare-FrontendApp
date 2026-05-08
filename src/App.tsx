@@ -1,5 +1,4 @@
 // src/App.tsx
-import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
@@ -29,6 +28,7 @@ import Residents from "./components/residents/ResidentsList";
 import { AddRes } from "./components/residents/AddResident";
 import { RulesEngines } from "./components/rules engine/RulesEngine";
 import StaffPage from "./components/staff/StaffManagement";
+import { AddStaff } from "./components/staff/AddStaff";
 import { StaffDetails } from "./components/staff/StaffDetails";
 import { TaskManagements } from "./components/task/TaskPage";
 import { CreateTask } from "./components/task/CreateTask";
@@ -52,6 +52,7 @@ const AppRoutes = () => {
         <Route path="rules" element={<RulesEngines />} />
         <Route path="reports" element={<OwnerReport />} />
         <Route path="audit-logs" element={<AuditLog />} />
+        <Route path="notifications" element={<Notifications />} />
         <Route path="residents/:id" element={<ResidentDetails />} />
       </Route>
 
@@ -65,6 +66,8 @@ const AppRoutes = () => {
         <Route path="residents/:id/edit" element={<AddRes />} />
         <Route path="residents/:id" element={<ResidentDetails />} />
         <Route path="staff" element={<StaffPage />} />
+        <Route path="staff/new" element={<AddStaff />} />
+        <Route path="staff/:id/edit" element={<AddStaff />} />
         <Route path="staff/:id" element={<StaffDetails />} />
         <Route path="reports" element={<FacAdminReport />} />
         <Route path="notifications" element={<Notifications />} />
@@ -80,6 +83,8 @@ const AppRoutes = () => {
         <Route path="vitals" element={<VitalsEntry />} />
         <Route path="care-plans" element={<CarePlan />} />
         <Route path="staff" element={<StaffPage />} />
+        <Route path="staff/new" element={<AddStaff />} />
+        <Route path="staff/:id/edit" element={<AddStaff />} />
         <Route path="staff/:id" element={<StaffDetails />} />
         <Route path="tasks" element={<TaskManagements />} />
         <Route path="tasks/new" element={<CreateTask />} />
