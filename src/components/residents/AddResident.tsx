@@ -131,11 +131,10 @@ export const AddRes = () => {
 
         // Show existing photo if present (no file selected yet)
         if (resident.photoUrl) {
-          const apiBase = (import.meta as any).env?.VITE_API_URL as string;
           const img = document.getElementById('preview-image') as HTMLImageElement | null;
           const icon = document.getElementById('placeholder-icon');
-          if (img && apiBase) {
-            img.src = `${apiBase}${resident.photoUrl}`;
+          if (img) {
+            img.src = resident.photoUrl;
             img.classList.remove('hidden');
             if (icon) icon.classList.add('hidden');
           }
