@@ -1,6 +1,6 @@
 // pages/Staff/StaffPage.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Search,
   Plus,
@@ -24,6 +24,7 @@ import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
 import TableSkeleton from "../skeletons/TableSkeleton";
 import { Link } from "react-router-dom";
+import { RefreshButton } from "../refresh/Refresh";
 
 const StaffPage = () => {
   const { user } = useAuth();
@@ -43,13 +44,16 @@ const StaffPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] =
     useState<StaffMember | null>(null);
-  const permissionOptions = [
-    "View Residents",
-    "Edit Vitals",
-    "Manage Care Plans",
-    "View Reports",
-    "Manage Tasks",
-  ];
+  const permissionOptions = useMemo(
+    () => [
+      "View Residents",
+      "Edit Vitals",
+      "Manage Care Plans",
+      "View Reports",
+      "Manage Tasks",
+    ],
+    [],
+  );
 
   const [editForm, setEditForm] = useState({
     firstName: "",
@@ -60,34 +64,34 @@ const StaffPage = () => {
     permissions: [] as string[],
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [staffPayload, branchPayload] = await Promise.all([
-          staffService.getAllStaff(),
-          isFacilityAdmin ? branchService.getAllBranches() : Promise.resolve([]),
-        ]);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [staffPayload, branchPayload] = await Promise.all([
+        staffService.getAllStaff(),
+        isFacilityAdmin ? branchService.getAllBranches() : Promise.resolve([]),
+      ]);
 
-        setStaffList(staffPayload);
-        if (isFacilityAdmin) {
-          const facilityBranches = branchPayload.filter(
-            (branch) => branch.facilityId === user?.facilityId
-          );
-          setBranches(facilityBranches);
-        }
-      } catch (err) {
-        const message = getApiErrorMessage(err, "Failed to load staff data");
-        setError(message);
-        toast.error(message);
-      } finally {
-        setLoading(false);
+      setStaffList(staffPayload);
+      if (isFacilityAdmin) {
+        const facilityBranches = branchPayload.filter(
+          (branch) => branch.facilityId === user?.facilityId
+        );
+        setBranches(facilityBranches);
       }
-    };
+    } catch (err) {
+      const message = getApiErrorMessage(err, "Failed to load staff data");
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [isFacilityAdmin, toast, user?.facilityId]);
 
-    fetchData();
-  }, [isFacilityAdmin, user?.facilityId]);
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
 
   const staffData = useMemo(() => {
     if (isFacilityAdmin) {
@@ -101,54 +105,62 @@ const StaffPage = () => {
   }, [branches, isAdmin, isFacilityAdmin, staffList, user?.branchId]);
 
   // ---------------- FILTER ----------------
-  const filteredStaff = staffData.filter((staff) => {
-    const fullName = getFullName(staff).toLowerCase();
+  const filteredStaff = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return staffData.filter((staff) => {
+      const fullName = getFullName(staff).toLowerCase();
 
-    const matchesSearch =
-      fullName.includes(searchTerm.toLowerCase()) ||
-      staff.role.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch =
+        fullName.includes(q) ||
+        staff.role.toLowerCase().includes(q);
 
-    const matchesBranch =
-      !isFacilityAdmin ||
-      branchFilter === "All" ||
-      staff.branchId === branchFilter;
+      const matchesBranch =
+        !isFacilityAdmin ||
+        branchFilter === "All" ||
+        staff.branchId === branchFilter;
 
-    return matchesSearch && matchesBranch;
-  });
+      return matchesSearch && matchesBranch;
+    });
+  }, [branchFilter, isFacilityAdmin, searchTerm, staffData]);
 
   // ---------------- ACTIONS ----------------
-  const actions = [
-    {
-      render: (staff: StaffMember) => (
-        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}`}>
-          <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
-            title="View staff"
-            aria-label="View staff"
-          >
-            <Eye className="h-4 w-4" />
-          </span>
-        </Link>
-      ),
-    },
-    {
-      render: (staff: StaffMember) => (
-        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}/edit`}>
-          <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
-            title="Edit staff"
-            aria-label="Edit staff"
-          >
-            <Edit2 className="h-4 w-4" />
-          </span>
-        </Link>
-      ),
-    },
-  ];
+  const actions = useMemo(
+    () => [
+      {
+        render: (staff: StaffMember) => (
+          <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}`}>
+            <span
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+              title="View staff"
+              aria-label="View staff"
+            >
+              <Eye className="h-4 w-4" />
+            </span>
+          </Link>
+        ),
+      },
+      {
+        render: (staff: StaffMember) => (
+          <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}/edit`}>
+            <span
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+              title="Edit staff"
+              aria-label="Edit staff"
+            >
+              <Edit2 className="h-4 w-4" />
+            </span>
+          </Link>
+        ),
+      },
+    ],
+    [isFacilityAdmin],
+  );
 
-  const staffColumnsConfig = isFacilityAdmin
-    ? StaffColumnsForFacilityAdmin(branches)
-    : StaffColumns;
+  const staffColumnsConfig = useMemo(() => {
+    return isFacilityAdmin
+      ? StaffColumnsForFacilityAdmin(branches)
+      : StaffColumns;
+  }, [branches, isFacilityAdmin]);
 
   const handleSaveEdit = async () => {
     if (!selectedStaff) return;
@@ -204,10 +216,12 @@ const StaffPage = () => {
               : "Manage facility staff, roles, and permissions for your branch."}
           </p>
         </div>
-
+        <div className="flex items-center gap-2 sm:ml-auto">
         <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/new`}>
           <Button icon={Plus}>Add Staff Member</Button>
         </Link>
+        <RefreshButton onRefresh={fetchData}/>
+        </div>
       </div>
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

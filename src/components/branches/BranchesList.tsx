@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Filter } from 'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
 import SmartTable from '../../shared/Table';
@@ -8,6 +8,7 @@ import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 
 export const BranchLists = () => {
   const toast = useToast();
@@ -17,11 +18,7 @@ export const BranchLists = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchBranches();
-  }, []);
-
-  const fetchBranches = async () => {
+  const fetchBranches = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -51,15 +48,23 @@ export const BranchLists = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const filteredBranches = branches.filter((branch) => {
-    const matchesSearch =
-      branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (branch.branchAdminName || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || branch.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(() => {
+    void fetchBranches();
+  }, [fetchBranches]);
+
+
+  const filteredBranches = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return branches.filter((branch) => {
+      const matchesSearch =
+        branch.name.toLowerCase().includes(q) ||
+        (branch.branchAdminName || '').toLowerCase().includes(q);
+      const matchesStatus = statusFilter === 'All' || branch.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [branches, searchTerm, statusFilter]);
   if (loading) {
     return (
         <TableSkeleton
@@ -76,6 +81,9 @@ export const BranchLists = () => {
           <p className="text-sm text-slate-500 mt-1">
             Manage branches from your backend data
           </p>
+        </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
+        <RefreshButton onRefresh={fetchBranches}/>
         </div>
       </div>
 

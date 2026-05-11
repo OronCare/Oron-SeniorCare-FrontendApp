@@ -22,6 +22,7 @@ import { Branch, Resident, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 export const FacilityAdminDashboard = () => {
   const { user } = useAuth();
   const toast = useToast();
@@ -31,26 +32,27 @@ export const FacilityAdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [branchesData, residentsData, staffData] = await Promise.all([
+        branchService.getAllBranches(),
+        residentService.getAllResidents(),
+        usersService.getAllUsers()
+      ]);
+      setBranches(branchesData);
+      setResidents(residentsData);
+      setStaff(staffData);
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to fetch data');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [branchesData, residentsData, staffData] = await Promise.all([
-          branchService.getAllBranches(),
-          residentService.getAllResidents(),
-          usersService.getAllUsers()
-        ]);
-        setBranches(branchesData);
-        setResidents(residentsData);
-        setStaff(staffData);
-      } catch (err) {
-        const message = getApiErrorMessage(err, 'Failed to fetch data');
-        setError(message);
-        toast.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    
 
     fetchData();
   }, []);
@@ -114,9 +116,12 @@ export const FacilityAdminDashboard = () => {
             Overview of all branches under your management
           </p>
         </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
         <Link to="/facility-admin/branches">
           <Button icon={Network}>Manage Branches</Button>
         </Link>
+        <RefreshButton onRefresh={fetchData}/>
+        </div>
       </div>
 
       {/* Key Metrics */}

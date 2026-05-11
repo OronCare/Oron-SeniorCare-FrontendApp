@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Filter,
@@ -17,6 +17,7 @@ import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
 import { Pagination } from '../Pagination';
+import { RefreshButton } from '../refresh/Refresh';
 
 export const FacilitiesList = () => {
   const toast = useToast();
@@ -29,12 +30,7 @@ export const FacilitiesList = () => {
 
   const PAGE_SIZE = 5;
 
-  // Fetch facilities on mount
-  useEffect(() => {
-    fetchFacilities();
-  }, []);
-
-  const fetchFacilities = async () => {
+  const fetchFacilities = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -48,20 +44,25 @@ export const FacilitiesList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Fetch facilities on mount
+  useEffect(() => {
+    void fetchFacilities();
+  }, [fetchFacilities]);
 
   const safeFacilities = Array.isArray(facilities) ? facilities : [];
 
-  const filteredFacilities = safeFacilities.filter((facility) => {
-    const matchesSearch =
-      facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (facility.facilityAdminName || '').
-        toLowerCase().
-        includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'All' || facility.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredFacilities = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return safeFacilities.filter((facility) => {
+      const matchesSearch =
+        facility.name.toLowerCase().includes(q) ||
+        (facility.facilityAdminName || '').toLowerCase().includes(q);
+      const matchesStatus = statusFilter === 'All' || facility.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [safeFacilities, searchTerm, statusFilter]);
 
   useEffect(() => {
     setPage(1);
@@ -77,7 +78,7 @@ export const FacilitiesList = () => {
   const showingFrom =
     filteredFacilities.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const showingTo = Math.min(safePage * PAGE_SIZE, filteredFacilities.length);
-  const actions = [
+  const actions = useMemo(() => [
       {
       render: (facility : Facility) => (
         <Link to={`/owner/facilities/${facility.id}`}>
@@ -104,19 +105,22 @@ export const FacilitiesList = () => {
         </Link>
       )
     }
-  ];
+  ], []);
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Facilities</h1>
           <p className="text-sm text-slate-500 mt-1">
             Manage onboarded facilities and contracts
           </p>
         </div>
-        <Link to="/owner/facilities/new">
-          <Button icon={Plus}>Onboard Facility</Button>
-        </Link>
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <Link to="/owner/facilities/new">
+            <Button icon={Plus}>Onboard Facility</Button>
+          </Link>
+          <RefreshButton onRefresh={fetchFacilities}/>
+        </div>
       </div>
 
       <Card className=''>

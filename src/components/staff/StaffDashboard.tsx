@@ -17,6 +17,7 @@ import { taskService } from '../../services/taskService';
 import { alertsService } from '../../services/alertsService';
 import { residentService } from '../../services/residentService';
 import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 export const StaffDashboard = () => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -24,30 +25,32 @@ export const StaffDashboard = () => {
   const [residents, setResidents] = useState<Resident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const run = async () => {
+    if (!user?.id) return;
+    setIsLoading(true);
+    try {
+      const [allTasks, allAlerts, allResidents] = await Promise.all([
+        taskService.getAllTasks(),
+        alertsService.getAlerts(),
+        residentService.getAllResidents(),
+      ]);
+
+      // For staff, tasks should be filtered by assignee.
+      const my = allTasks.filter((t) => (t.assignedTo || '') === user.id);
+      setTasks(my);
+      setAlerts(allAlerts);
+
+      // Staff should see residents assigned via tasks (matches backend vitals restriction).
+      const residentIds = new Set(my.map((t) => t.residentId).filter(Boolean));
+      const myResidents = allResidents.filter((r) => residentIds.has(r.id));
+      setResidents(myResidents);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   useEffect(() => {
-    const run = async () => {
-      if (!user?.id) return;
-      setIsLoading(true);
-      try {
-        const [allTasks, allAlerts, allResidents] = await Promise.all([
-          taskService.getAllTasks(),
-          alertsService.getAlerts(),
-          residentService.getAllResidents(),
-        ]);
-
-        // For staff, tasks should be filtered by assignee.
-        const my = allTasks.filter((t) => (t.assignedTo || '') === user.id);
-        setTasks(my);
-        setAlerts(allAlerts);
-
-        // Staff should see residents assigned via tasks (matches backend vitals restriction).
-        const residentIds = new Set(my.map((t) => t.residentId).filter(Boolean));
-        const myResidents = allResidents.filter((r) => residentIds.has(r.id));
-        setResidents(myResidents);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    
     void run();
   }, [user?.id]);
 
@@ -103,6 +106,7 @@ export const StaffDashboard = () => {
           <Link to="/staff/vitals">
             <Button icon={HeartPulse}>Log Vitals</Button>
           </Link>
+          <RefreshButton onRefresh={run}/>
         </div>
       </div>
 
