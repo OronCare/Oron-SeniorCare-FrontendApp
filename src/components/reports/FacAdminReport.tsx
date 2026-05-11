@@ -1,15 +1,15 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '../../components/UI';
-import {
-  mockVitals,
-  mockTasks,
-  mockAlerts,
-  mockStaffMembers,
-  mockBranches } from
-'../../mockData';
 import { useAuth } from '../../context/AuthContext';
 import { Printer } from 'lucide-react';
 import { Button } from '../../components/UI';
+import { OwnerReportSkeleton } from '../skeletons/ReportsSkeleton';
+import { branchService } from '../../services/branchService';
+import { taskService } from '../../services/taskService';
+import { alertsService } from '../../services/alertsService';
+import { usersService } from '../../services/usersService';
+import { vitalService } from '../../services/vitalService';
+import { Alert, Branch, Task, User, Vital } from '../../types';
 import {
   BarChart,
   Bar,
@@ -25,58 +25,117 @@ import {
   Cell,
   Legend } from
 'recharts';
+import { RefreshButton } from '../refresh/Refresh';
 export const FacAdminReport = () => {
   const { user } = useAuth();
-  const facilityId = user?.facilityId || 'fac1';
-  const myBranches = mockBranches.filter((b) => b.facilityId === facilityId);
-  const branchIds = myBranches.map((b) => b.id);
-  // 1. Vitals Trends (Mock data representing facility averages)
-  const vitalsTrendData = [
-  {
-    day: 'Mon',
-    avgSystolic: 125,
-    avgDiastolic: 82,
-    avgHR: 72
-  },
-  {
-    day: 'Tue',
-    avgSystolic: 128,
-    avgDiastolic: 84,
-    avgHR: 74
-  },
-  {
-    day: 'Wed',
-    avgSystolic: 124,
-    avgDiastolic: 80,
-    avgHR: 71
-  },
-  {
-    day: 'Thu',
-    avgSystolic: 126,
-    avgDiastolic: 82,
-    avgHR: 73
-  },
-  {
-    day: 'Fri',
-    avgSystolic: 122,
-    avgDiastolic: 78,
-    avgHR: 70
-  },
-  {
-    day: 'Sat',
-    avgSystolic: 125,
-    avgDiastolic: 80,
-    avgHR: 72
-  },
-  {
-    day: 'Sun',
-    avgSystolic: 127,
-    avgDiastolic: 83,
-    avgHR: 75
-  }];
+  const facilityId = user?.facilityId || '';
+
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [staff, setStaff] = useState<User[]>([]);
+  const [vitals, setVitals] = useState<Vital[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  let isMounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [branchesData, tasksData, alertsData, usersData, vitalsData] =
+          await Promise.all([
+            branchService.getAllBranches(),
+            taskService.getAllTasks(),
+            alertsService.getAlerts(),
+            usersService.getAllUsers(),
+            vitalService.getAllVitals(),
+          ]);
+
+        if (!isMounted) return;
+        setBranches(branchesData);
+        setTasks(tasksData);
+        setAlerts(alertsData);
+        setStaff(usersData);
+        setVitals(vitalsData);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : 'Failed to load report data');
+      } finally {
+        if (!isMounted) return;
+        setLoading(false);
+      }
+    };
+
+  useEffect(() => {
+    
+
+    if (!facilityId) {
+      setError('Missing facility context. Please re-login.');
+      setLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    void load();
+    return () => {
+      isMounted = false;
+    };
+  }, [facilityId]);
+
+  const myBranches = useMemo(
+    () => branches.filter((b) => b.facilityId === facilityId),
+    [branches, facilityId],
+  );
+  const branchIds = useMemo(() => myBranches.map((b) => b.id), [myBranches]);
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const addDays = (d: Date, days: number) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
+  const dayLabel = (d: Date) => d.toLocaleString('en-US', { weekday: 'short' });
+
+  const vitalsTrendData = useMemo(() => {
+    const now = new Date();
+    const windowStart = startOfDay(addDays(now, -6));
+    const windowEnd = addDays(windowStart, 7);
+
+    const facilityVitals = vitals
+      .filter((v) => v.branchId && branchIds.includes(v.branchId))
+      .map((v) => ({
+        ...v,
+        _date: new Date(v.date),
+      }))
+      .filter((v) => !Number.isNaN(v._date.getTime()))
+      .filter((v) => v._date >= windowStart && v._date < windowEnd);
+
+    const points = Array.from({ length: 7 }).map((_, idx) => {
+      const dayStart = addDays(windowStart, idx);
+      const next = addDays(dayStart, 1);
+      const forDay = facilityVitals.filter((v) => v._date >= dayStart && v._date < next);
+
+      const avg = (vals: Array<number | undefined>) => {
+        const xs = vals.filter((x): x is number => typeof x === 'number' && !Number.isNaN(x));
+        if (xs.length === 0) return 0;
+        return Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+      };
+
+      return {
+        day: dayLabel(dayStart),
+        avgSystolic: avg(forDay.map((v) => v.systolicBP)),
+        avgDiastolic: avg(forDay.map((v) => v.diastolicBP)),
+        avgHR: avg(forDay.map((v) => v.heartRate)),
+      };
+    });
+
+    return points;
+  }, [vitals, branchIds]);
 
   // 2. Task Completion Rate across branches
-  const myTasks = mockTasks.filter((t) => branchIds.includes(t.branchId));
+  const myTasks = useMemo(
+    () => tasks.filter((t) => branchIds.includes(t.branchId)),
+    [tasks, branchIds],
+  );
   const todoCount = myTasks.filter((t) => t.status === 'Todo').length;
   const inProgressCount = myTasks.filter(
     (t) => t.status === 'In Progress'
@@ -99,25 +158,86 @@ export const FacAdminReport = () => {
   filter((d) => d.value > 0);
   const TASK_COLORS = ['#10B981', '#F59E0B', '#64748B'];
   // 3. Alerts by Branch
-  const myAlerts = mockAlerts.filter(
-    (a) => a.branchId && branchIds.includes(a.branchId)
+  const myAlerts = useMemo(
+    () =>
+      alerts
+        .filter((a) => a.status !== 'Resolved')
+        .filter((a) => a.branchId && branchIds.includes(a.branchId)),
+    [alerts, branchIds],
   );
   const alertData = myBranches.map((branch) => {
     const branchAlerts = myAlerts.filter((a) => a.branchId === branch.id);
     return {
-      name: branch.name.split(' ')[0],
+      name: (branch.name || '').split(' ')[0] || branch.id,
       Critical: branchAlerts.filter((a) => a.severity === 'Critical').length,
       Warning: branchAlerts.filter((a) => a.severity === 'Warning').length,
       Info: branchAlerts.filter((a) => a.severity === 'Info').length
     };
   });
-  // 4. Staff Activity (Mock data)
-  const myStaff = mockStaffMembers.filter((s) => branchIds.includes(s.branchId));
-  const staffActivityData = myStaff.slice(0, 8).map((staff) => ({
-    name: staff.firstName,
-    tasksCompleted: Math.floor(Math.random() * 20) + 5,
-    vitalsLogged: Math.floor(Math.random() * 15) + 2
-  }));
+
+  // 4. Staff Activity (derived from real tasks + vitals, last 7 days)
+  const myStaff = useMemo(
+    () =>
+      staff
+        .filter((s) => (s.role === 'admin' || s.role === 'staff') && !!s.branchId)
+        .filter((s) => branchIds.includes(s.branchId || '')),
+    [staff, branchIds],
+  );
+
+  const staffActivityData = useMemo(() => {
+    const now = new Date();
+    const since = startOfDay(addDays(now, -6));
+
+    const vitalsInWindow = vitals
+      .map((v) => ({ ...v, _date: new Date(v.date) }))
+      .filter((v) => !Number.isNaN(v._date.getTime()))
+      .filter((v) => v._date >= since)
+      .filter((v) => v.branchId && branchIds.includes(v.branchId));
+
+    const tasksCompleted = new Map<string, number>();
+    for (const t of myTasks) {
+      if (t.status !== 'Done') continue;
+      if (!t.assignedTo) continue;
+      tasksCompleted.set(t.assignedTo, (tasksCompleted.get(t.assignedTo) || 0) + 1);
+    }
+
+    const vitalsLogged = new Map<string, number>();
+    for (const v of vitalsInWindow) {
+      if (!v.recordedById) continue;
+      vitalsLogged.set(v.recordedById, (vitalsLogged.get(v.recordedById) || 0) + 1);
+    }
+
+    return myStaff
+      .map((s) => ({
+        id: s.id,
+        name: s.firstName,
+        tasksCompleted: tasksCompleted.get(s.id) || 0,
+        vitalsLogged: vitalsLogged.get(s.id) || 0,
+      }))
+      .sort((a, b) => b.tasksCompleted + b.vitalsLogged - (a.tasksCompleted + a.vitalsLogged))
+      .slice(0, 8);
+  }, [myStaff, myTasks, vitals, branchIds]);
+
+  if (loading) {
+    return <OwnerReportSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Facility Reports</h1>
+            <p className="text-sm text-slate-500 mt-1">Analytics across all your branches.</p>
+          </div>
+        </div>
+        <Card>
+          <div className="text-sm text-red-600">Error loading report: {error}</div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -129,9 +249,12 @@ export const FacAdminReport = () => {
             Analytics across all your branches.
           </p>
         </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
         <Button variant="outline" icon={Printer} onClick={() => window.print()}>
           Print Report
         </Button>
+        <RefreshButton onRefresh={load}/>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

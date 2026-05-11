@@ -1,4 +1,4 @@
-import React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ClipboardList,
@@ -11,23 +11,65 @@ import {
 'lucide-react';
 import { Card, Button, StatsCard, Badge } from '../../components/UI';
 import { useAuth } from '../../context/AuthContext';
-import { mockTasks, mockAlerts, mockResidents } from '../../mockData';
 import { getFullName } from '../../types';
+import type { Alert, Resident, Task } from '../../types';
+import { taskService } from '../../services/taskService';
+import { alertsService } from '../../services/alertsService';
+import { residentService } from '../../services/residentService';
+import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 export const StaffDashboard = () => {
   const { user } = useAuth();
-  const branchId = user?.branchId;
-  const myTasks = mockTasks.filter(
-    (t) => t.assignedTo === user?.id && t.branchId === branchId
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [residents, setResidents] = useState<Resident[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const run = async () => {
+    if (!user?.id) return;
+    setIsLoading(true);
+    try {
+      const [allTasks, allAlerts, allResidents] = await Promise.all([
+        taskService.getAllTasks(),
+        alertsService.getAlerts(),
+        residentService.getAllResidents(),
+      ]);
+
+      // For staff, tasks should be filtered by assignee.
+      const my = allTasks.filter((t) => (t.assignedTo || '') === user.id);
+      setTasks(my);
+      setAlerts(allAlerts);
+
+      // Staff should see residents assigned via tasks (matches backend vitals restriction).
+      const residentIds = new Set(my.map((t) => t.residentId).filter(Boolean));
+      const myResidents = allResidents.filter((r) => residentIds.has(r.id));
+      setResidents(myResidents);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    
+    void run();
+  }, [user?.id]);
+
+  const pendingTasks = useMemo(
+    () => tasks.filter((t) => t.status === 'Todo' || t.status === 'In Progress'),
+    [tasks],
   );
-  const pendingTasks = myTasks.filter(
-    (t) => t.status === 'Todo' || t.status === 'In Progress'
+  const completedTasks = useMemo(
+    () => tasks.filter((t) => t.status === 'Done'),
+    [tasks],
   );
-  const completedTasks = myTasks.filter((t) => t.status === 'Done');
-  const staffAlerts = mockAlerts.filter(
-    (a) => a.targetRoles.includes('staff') && a.branchId === branchId
-  );
-  const recentAlerts = staffAlerts.slice(0, 3);
-  const branchResidents = mockResidents.filter((r) => r.branchId === branchId);
+  const recentAlerts = useMemo(() => {
+    // Backend already scopes alerts to the current user, but we keep only recent unread-ish.
+    return [...alerts]
+      .filter((a) => a.status !== 'Resolved')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 3);
+  }, [alerts]);
+
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'Medication':
@@ -46,6 +88,9 @@ export const StaffDashboard = () => {
         return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
+  if(isLoading){
+    return <AdminDashboardSkeleton/>
+  }
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -61,6 +106,7 @@ export const StaffDashboard = () => {
           <Link to="/staff/vitals">
             <Button icon={HeartPulse}>Log Vitals</Button>
           </Link>
+          <RefreshButton onRefresh={run}/>
         </div>
       </div>
 
@@ -106,9 +152,7 @@ export const StaffDashboard = () => {
           <div className="p-0 flex-1">
             <div className="divide-y divide-slate-100">
               {pendingTasks.slice(0, 4).map((task) => {
-                const resident = branchResidents.find(
-                  (r) => r.id === task.residentId
-                );
+                const resident = residents.find((r) => r.id === task.residentId);
                 return (
                   <div
                     key={task.id}
@@ -155,7 +199,7 @@ export const StaffDashboard = () => {
               })}
               {pendingTasks.length === 0 &&
               <div className="p-8 text-center text-slate-500 text-sm">
-                  No pending tasks for today!
+                  {isLoading ? 'Loading tasks…' : 'No pending tasks for today!'}
                 </div>
               }
             </div>
@@ -192,7 +236,7 @@ export const StaffDashboard = () => {
                 )}
                 {recentAlerts.length === 0 &&
                 <div className="p-6 text-center text-sm text-slate-500">
-                    No active alerts.
+                    {isLoading ? 'Loading alerts…' : 'No active alerts.'}
                   </div>
                 }
               </div>
@@ -214,7 +258,7 @@ export const StaffDashboard = () => {
             </div>
             <div className="p-0">
               <div className="divide-y divide-slate-100">
-                {branchResidents.slice(0, 4).map((resident) =>
+                {residents.slice(0, 4).map((resident) =>
                 <Link
                   key={resident.id}
                   to={`/staff/residents/${resident.id}`}
@@ -236,6 +280,11 @@ export const StaffDashboard = () => {
                     </div>
                     <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-brand-500 transition-colors" />
                   </Link>
+                )}
+                {residents.length === 0 && (
+                  <div className="p-6 text-center text-sm text-slate-500">
+                    {isLoading ? 'Loading residents…' : 'No residents assigned yet.'}
+                  </div>
                 )}
               </div>
             </div>

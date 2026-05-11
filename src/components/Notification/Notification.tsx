@@ -1,5 +1,5 @@
 // components/shared/Notifications.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Bell,
   ShieldAlert,
@@ -9,36 +9,46 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Card, Button, Badge } from '../UI';
-import { mockAlerts, mockBranches, mockFacilities } from '../../mockData';
-import { useAuth } from '../../context/AuthContext';
-
-type Role = 'admin' | 'facility_admin' | 'staff';
+import { mockBranches } from '../../mockData';
+import { Alert } from '../../types';
+import { alertsService } from '../../services/alertsService';
+import { NotificationsSkeleton } from '../skeletons/NotificationSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 
 export const Notifications = () => {
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('All');
-  const [alerts, setAlerts] = useState(() => {
-    // 1. Filter alerts based on user role
-    let filtered = mockAlerts.filter((a) => a.targetRoles.includes(user?.role || ''));
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  let isMounted = true;
 
-    if (user?.role === 'facility_admin') {
-      const facilityId = user.facilityId || 'fac1';
-      const myBranches = mockBranches.filter((b) => b.facilityId === facilityId);
-      const branchIds = myBranches.map((b) => b.id);
-      filtered = filtered.filter(
-        (a) =>
-          a.facilityId === facilityId || (a.branchId && branchIds.includes(a.branchId))
-      );
-    } else if (user?.role === 'staff') {
-      // Staff only sees alerts for their own branch
-      const myBranchId = user.branchId;
-      if (myBranchId) {
-        filtered = filtered.filter((a) => a.branchId === myBranchId);
+    const loadAlerts = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await alertsService.getAlerts();
+        if (isMounted) {
+          setAlerts(data);
+        }
+      } catch {
+        if (isMounted) {
+          setError('Failed to load notifications');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    }
-    // For admin, we show all alerts that target 'admin' (already filtered)
-    return filtered;
-  });
+    };
+
+  useEffect(() => {
+    
+
+    void loadAlerts();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const tabs = ['All', 'Unread', 'Critical', 'Warning', 'Info'];
 
@@ -48,18 +58,26 @@ export const Notifications = () => {
     return alert.severity === activeTab;
   });
 
-  const markAsRead = (id: string) => {
-    setAlerts(
-      alerts.map((a) =>
-        a.id === id ? { ...a, status: 'Read' } : a
-      )
-    );
+  const markAsRead = async (id: string) => {
+    try {
+      const updated = await alertsService.updateAlertStatus(id, 'Read');
+      setAlerts((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    } catch {
+      // Keep list unchanged if update fails.
+    }
   };
 
-  const markAllAsRead = () => {
-    setAlerts(
-      alerts.map((a) => ({ ...a, status: 'Read' }))
-    );
+  const markAllAsRead = async () => {
+    const unread = alerts.filter((a) => a.status === 'Unread');
+    if (unread.length === 0) {
+      return;
+    }
+    try {
+      await Promise.all(unread.map((a) => alertsService.updateAlertStatus(a.id, 'Read')));
+      setAlerts((prev) => prev.map((a) => ({ ...a, status: 'Read' })));
+    } catch {
+      // Keep list unchanged if update fails.
+    }
   };
 
   const getIcon = (severity: string) => {
@@ -110,6 +128,10 @@ export const Notifications = () => {
     return branch?.name;
   };
 
+  if(isLoading){
+    return <NotificationsSkeleton/>
+  }
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -119,9 +141,12 @@ export const Notifications = () => {
             System alerts and updates relevant to you.
           </p>
         </div>
-        <Button variant="outline" icon={CheckCircle2} onClick={markAllAsRead}>
+        <div className="flex items-center gap-2 sm:ml-auto">
+        <Button variant="outline" icon={CheckCircle2} onClick={() => void markAllAsRead()}>
           Mark All as Read
         </Button>
+        <RefreshButton onRefresh={loadAlerts}/>
+        </div>
       </div>
 
       <Card noPadding>
@@ -149,7 +174,11 @@ export const Notifications = () => {
         </div>
 
         <div className="divide-y divide-slate-100">
-          {filteredAlerts.map((alert) => {
+          
+          {!isLoading && error && (
+            <div className="p-6 text-sm text-red-600">{error}</div>
+          )}
+          {!isLoading && !error && filteredAlerts.map((alert) => {
             const branchName = getBranchName(alert.branchId);
             return (
               <div
@@ -223,7 +252,9 @@ export const Notifications = () => {
                 <div className="shrink-0 flex items-start justify-end sm:w-24">
                   {alert.status === 'Unread' && (
                     <button
-                      onClick={() => markAsRead(alert.id)}
+                      onClick={() => {
+                        void markAsRead(alert.id);
+                      }}
                       className="text-xs font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1 p-1 hover:bg-brand-50 rounded transition-colors"
                     >
                       <Check className="h-3 w-3" /> Mark Read
@@ -233,7 +264,7 @@ export const Notifications = () => {
               </div>
             );
           })}
-          {filteredAlerts.length === 0 && (
+          {!isLoading && !error && filteredAlerts.length === 0 && (
             <div className="p-12 text-center text-slate-500">
               <Bell className="h-12 w-12 mx-auto text-slate-300 mb-3" />
               <p className="text-lg font-medium text-slate-900">No notifications</p>

@@ -1,6 +1,7 @@
 
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
 
   content: [
   './index.html',
@@ -9,18 +10,29 @@ export default {
   theme: {
     extend: {
       colors: {
+        bg: 'var(--color-background)',
+        fg: 'var(--color-text)',
+        card: 'var(--color-card)',
+        primary: 'var(--color-primary)',
+        primarySoft: 'var(--color-primary-transparent)',
+        secondary: 'var(--color-secondary)',
+        border: 'var(--color-border)',
+        success: 'var(--color-success)',
+        warning: 'var(--color-warning)',
+        info: 'var(--color-info)',
+        error: 'var(--color-error)',
         brand: {
-          50: '#f0fdfa',
-          100: '#ccfbf1',
-          200: '#99f6e4',
-          300: '#5eead4',
-          400: '#2dd4bf',
-          500: '#14b8a6', // Primary Teal
-          600: '#0d9488',
-          700: '#0f766e',
-          800: '#115e59',
-          900: '#134e4a',
-          950: '#042f2e',
+          50: 'var(--color-primary-transparent)',
+          100: 'var(--color-primary-transparent)',
+          200: 'var(--color-primary-transparent)',
+          300: 'var(--color-primary-transparent)',
+          400: 'var(--color-primary-transparent)',
+          500: 'var(--color-primary)',
+          600: 'var(--color-primary)',
+          700: 'var(--color-primary)',
+          800: 'var(--color-primary)',
+          900: 'var(--color-primary)',
+          950: 'var(--color-primary)',
         },
         slate: {
           50: '#f8fafc',

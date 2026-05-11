@@ -1,30 +1,28 @@
-import React, { useState } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
   Phone,
   HeartPulse,
+  Heart,
   ClipboardList,
   Pill,
   MessageSquare,
   Activity,
-  Calendar,
   Plus,
   Edit2,
   Save,
-  CheckCircle2 } from
-'lucide-react';
+  ShieldAlert,
+  Target,
+} from
+  'lucide-react';
 import { Card, Button, Badge, Input, Modal } from '../../components/UI';
 import {
-  mockResidents,
-  mockVitals,
-  mockCarePlans,
-  mockNotes,
-  mockTasks,
-  mockStaffMembers } from
-'../../mockData';
-import { getFullName, Task } from '../../types';
+  // mockCarePlans,
+} from
+  '../../mockData';
+import { CarePlan, CreateNoteRequest, getFullName, Note, Resident, Task, Vital } from '../../types';
 import {
   LineChart,
   Line,
@@ -33,16 +31,39 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend } from
-'recharts';
+  Legend
+} from
+  'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { MetadataBanner } from '../../components/care plans/MetadataBanner';
+import { ClinicalAssessment } from '../../components/care plans/ClinicalAssessment';
+import { RiskSafetyProfile } from '../../components/care plans/RiskSafetyProfile';
+import { GoalsOfCare } from '../../components/care plans/GoalsOfCare';
+import { PlannedInterventions } from '../../components/care plans/PlannedInterventions';
+import { PersonCenteredPreferences } from '../../components/care plans/PersonCenteredPreferences';
+import { CarePlanCreateSection } from '../../components/care plans/CarePlanCreateSection';
+import { carePlanService } from '../../services/carePlanService';
+import { clinicalAssessmentService } from '../../services/clinicalAssessmentService';
+import { riskProfileService } from '../../services/riskProfileService';
+import { goalsService } from '../../services/goalsService';
+import { interventionsService } from '../../services/interventionsService';
+import { preferencesService } from '../../services/preferencesService';
+import { notesService } from '../../services/notesService';
+import { residentService } from '../../services/residentService';
+import { vitalService } from '../../services/vitalService';
+import { taskService } from '../../services/taskService';
+import { branchService } from '../../services/branchService';
+import { facilityService } from '../../services/facilityService';
+import { ResidentDetailsSkeleton } from '../skeletons/DetailsSkeleton';
 
 export const ResidentDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const location = useLocation();
-  
+  const navigate = useNavigate();
+  const hasRetriedPhotoRef = useRef(false);
+
   // Get the active tab from location state (if coming from care plans)
   const [activeTab, setActiveTab] = useState(() => {
     const state = location.state as { activeTab?: string };
@@ -51,27 +72,319 @@ export const ResidentDetails = () => {
     }
     return 'overview';
   });
-  
+
   const [newNote, setNewNote] = useState('');
-  const [noteType, setNoteType] = useState('Observation');
+  const [noteType, setNoteType] = useState<Note['type']>('Observation');
   const [isLoggingVitals, setIsLoggingVitals] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
-  
-  const resident = mockResidents.find((r) => r.id === id) || mockResidents[0];
-  const fullName = getFullName(resident);
-  const vitals = mockVitals.
-  filter((v) => v.residentId === resident.id).
-  sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const carePlan = mockCarePlans.find((cp) => cp.residentId === resident.id);
-  const notes = mockNotes.
-  filter((n) => n.residentId === resident.id).
-  sort(
-    (a, b) =>
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [resident, setResident] = useState<Resident | null>(null);
+  const [vitals, setVitals] = useState<Vital[]>([]);
+  const [, setResidentTasks] = useState<Task[]>([]);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
+  const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
+  const [carePlanLoading, setCarePlanLoading] = useState(false);
+  const [carePlanError, setCarePlanError] = useState<string | null>(null);
+  const [showCarePlanCreate, setShowCarePlanCreate] = useState(false);
+  const [showCarePlanEdit, setShowCarePlanEdit] = useState(false);
+  const [carePlanMutating, setCarePlanMutating] = useState(false);
+  const [clinicalAssessmentExists, setClinicalAssessmentExists] = useState(false);
+  const [showClinicalAssessment, setShowClinicalAssessment] = useState(false);
+  const [startClinicalAssessmentEditing, setStartClinicalAssessmentEditing] = useState(false);
+  const [riskProfileExists, setRiskProfileExists] = useState(false);
+  const [showRiskProfile, setShowRiskProfile] = useState(false);
+  const [startRiskProfileEditing, setStartRiskProfileEditing] = useState(false);
+  const [goalsExist, setGoalsExist] = useState(false);
+  const [showGoalsOfCare, setShowGoalsOfCare] = useState(false);
+  const [startGoalsEditing, setStartGoalsEditing] = useState(false);
+  const [interventionsExist, setInterventionsExist] = useState(false);
+  const [showPlannedInterventions, setShowPlannedInterventions] = useState(false);
+  const [startInterventionsEditing, setStartInterventionsEditing] = useState(false);
+  const [preferencesExist, setPreferencesExist] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
+  const [startPreferencesEditing, setStartPreferencesEditing] = useState(false);
+  const [branchName, setBranchName] = useState<string>('');
+  const [facilityName, setFacilityName] = useState<string>('');
+  const [carePlanSubTab, setCarePlanSubTab] = useState<
+    'clinical' | 'risk' | 'goals' | 'interventions' | 'preferences'
+  >('clinical');
+
+  const fullName = useMemo(() => (resident ? getFullName(resident) : ''), [resident]);
+  const carePlan = useMemo(() => carePlans[0], [carePlans]);
+  const canManage = useMemo(
+    () => user?.role === 'facility_admin' || user?.role === 'admin',
+    [user?.role],
   );
-  const residentTasks = mockTasks.filter((t) => t.residentId === resident.id);
-  
+  const canManageCarePlans = canManage;
+  const canManageClinicalAssessment = canManage;
+  const canManageRiskProfile = canManage;
+  const canManageGoals = canManage;
+  const canManageInterventions = canManage;
+  const canManagePreferences = canManage;
+
+  const refreshCarePlans = useCallback(async () => {
+    if (!id) return;
+    setCarePlanLoading(true);
+    setCarePlanError(null);
+    try {
+      const plans = await carePlanService.getCarePlansByResident(id);
+      setCarePlans(plans);
+    } catch (err) {
+      setCarePlanError(err instanceof Error ? err.message : 'Failed to load care plan');
+    } finally {
+      setCarePlanLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) {
+      setIsPageLoading(false);
+      setError('Resident ID is missing');
+      return;
+    }
+
+    const fetchResidentData = async () => {
+      setIsPageLoading(true);
+      setError(null);
+      try {
+        const [residentData, vitalsData, allTasks, notesData] = await Promise.all([
+          residentService.getResidentById(id),
+          vitalService.getVitalsByResident(id),
+          taskService.getAllTasks(),
+          notesService.getNotesByResidentId(id),
+        ]);
+
+        setResident(residentData);
+        sessionStorage.setItem(
+          `breadcrumb:residents:${residentData.id}`,
+          getFullName(residentData),
+        );
+        window.dispatchEvent(new Event('oron:breadcrumb:update'));
+        setVitals(
+          [...vitalsData].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+          ),
+        );
+        setResidentTasks(allTasks.filter((task) => task.residentId === id));
+        setNotes(notesData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load resident details');
+      } finally {
+        setIsPageLoading(false);
+      }
+    };
+
+    void fetchResidentData();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    void refreshCarePlans();
+  }, [id, refreshCarePlans]);
+
+  useEffect(() => {
+    if (!id) return;
+    clinicalAssessmentService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setClinicalAssessmentExists(exists);
+        if (exists) setShowClinicalAssessment(true);
+      })
+      .catch(() => {
+        setClinicalAssessmentExists(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    riskProfileService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setRiskProfileExists(exists);
+        if (exists) setShowRiskProfile(true);
+      })
+      .catch(() => {
+        setRiskProfileExists(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    goalsService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setGoalsExist(exists);
+        if (exists) setShowGoalsOfCare(true);
+      })
+      .catch(() => {
+        setGoalsExist(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    interventionsService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setInterventionsExist(exists);
+        if (exists) setShowPlannedInterventions(true);
+      })
+      .catch(() => {
+        setInterventionsExist(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    preferencesService
+      .getByResident(id)
+      .then((rows) => {
+        const exists = (rows?.length ?? 0) > 0;
+        setPreferencesExist(exists);
+        if (exists) setShowPreferences(true);
+      })
+      .catch(() => {
+        setPreferencesExist(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    // reset creation/edit state when we have an active care plan
+    if (carePlan) {
+      setShowCarePlanCreate(false);
+      setShowCarePlanEdit(false);
+    }
+  }, [carePlan?.id]);
+
+  useEffect(() => {
+    if (clinicalAssessmentExists) {
+      setStartClinicalAssessmentEditing(false);
+    }
+  }, [clinicalAssessmentExists]);
+
+  useEffect(() => {
+    if (riskProfileExists) {
+      setStartRiskProfileEditing(false);
+    }
+  }, [riskProfileExists]);
+
+  useEffect(() => {
+    if (goalsExist) {
+      setStartGoalsEditing(false);
+    }
+  }, [goalsExist]);
+
+  useEffect(() => {
+    if (interventionsExist) {
+      setStartInterventionsEditing(false);
+    }
+  }, [interventionsExist]);
+
+  useEffect(() => {
+    if (preferencesExist) {
+      setStartPreferencesEditing(false);
+    }
+  }, [preferencesExist]);
+
+  const handleDeleteCarePlan = useCallback(async () => {
+    if (!carePlan) return;
+    if (!confirm('Are you sure you want to delete this care plan?')) return;
+
+    setCarePlanMutating(true);
+    setCarePlanError(null);
+    try {
+      await carePlanService.deleteCarePlan(carePlan.id);
+      await refreshCarePlans();
+    } catch (err) {
+      setCarePlanError(err instanceof Error ? err.message : 'Failed to delete care plan');
+    } finally {
+      setCarePlanMutating(false);
+    }
+  }, [carePlan, refreshCarePlans]);
+
+  const handleAcknowledgeCarePlan = useCallback(async () => {
+    if (!carePlan) return;
+    if (!confirm('Acknowledge & sign this care plan?')) return;
+
+    setCarePlanMutating(true);
+    setCarePlanError(null);
+    try {
+      await carePlanService.updateCarePlan(carePlan.id, { signed: true });
+      await refreshCarePlans();
+    } catch (err) {
+      setCarePlanError(err instanceof Error ? err.message : 'Failed to acknowledge care plan');
+    } finally {
+      setCarePlanMutating(false);
+    }
+  }, [carePlan, refreshCarePlans]);
+
+  useEffect(() => {
+    if (!resident) return;
+
+    Promise.all([
+      branchService.getBranchById(resident.branchId).catch(() => null),
+      facilityService.getFacilityById(resident.facilityId).catch(() => null),
+    ])
+      .then(([branch, facility]) => {
+        setBranchName(branch?.name ?? '');
+        setFacilityName(facility?.name ?? '');
+      })
+      .catch(() => {
+        setBranchName('');
+        setFacilityName('');
+      });
+  }, [resident]);
+
+  //create note
+  const handleCreateNote = async () => {
+    if (!newNote.trim() || !id || !user) return;
+
+    setLoading(true);
+    try {
+      const createRequest: CreateNoteRequest = {
+        residentId: id,
+        author: getFullName(user as any), // Assuming user has firstName and lastName
+        content: newNote.trim(),
+        type: noteType,
+      };
+
+      const createdNote = await notesService.createNote(createRequest);
+      setNotes(prev => [createdNote, ...prev]);
+      setNewNote('');
+      setNoteType('Observation');
+    } catch (error) {
+      console.error('Failed to create note:', error);
+      setError(error instanceof Error ? error.message : 'Failed to create note');
+      // Clear error after 3 seconds
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleDeleteNote = async (noteId: string) => {
+    if (!confirm('Are you sure you want to delete this note?')) return;
+    
+    setLoading(true);
+    try {
+      await notesService.deleteNote(noteId);
+      setNotes(prev => prev.filter(note => note.id !== noteId));
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      setError(error instanceof Error ? error.message : 'Failed to delete note');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Calculate age
   const getAge = (dob: string) => {
     const today = new Date();
@@ -83,92 +396,54 @@ export const ResidentDetails = () => {
     }
     return age;
   };
-  
+
   // Format vitals for chart (reverse to show chronological order left to right)
-  const chartData = [...vitals].reverse().map((v) => ({
-    date: new Date(v.date).toLocaleDateString([], {
-      month: 'short',
-      day: 'numeric'
-    }),
-    systolic: v.systolicBP,
-    diastolic: v.diastolicBP,
-    heartRate: v.heartRate
-  }));
-  
-  const tabs = [
-    {
-      id: 'overview',
-      label: 'Overview',
-      icon: User
-    },
-    {
-      id: 'vitals',
-      label: 'Vitals History',
-      icon: Activity
-    },
-    {
-      id: 'careplan',
-      label: 'Care Plan',
-      icon: ClipboardList
-    },
-    {
-      id: 'medications',
-      label: 'Medications',
-      icon: Pill
-    },
-    {
-      id: 'tasks',
-      label: 'Tasks',
-      icon: CheckCircle2
-    },
-    {
-      id: 'notes',
-      label: 'Notes',
-      icon: MessageSquare
-    }
-  ];
+  const chartData = useMemo(() => {
+    return [...vitals].reverse().map((v) => ({
+      date: new Date(v.date).toLocaleDateString([], {
+        month: 'short',
+        day: 'numeric'
+      }),
+      systolic: v.systolicBP,
+      diastolic: v.diastolicBP,
+      heartRate: v.heartRate
+    }));
+  }, [vitals]);
+
+  const tabs = useMemo(
+    () => [
+      {
+        id: 'overview',
+        label: 'Overview',
+        icon: User
+      },
+      {
+        id: 'vitals',
+        label: 'Vitals History',
+        icon: Activity
+      },
+      {
+        id: 'careplan',
+        label: 'Care Plan',
+        icon: ClipboardList
+      },
+      {
+        id: 'medications',
+        label: 'Medications',
+        icon: Pill
+      },
+      {
+        id: 'notes',
+        label: 'Notes',
+        icon: MessageSquare
+      }
+    ],
+    [],
+  );
 
   // Rest of your component remains exactly the same...
   // (All the helper functions and JSX remain unchanged)
-  
-  const getHealthStateColor = (state: string) => {
-    switch (state) {
-      case 'Stable':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case 'Slight Deviation':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Concerning Trend':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'Early Deterioration':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'Active Deterioration':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'Recovery':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-  
-  const getTaskCategoryColor = (category: string) => {
-    switch (category) {
-      case 'Medication':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'Bathing':
-        return 'bg-cyan-100 text-cyan-800 border-cyan-200';
-      case 'Vitals':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'Therapy':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'Observation':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'Meal':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-  
+
   const getNoteTypeColor = (type: string) => {
     switch (type) {
       case 'Clinical':
@@ -180,8 +455,21 @@ export const ResidentDetails = () => {
     }
   };
 
+  if (isPageLoading) {
+    return <ResidentDetailsSkeleton activeTab={activeTab} />;
+  }
+  if (!resident) {
+    return (
+      <div className="space-y-6 overflow-x-hidden">
+        <Card>
+          <p className="text-sm text-red-600">{error || 'Resident not found'}</p>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-     <div className="space-y-6 overflow-x-hidden">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
         <Link
@@ -192,38 +480,64 @@ export const ResidentDetails = () => {
         <div className="flex-1 flex flex-col md:flex-row items-center gap-4">
           <div className="h-14 w-14 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xl border-2 border-white shadow-sm overflow-hidden">
             <img
-              src={`https://i.pravatar.cc/150?u=${resident.id}`}
+              src={resident.photoUrl ? resident.photoUrl : `https://i.pravatar.cc/150?u=${resident.id}`}
               alt={fullName}
               className="h-full w-full object-cover"
               onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement!.innerText = `${resident.firstName[0]}${resident.lastName[0]}`;
+                // Signed URLs can expire. Retry once by refetching the resident (backend returns a fresh signed URL).
+                if (!id || !resident.photoUrl || hasRetriedPhotoRef.current) {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement!.innerText = `${resident.firstName[0]}${resident.lastName[0]}`;
+                  return;
+                }
+
+                hasRetriedPhotoRef.current = true;
+                residentService
+                  .getResidentById(id)
+                  .then((fresh) => {
+                    setResident(fresh);
+                    if (fresh.photoUrl) {
+                      e.currentTarget.style.display = '';
+                      e.currentTarget.src = fresh.photoUrl;
+                    }
+                  })
+                  .catch(() => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerText = `${resident.firstName[0]}${resident.lastName[0]}`;
+                  });
               }} />
-            
+
           </div>
           <div>
             <div className="flex flex-col  md:flex-row items-center gap-3">
               <h1 className="text-2xl font-bold text-slate-900">{fullName}</h1>
               <Badge
                 variant={
-                resident.status === 'InPatient' ?
-                'success' :
-                resident.status === 'Hospitalized' ?
-                'warning' :
-                'default'
+                  resident.status === 'InPatient' ?
+                    'success' :
+                    resident.status === 'Hospitalized' ?
+                      'warning' :
+                      'default'
                 }>
-                
+
                 {resident.status}
               </Badge>
-              <span
-                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getHealthStateColor(resident.healthState)}`}>
-                
+              
+              <Badge
+              variant={resident.healthState === 'Stable' ? 'success' : resident.healthState === 'Slight Deviation' ? 'warning' : resident.healthState === 'Concerning Trend' ? 'danger' : resident.healthState === 'Early Deterioration' ? 'danger' : resident.healthState === 'Active Deterioration' ? 'danger' : resident.healthState === 'Recovery' ? 'success' : 'default'}
+              >
                 {resident.healthState}
-              </span>
+              </Badge>
             </div>
             <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
               {getAge(resident.dob)} years old • {resident.gender} • Room{' '}
               {resident.room}
+              {(facilityName || branchName) && (
+                <>
+                  {' '}
+                  • {facilityName || '—'} • {branchName || '—'}
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -231,8 +545,13 @@ export const ResidentDetails = () => {
           <Button
             variant="outline"
             icon={Edit2}
-            onClick={() => setIsEditProfileOpen(true)}>
-            
+            onClick={() => {
+              if (!id) return;
+              if (user?.role === 'staff') return;
+              const basePath = user?.role === 'admin' ? '/admin' : '/facility-admin';
+              navigate(`${basePath}/residents/${id}/edit`);
+            }}>
+
             Edit Profile
           </Button>
         </div>
@@ -240,42 +559,42 @@ export const ResidentDetails = () => {
 
       {/* Tabs */}
       <div className="border-b w-full  border-slate-200 overflow-x-auto scrollbar-hide">
-       <div className=" w-[400px]  md:w-full ">
-       <nav className="flex gap-6 w-[400px] w-full">
-          {tabs.map((tab) =>
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 py-4 px-1 border-b-2 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
-            
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          )}
-        </nav>
-       </div>
+        <div className=" w-[400px]  md:w-full ">
+          <nav className="flex gap-6 w-[400px] w-full">
+            {tabs.map((tab) =>
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 py-4 px-1 border-b-2 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
+
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            )}
+          </nav>
+        </div>
       </div>
 
       {/* Tab Content */}
       <div className="min-h-[400px]">
         <AnimatePresence mode="wait">
           {activeTab === 'overview' &&
-          <motion.div
-            key="overview"
-            initial={{
-              opacity: 0,
-              y: 10
-            }}
-            animate={{
-              opacity: 1,
-              y: 0
-            }}
-            exit={{
-              opacity: 0,
-              y: -10
-            }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
+            <motion.div
+              key="overview"
+              initial={{
+                opacity: 0,
+                y: 10
+              }}
+              animate={{
+                opacity: 1,
+                y: 0
+              }}
+              exit={{
+                opacity: 0,
+                y: -10
+              }}
+              className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
               <div className="lg:col-span-2 space-y-6">
                 <Card>
                   <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
@@ -300,7 +619,7 @@ export const ResidentDetails = () => {
                       </p>
                     </div>
                     {resident.weight &&
-                  <div>
+                      <div>
                         <p className="text-xs text-slate-500 font-medium">
                           Weight
                         </p>
@@ -308,9 +627,9 @@ export const ResidentDetails = () => {
                           {resident.weight} lbs
                         </p>
                       </div>
-                  }
+                    }
                     {resident.height &&
-                  <div>
+                      <div>
                         <p className="text-xs text-slate-500 font-medium">
                           Height
                         </p>
@@ -318,7 +637,7 @@ export const ResidentDetails = () => {
                           {resident.height}
                         </p>
                       </div>
-                  }
+                    }
                   </div>
                 </Card>
 
@@ -362,10 +681,10 @@ export const ResidentDetails = () => {
                   </h2>
                   <div className="space-y-3">
                     {resident.emergencyContacts.map((contact) =>
-                  <div
-                    key={contact.id}
-                    className="bg-slate-50 rounded-lg p-4 border border-slate-100 flex items-center justify-between">
-                    
+                      <div
+                        key={contact.id}
+                        className="bg-slate-50 rounded-lg p-4 border border-slate-100 flex items-center justify-between">
+
                         <div>
                           <p className="font-medium text-slate-900">
                             {getFullName(contact as any)}
@@ -380,7 +699,7 @@ export const ResidentDetails = () => {
                           </p>
                         </div>
                       </div>
-                  )}
+                    )}
                   </div>
                 </Card>
               </div>
@@ -392,7 +711,7 @@ export const ResidentDetails = () => {
                     Vitals
                   </h2>
                   {vitals.length > 0 ?
-                <div className="space-y-3">
+                    <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-xs text-brand-700">
                           Blood Pressure
@@ -423,44 +742,44 @@ export const ResidentDetails = () => {
                       </div>
                     </div> :
 
-                <p className="text-sm text-brand-700">
+                    <p className="text-sm text-brand-700">
                       No vitals recorded yet.
                     </p>
-                }
+                  }
                 </Card>
               </div>
             </motion.div>
           }
 
           {activeTab === 'vitals' &&
-          <motion.div
-            key="vitals"
-            initial={{
-              opacity: 0,
-              y: 10
-            }}
-            animate={{
-              opacity: 1,
-              y: 0
-            }}
-            exit={{
-              opacity: 0,
-              y: -10
-            }}
-            className="space-y-6">
-            
+            <motion.div
+              key="vitals"
+              initial={{
+                opacity: 0,
+                y: 10
+              }}
+              animate={{
+                opacity: 1,
+                y: 0
+              }}
+              exit={{
+                opacity: 0,
+                y: -10
+              }}
+              className="space-y-6">
+
               {isLoggingVitals ?
-            <Card className="border-brand-200 shadow-md">
+                <Card className="border-brand-200 shadow-md">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                       <HeartPulse className="h-5 w-5 text-brand-500" /> Record
-                      New Vitals        
+                      New Vitals
                     </h2>
                     <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsLoggingVitals(false)}>
-                  
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsLoggingVitals(false)}>
+
                       Cancel
                     </Button>
                   </div>
@@ -472,16 +791,16 @@ export const ResidentDetails = () => {
                       </label>
                       <div className="flex items-center gap-2">
                         <input
-                      type="number"
-                      placeholder="120"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500" />
-                    
+                          type="number"
+                          placeholder="120"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500" />
+
                         <span className="text-slate-400 text-lg">/</span>
                         <input
-                      type="number"
-                      placeholder="80"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500" />
-                    
+                          type="number"
+                          placeholder="80"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500" />
+
                         <span className="text-xs text-slate-500 ml-1">
                           mmHg
                         </span>
@@ -494,10 +813,10 @@ export const ResidentDetails = () => {
                       </label>
                       <div className="relative">
                         <input
-                      type="number"
-                      placeholder="72"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 pr-12" />
-                    
+                          type="number"
+                          placeholder="72"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 pr-12" />
+
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
                           bpm
                         </span>
@@ -510,11 +829,11 @@ export const ResidentDetails = () => {
                       </label>
                       <div className="relative">
                         <input
-                      type="number"
-                      step="0.1"
-                      placeholder="98.6"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 pr-10" />
-                    
+                          type="number"
+                          step="0.1"
+                          placeholder="98.6"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 pr-10" />
+
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
                           °F
                         </span>
@@ -527,10 +846,10 @@ export const ResidentDetails = () => {
                       </label>
                       <div className="relative">
                         <input
-                      type="number"
-                      placeholder="98"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 pr-8" />
-                    
+                          type="number"
+                          placeholder="98"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 pr-8" />
+
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
                           %
                         </span>
@@ -540,15 +859,15 @@ export const ResidentDetails = () => {
 
                   <div className="mt-6 flex justify-end">
                     <Button
-                  icon={Save}
-                  onClick={() => setIsLoggingVitals(false)}>
-                  
+                      icon={Save}
+                      onClick={() => setIsLoggingVitals(false)}>
+
                       Save Vitals
                     </Button>
                   </div>
                 </Card> :
 
-            <Card>
+                <Card>
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-semibold text-slate-900">
                       Vitals Trends
@@ -563,108 +882,108 @@ export const ResidentDetails = () => {
                   <div className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
-                    data={chartData}
-                    margin={{
-                      top: 5,
-                      right: 20,
-                      bottom: 5,
-                      left: 0
-                    }}>
-                    
+                        data={chartData}
+                        margin={{
+                          top: 5,
+                          right: 20,
+                          bottom: 5,
+                          left: 0
+                        }}>
+
                         <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      stroke="#E2E8F0" />
-                    
+                          strokeDasharray="3 3"
+                          vertical={false}
+                          stroke="#E2E8F0" />
+
                         <XAxis
-                      dataKey="date"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{
-                        fill: '#64748B',
-                        fontSize: 12
-                      }} />
-                    
+                          dataKey="date"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{
+                            fill: '#64748B',
+                            fontSize: 12
+                          }} />
+
                         <YAxis
-                      yAxisId="left"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{
-                        fill: '#64748B',
-                        fontSize: 12
-                      }}
-                      domain={['dataMin - 10', 'dataMax + 10']} />
-                    
+                          yAxisId="left"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{
+                            fill: '#64748B',
+                            fontSize: 12
+                          }}
+                          domain={['dataMin - 10', 'dataMax + 10']} />
+
                         <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{
-                        fill: '#64748B',
-                        fontSize: 12
-                      }}
-                      domain={['dataMin - 10', 'dataMax + 10']} />
-                    
+                          yAxisId="right"
+                          orientation="right"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{
+                            fill: '#64748B',
+                            fontSize: 12
+                          }}
+                          domain={['dataMin - 10', 'dataMax + 10']} />
+
                         <Tooltip
-                      contentStyle={{
-                        borderRadius: '8px',
-                        border: '1px solid #E2E8F0',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                      }} />
-                    
+                          contentStyle={{
+                            borderRadius: '8px',
+                            border: '1px solid #E2E8F0',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                          }} />
+
                         <Legend
-                      verticalAlign="top"
-                      height={36}
-                      iconType="circle" />
-                    
+                          verticalAlign="top"
+                          height={36}
+                          iconType="circle" />
+
                         <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="systolic"
-                      name="Systolic BP"
-                      stroke="#EF4444"
-                      strokeWidth={2}
-                      dot={{
-                        r: 4
-                      }}
-                      activeDot={{
-                        r: 6
-                      }} />
-                    
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="systolic"
+                          name="Systolic BP"
+                          stroke="#EF4444"
+                          strokeWidth={2}
+                          dot={{
+                            r: 4
+                          }}
+                          activeDot={{
+                            r: 6
+                          }} />
+
                         <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="diastolic"
-                      name="Diastolic BP"
-                      stroke="#F59E0B"
-                      strokeWidth={2}
-                      dot={{
-                        r: 4
-                      }}
-                      activeDot={{
-                        r: 6
-                      }} />
-                    
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="diastolic"
+                          name="Diastolic BP"
+                          stroke="#F59E0B"
+                          strokeWidth={2}
+                          dot={{
+                            r: 4
+                          }}
+                          activeDot={{
+                            r: 6
+                          }} />
+
                         <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="heartRate"
-                      name="Heart Rate"
-                      stroke="#3B82F6"
-                      strokeWidth={2}
-                      dot={{
-                        r: 4
-                      }}
-                      activeDot={{
-                        r: 6
-                      }} />
-                    
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="heartRate"
+                          name="Heart Rate"
+                          stroke="#3B82F6"
+                          strokeWidth={2}
+                          dot={{
+                            r: 4
+                          }}
+                          activeDot={{
+                            r: 6
+                          }} />
+
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                 </Card>
-            }
+              }
 
               <Card noPadding>
                 <div className="p-5 border-b border-slate-100 flex justify-between items-center">
@@ -672,189 +991,371 @@ export const ResidentDetails = () => {
                     Vitals Log
                   </h2>
                   <Button
-                  size="sm"
-                  icon={Plus}
-                  onClick={() => setIsLoggingVitals(true)}>
-                  
+                    size="sm"
+                    icon={Plus}
+                    onClick={() => setIsLoggingVitals(true)}>
+
                     Log Vitals
                   </Button>
                 </div>
                 <div className="w-full overflow-x-auto">
                   <div className="w-[400px] md:w-full ">
-                  <table className="text-sm text-left">
-                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
-                      <tr>
-                        <th className="px-5 py-3 font-medium">Date & Time</th>
-                        <th className="px-5 py-3 font-medium">BP</th>
-                        <th className="px-5 py-3 font-medium">HR</th>
-                        <th className="px-5 py-3 font-medium">Temp</th>
-                        <th className="px-5 py-3 font-medium">SpO2</th>
-                        <th className="px-5 py-3 font-medium">Recorded By</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {vitals.map((v) =>
-                    <tr key={v.id} className="hover:bg-slate-50/50">
-                          <td className="px-5 py-4 whitespace-nowrap">
-                            <p className="font-medium text-slate-900">
-                              {new Date(v.date).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {new Date(v.date).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                            </p>
-                          </td>
-                          <td className="px-5 py-4 font-medium text-slate-900">
-                            {v.systolicBP}/{v.diastolicBP}
-                          </td>
-                          <td className="px-5 py-4 text-slate-600">
-                            {v.heartRate}
-                          </td>
-                          <td className="px-5 py-4 text-slate-600">
-                            {v.temperature}°F
-                          </td>
-                          <td className="px-5 py-4 text-slate-600">
-                            {v.oxygenSaturation}%
-                          </td>
-                          <td className="px-5 py-4 text-slate-500">
-                            {v.recordedBy}
-                          </td>
+                    <table className="text-sm text-left">
+                      <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-100">
+                        <tr>
+                          <th className="px-5 py-3 font-medium">Date & Time</th>
+                          <th className="px-5 py-3 font-medium">BP</th>
+                          <th className="px-5 py-3 font-medium">HR</th>
+                          <th className="px-5 py-3 font-medium">Temp</th>
+                          <th className="px-5 py-3 font-medium">SpO2</th>
+                          <th className="px-5 py-3 font-medium">Recorded By</th>
                         </tr>
-                    )}
-                      {vitals.length === 0 &&
-                    <tr>
-                          <td
-                        colSpan={6}
-                        className="px-5 py-8 text-center text-slate-500">
-                        
-                            No vitals recorded yet.
-                          </td>
-                        </tr>
-                    }
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {vitals.map((v) =>
+                          <tr key={v.id} className="hover:bg-slate-50/50">
+                            <td className="px-5 py-4 whitespace-nowrap">
+                              <p className="font-medium text-slate-900">
+                                {new Date(v.date).toLocaleDateString()}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {new Date(v.date).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                            </td>
+                            <td className="px-5 py-4 font-medium text-slate-900">
+                              {v.systolicBP}/{v.diastolicBP}
+                            </td>
+                            <td className="px-5 py-4 text-slate-600">
+                              {v.heartRate}
+                            </td>
+                            <td className="px-5 py-4 text-slate-600">
+                              {v.temperature}°F
+                            </td>
+                            <td className="px-5 py-4 text-slate-600">
+                              {v.oxygenSaturation}%
+                            </td>
+                            <td className="px-5 py-4 text-slate-500">
+                              {v.recordedBy}
+                            </td>
+                          </tr>
+                        )}
+                        {vitals.length === 0 &&
+                          <tr>
+                            <td
+                              colSpan={6}
+                              className="px-5 py-8 text-center text-slate-500">
+
+                              No vitals recorded yet.
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </Card>
             </motion.div>
           }
 
-          {activeTab === 'careplan' &&
-          <motion.div
-            key="careplan"
-            initial={{
-              opacity: 0,
-              y: 10
+{activeTab === 'careplan' && (
+  <motion.div
+    key="careplan"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+  >
+    {carePlanLoading ? (
+      <Card className="py-10 text-center text-slate-500">Loading care plan…</Card>
+    ) : carePlanError ? (
+      <Card className="py-10 text-center">
+        <h3 className="text-lg font-medium text-slate-900">Unable to load care plan</h3>
+        <p className="text-sm text-slate-500 mt-1">{carePlanError}</p>
+      </Card>
+    ) : carePlan ? (
+      <div className="space-y-6">
+        {/* METADATA BANNER – NEW */}
+        <MetadataBanner
+          carePlan={carePlan}
+          canManage={canManageCarePlans}
+          isMutating={carePlanMutating}
+          onEdit={canManageCarePlans ? () => setShowCarePlanEdit((v) => !v) : undefined}
+          onDelete={canManageCarePlans ? handleDeleteCarePlan : undefined}
+          onAcknowledge={canManageCarePlans ? handleAcknowledgeCarePlan : undefined}
+        />
+
+        {canManageCarePlans && showCarePlanEdit && (
+          <CarePlanCreateSection
+            resident={resident}
+            facilityName={facilityName}
+            branchName={branchName}
+            mode="edit"
+            carePlan={carePlan}
+            onCancel={() => setShowCarePlanEdit(false)}
+            onSaved={async () => {
+              setShowCarePlanEdit(false);
+              await refreshCarePlans();
             }}
-            animate={{
-              opacity: 1,
-              y: 0
-            }}
-            exit={{
-              opacity: 0,
-              y: -10
-            }}>
-            
-              {carePlan ?
-            <div className="space-y-6">
-                  <Card>
-                    <div className="mb-6">
-                      <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                        <ClipboardList className="h-5 w-5 text-brand-500" />{' '}
-                        Care Plan
-                      </h2>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Evolving care plan based on staff inputs and
-                        assessments.
-                      </p>
-                    </div>
+          />
+        )}
 
-                    <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-slate-400" />
-                        <div>
-                          <p className="text-xs text-slate-500">
-                            Generated Date
-                          </p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {new Date(
-                          carePlan.generatedDate
-                        ).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-slate-400" />
-                        <div>
-                          <p className="text-xs text-slate-500">Next Review</p>
-                          <p className="text-sm font-medium text-slate-900">
-                            {new Date(carePlan.reviewDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+        {/* Care Plan Sub Tabs */}
+        <Card className="py-2">
+          <nav className="flex flex-wrap gap-2">
+            {(
+              [
+                { id: 'clinical', label: 'Clinical', icon: ClipboardList },
+                { id: 'risk', label: 'Risk & Safety', icon: ShieldAlert },
+                { id: 'goals', label: 'Goals', icon: Target },
+                { id: 'interventions', label: 'Interventions', icon: Activity },
+                { id: 'preferences', label: 'Preferences', icon: Heart },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setCarePlanSubTab(t.id)}
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${
+                  carePlanSubTab === t.id
+                    ? 'bg-brand-50 text-brand-700 border-brand-200'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <t.icon className="h-4 w-4" />
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </Card>
 
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-medium text-slate-900 uppercase tracking-wider">
-                        Required Actions
-                      </h3>
-                      <ul className="space-y-2">
-                        {carePlan.actions.map((action, idx) =>
-                    <li
-                      key={idx}
-                      className="flex items-start gap-3 p-3 border border-slate-100 rounded-lg hover:border-brand-200 transition-colors">
-                      
-                            <div className="mt-0.5 h-4 w-4 rounded-full border-2 border-brand-500 flex-shrink-0"></div>
-                            <span className="text-sm text-slate-700">
-                              {action}
-                            </span>
-                          </li>
-                    )}
-                      </ul>
-                    </div>
-                  </Card>
-                </div> :
+        {/* Empty-state helper */}
+        {(() => {
+          const EmptyState = ({
+            icon: Icon,
+            title,
+            description,
+            canCreate,
+            onCreate,
+            buttonText,
+          }: {
+            icon: React.ComponentType<{ className?: string }>;
+            title: string;
+            description: string;
+            canCreate: boolean;
+            onCreate?: () => void;
+            buttonText: string;
+          }) => {
+            return (
+              <Card className="py-10 text-center">
+                <Icon className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+                <h3 className="text-lg font-medium text-slate-900">{title}</h3>
+                <p className="text-sm text-slate-500 mt-1 mb-4">{description}</p>
+                {canCreate && onCreate && (
+                  <div className="flex justify-center">
+                    <Button icon={Plus} onClick={onCreate}>
+                      {buttonText}
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            );
+          };
 
-            <Card className="text-center py-12">
-                  <ClipboardList className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                  <h3 className="text-lg font-medium text-slate-900">
-                    No Active Care Plan
-                  </h3>
-                  <p className="text-sm text-slate-500 mt-1 mb-4">
-                    A care plan has not been generated for this resident yet.
-                  </p>
-                  <Button>Generate Care Plan</Button>
-                </Card>
+          if (carePlanSubTab === 'clinical') {
+            if (!clinicalAssessmentExists && !showClinicalAssessment) {
+              return (
+                <EmptyState
+                  icon={ClipboardList}
+                  title="Clinical & Functional Assessment"
+                  description="No clinical assessment has been created for this resident yet."
+                  canCreate={canManageClinicalAssessment}
+                  buttonText="Create Clinical Assessment"
+                  onCreate={() => {
+                    setShowClinicalAssessment(true);
+                    setStartClinicalAssessmentEditing(true);
+                  }}
+                />
+              );
             }
-            </motion.div>
+            return (
+              <ClinicalAssessment
+                residentId={resident.id}
+                canManage={canManageClinicalAssessment}
+                isVisible={true}
+                startEditing={startClinicalAssessmentEditing}
+                onExistsChange={(exists) => setClinicalAssessmentExists(exists)}
+              />
+            );
           }
 
+          if (carePlanSubTab === 'risk') {
+            if (!riskProfileExists && !showRiskProfile) {
+              return (
+                <EmptyState
+                  icon={ShieldAlert}
+                  title="Risk & Safety Profile"
+                  description="No risk & safety profile has been created for this resident yet."
+                  canCreate={canManageRiskProfile}
+                  buttonText="Create Risk & Safety Profile"
+                  onCreate={() => {
+                    setShowRiskProfile(true);
+                    setStartRiskProfileEditing(true);
+                  }}
+                />
+              );
+            }
+            return (
+              <RiskSafetyProfile
+                residentId={resident.id}
+                canManage={canManageRiskProfile}
+                isVisible={true}
+                startEditing={startRiskProfileEditing}
+                onExistsChange={(exists) => setRiskProfileExists(exists)}
+              />
+            );
+          }
+
+          if (carePlanSubTab === 'goals') {
+            if (!goalsExist && !showGoalsOfCare) {
+              return (
+                <EmptyState
+                  icon={Target}
+                  title="Goals of Care"
+                  description="No goals have been created for this resident yet."
+                  canCreate={canManageGoals}
+                  buttonText="Create Goals of Care"
+                  onCreate={() => {
+                    setShowGoalsOfCare(true);
+                    setStartGoalsEditing(true);
+                  }}
+                />
+              );
+            }
+            return (
+              <GoalsOfCare
+                residentId={resident.id}
+                canManage={canManageGoals}
+                isVisible={true}
+                startEditing={startGoalsEditing}
+                onExistsChange={(exists) => setGoalsExist(exists)}
+              />
+            );
+          }
+
+          if (carePlanSubTab === 'interventions') {
+            if (!interventionsExist && !showPlannedInterventions) {
+              return (
+                <EmptyState
+                  icon={Activity}
+                  title="Planned Interventions"
+                  description="No planned interventions have been created for this resident yet."
+                  canCreate={canManageInterventions}
+                  buttonText="Create Planned Interventions"
+                  onCreate={() => {
+                    setShowPlannedInterventions(true);
+                    setStartInterventionsEditing(true);
+                  }}
+                />
+              );
+            }
+            return (
+              <PlannedInterventions
+                residentId={resident.id}
+                canManage={canManageInterventions}
+                isVisible={true}
+                startEditing={startInterventionsEditing}
+                onExistsChange={(exists) => setInterventionsExist(exists)}
+              />
+            );
+          }
+
+          if (carePlanSubTab === 'preferences') {
+            if (!preferencesExist && !showPreferences) {
+              return (
+                <EmptyState
+                  icon={Heart}
+                  title="Person Centered Preferences"
+                  description="No preferences have been created for this resident yet."
+                  canCreate={canManagePreferences}
+                  buttonText="Create Person Centered Preferences"
+                  onCreate={() => {
+                    setShowPreferences(true);
+                    setStartPreferencesEditing(true);
+                  }}
+                />
+              );
+            }
+            return (
+              <PersonCenteredPreferences
+                residentId={resident.id}
+                canManage={canManagePreferences}
+                isVisible={true}
+                startEditing={startPreferencesEditing}
+                onExistsChange={(exists) => setPreferencesExist(exists)}
+              />
+            );
+          }
+
+          return null;
+        })()}
+
+      </div>
+    ) : (
+      <Card className="text-center py-12">
+        <ClipboardList className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+        <h3 className="text-lg font-medium text-slate-900">No Active Care Plan</h3>
+        <p className="text-sm text-slate-500 mt-1 mb-4">
+          A care plan has not been generated for this resident yet.
+        </p>
+        {canManageCarePlans && !showCarePlanCreate && (
+          <div className="flex justify-center">
+            <Button onClick={() => setShowCarePlanCreate(true)}>Create Care Plan</Button>
+          </div>
+        )}
+
+        {canManageCarePlans && showCarePlanCreate && (
+          <div className="text-left">
+            <CarePlanCreateSection
+              resident={resident}
+              facilityName={facilityName}
+              branchName={branchName}
+              mode="create"
+              onCancel={() => setShowCarePlanCreate(false)}
+              onSaved={async () => {
+                setShowCarePlanCreate(false);
+                await refreshCarePlans();
+              }}
+            />
+          </div>
+        )}
+      </Card>
+    )}
+  </motion.div>
+)}
+
           {activeTab === 'medications' &&
-          <motion.div
-            key="medications"
-            initial={{
-              opacity: 0,
-              y: 10
-            }}
-            animate={{
-              opacity: 1,
-              y: 0
-            }}
-            exit={{
-              opacity: 0,
-              y: -10
-            }}>
-            
+            <motion.div
+              key="medications"
+              initial={{
+                opacity: 0,
+                y: 10
+              }}
+              animate={{
+                opacity: 1,
+                y: 0
+              }}
+              exit={{
+                opacity: 0,
+                y: -10
+              }}>
+
               <Card noPadding>
                 <div className="p-5 border-b border-slate-100 flex justify-between items-center">
                   <h2 className="text-lg font-semibold text-slate-900">
                     Current Medications
                   </h2>
-                  <Button size="sm" icon={Plus}>
-                    Add Medication
-                  </Button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
@@ -868,7 +1369,7 @@ export const ResidentDetails = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {carePlan?.medications.map((med, idx) =>
-                    <tr key={idx} className="hover:bg-slate-50/50">
+                        <tr key={idx} className="hover:bg-slate-50/50">
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-2">
                               <Pill className="h-4 w-4 text-brand-500" />
@@ -885,29 +1386,29 @@ export const ResidentDetails = () => {
                           </td>
                           <td className="px-5 py-4">
                             <Badge
-                          variant={
-                          med.status === 'Active' ?
-                          'success' :
-                          med.status === 'Paused' ?
-                          'warning' :
-                          'default'
-                          }>
-                          
+                              variant={
+                                med.status === 'Active' ?
+                                  'success' :
+                                  med.status === 'Paused' ?
+                                    'warning' :
+                                    'default'
+                              }>
+
                               {med.status}
                             </Badge>
                           </td>
                         </tr>
-                    )}
+                      )}
                       {(!carePlan || carePlan.medications.length === 0) &&
-                    <tr>
+                        <tr>
                           <td
-                        colSpan={4}
-                        className="px-5 py-8 text-center text-slate-500">
-                        
+                            colSpan={4}
+                            className="px-5 py-8 text-center text-slate-500">
+
                             No medications recorded.
                           </td>
                         </tr>
-                    }
+                      }
                     </tbody>
                   </table>
                 </div>
@@ -915,188 +1416,116 @@ export const ResidentDetails = () => {
             </motion.div>
           }
 
-          {activeTab === 'tasks' &&
-          <motion.div
-            key="tasks"
-            initial={{
-              opacity: 0,
-              y: 10
-            }}
-            animate={{
-              opacity: 1,
-              y: 0
-            }}
-            exit={{
-              opacity: 0,
-              y: -10
-            }}>
-            
-              <Card noPadding>
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Resident Tasks
-                  </h2>
-                  <Button
-                  size="sm"
-                  icon={Plus}
-                  onClick={() => setIsCreateTaskOpen(true)}>
-                  
-                    Create Task
-                  </Button>
-                </div>
-                <div className="p-5 space-y-4">
-                  {residentTasks.map((task) => {
-                  const assignedStaff = mockStaffMembers.find(
-                    (s) => s.id === task.assignedTo
-                  );
-                  return (
-                    <div
-                      key={task.id}
-                      className="p-4 rounded-lg border border-slate-200 bg-white hover:shadow-sm transition-shadow">
-                      
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium text-slate-900">
-                              {task.title}
-                            </h3>
-                            <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${getTaskCategoryColor(task.category)}`}>
-                            
-                              {task.category}
-                            </span>
-                          </div>
-                          <Badge
-                          variant={
-                          task.status === 'Todo' ?
-                          'default' :
-                          task.status === 'In Progress' ?
-                          'info' :
-                          'success'
-                          }>
-                          
-                            {task.status}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-500 mb-3">
-                          {task.description}
-                        </p>
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <div className="flex items-center gap-1.5">
-                            <User className="h-3.5 w-3.5" />
-                            <span>
-                              {assignedStaff ?
-                            getFullName(assignedStaff) :
-                            'Unassigned'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5" />
-                            <span>
-                              Due: {new Date(task.dueDate).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>);
-
-                })}
-                  {residentTasks.length === 0 &&
-                <div className="text-center py-8 text-slate-500 text-sm">
-                      No tasks assigned for this resident.
-                    </div>
-                }
-                </div>
-              </Card>
-            </motion.div>
-          }
 
           {activeTab === 'notes' &&
-          <motion.div
-            key="notes"
-            initial={{
-              opacity: 0,
-              y: 10
-            }}
-            animate={{
-              opacity: 1,
-              y: 0
-            }}
-            exit={{
-              opacity: 0,
-              y: -10
-            }}
-            className="space-y-6">
-            
+            <motion.div
+              key="notes"
+              initial={{
+                opacity: 0,
+                y: 10
+              }}
+              animate={{
+                opacity: 1,
+                y: 0
+              }}
+              exit={{
+                opacity: 0,
+                y: -10
+              }}
+              className="space-y-6">
+
               <Card>
                 <h2 className="text-sm font-semibold text-slate-900 mb-3">
                   Add Note
                 </h2>
                 <div className="space-y-3">
                   <div className="flex gap-2 mb-2">
-                    {['Observation', 'Clinical', 'General'].map((type) =>
-                  <button
-                    key={type}
-                    onClick={() => setNoteType(type)}
-                    className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${noteType === type ? getNoteTypeColor(type) : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
-                    
+                    {(['Observation', 'Clinical', 'General'] as const).map((type) =>
+                      <button
+                        key={type}
+                        onClick={() => setNoteType(type)}
+                        className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${noteType === type ? getNoteTypeColor(type) : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>
+
                         {type}
                       </button>
-                  )}
+                    )}
                   </div>
                   <textarea
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent min-h-[80px] resize-y"
-                  placeholder="Type your observation or note here..."
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}>
-                </textarea>
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent min-h-[80px] resize-y"
+                    placeholder="Type your observation or note here..."
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}>
+                  </textarea>
                   <div className="flex justify-end">
-                    <Button disabled={!newNote.trim()}>Save Note</Button>
+                    <Button
+                      onClick={handleCreateNote}
+                      disabled={!newNote.trim() || loading}
+                      isLoading={loading}
+                    >
+                      {loading ? 'Saving...' : 'Save Note'}
+                    </Button>
                   </div>
                 </div>
               </Card>
 
-              <div className="space-y-4">
-                {notes.map((note) =>
-              <Card
-                key={note.id}
-                className="hover:border-slate-300 transition-colors">
-                
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-600">
-                          {note.author.
-                      split(' ').
-                      map((n) => n[0]).
-                      join('')}
+              {/* Notes List */}
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand-500 border-r-transparent"></div>
+                  <p className="mt-2 text-sm text-slate-500">Loading notes...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {notes.map((note) => (
+                    <Card
+                      key={note.id}
+                      className="hover:border-slate-300 transition-colors group"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-600">
+                            {note.author.split(' ').map((n) => n[0]).join('')}
+                          </div>
+                          <span className="text-sm font-medium text-slate-900">
+                            {note.author}
+                          </span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${getNoteTypeColor(note.type)}`}>
+                            {note.type}
+                          </span>
                         </div>
-                        <span className="text-sm font-medium text-slate-900">
-                          {note.author}
-                        </span>
-                        <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${getNoteTypeColor(note.type)}`}>
-                      
-                          {note.type}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500">
+                            {new Date(note.timestamp).toLocaleString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                          {/* Optional: Add delete button */}
+                          <button
+                            onClick={() => handleDeleteNote(note.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-600"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                      <span className="text-xs text-slate-500">
-                        {new Date(note.timestamp).toLocaleString([], {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                      </span>
+                      <p className="text-sm text-slate-700 pl-8">
+                        {note.content}
+                      </p>
+                    </Card>
+                  ))}
+
+                  {notes.length === 0 && !loading && (
+                    <div className="text-center py-8 text-slate-500 text-sm">
+                      No notes yet. Create your first note above.
                     </div>
-                    <p className="text-sm text-slate-700 pl-8">
-                      {note.content}
-                    </p>
-                  </Card>
+                  )}
+                </div>
               )}
-                {notes.length === 0 &&
-              <div className="text-center py-8 text-slate-500 text-sm">
-                    No notes yet.
-                  </div>
-              }
-              </div>
             </motion.div>
           }
         </AnimatePresence>
@@ -1106,7 +1535,7 @@ export const ResidentDetails = () => {
         isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
         title="Edit Resident Profile">
-        
+
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label="First Name" defaultValue={resident.firstName} />
@@ -1121,7 +1550,7 @@ export const ResidentDetails = () => {
               <select
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
                 defaultValue={resident.status}>
-                
+
                 <option>InPatient</option>
                 <option>Hospitalized</option>
                 <option>Discharged</option>
@@ -1144,13 +1573,13 @@ export const ResidentDetails = () => {
           <Input
             label="Primary Diagnosis"
             defaultValue={resident.primaryDiagnosis} />
-          
+
           <Input label="Allergies" defaultValue={resident.allergies} />
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
             <Button
               variant="outline"
               onClick={() => setIsEditProfileOpen(false)}>
-              
+
               Cancel
             </Button>
             <Button onClick={() => setIsEditProfileOpen(false)}>
@@ -1164,12 +1593,12 @@ export const ResidentDetails = () => {
         isOpen={isCreateTaskOpen}
         onClose={() => setIsCreateTaskOpen(false)}
         title="Create New Task">
-        
+
         <div className="space-y-4">
           <Input
             label="Task Title"
             placeholder="e.g. Administer Morning Meds" />
-          
+
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700">
               Category
@@ -1190,11 +1619,6 @@ export const ResidentDetails = () => {
             </label>
             <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
               <option value="">Unassigned</option>
-              {mockStaffMembers.map((staff) =>
-              <option key={staff.id} value={staff.id}>
-                  {getFullName(staff)} - {staff.role}
-                </option>
-              )}
             </select>
           </div>
           <Input label="Due Date" type="datetime-local" />
@@ -1211,7 +1635,7 @@ export const ResidentDetails = () => {
             <Button
               variant="outline"
               onClick={() => setIsCreateTaskOpen(false)}>
-              
+
               Cancel
             </Button>
             <Button onClick={() => setIsCreateTaskOpen(false)}>
@@ -1220,6 +1644,7 @@ export const ResidentDetails = () => {
           </div>
         </div>
       </Modal>
+
     </div>);
-  
+
 };

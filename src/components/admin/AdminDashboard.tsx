@@ -1,4 +1,4 @@
-import React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   Activity,
@@ -8,36 +8,70 @@ import {
   HeartPulse } from
 'lucide-react';
 import { StatsCard, Card, Badge, Button } from '../../components/UI';
-import {
-  mockResidents,
-  mockTasks,
-  mockAlerts,
-  mockStaffMembers } from
-'../../mockData';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getFullName } from '../../types';
+import { residentService } from '../../services/residentService';
+import { taskService } from '../../services/taskService';
+import { alertsService } from '../../services/alertsService';
+import { staffService } from '../../services/staffService';
+import type { Alert, Resident, StaffMember, Task } from '../../types';
+import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 export const AdminDashboard = () => {
   const { user } = useAuth();
-  const branchId = user?.branchId || 'b1';
-  const myResidents = mockResidents.filter((r) => r.branchId === branchId);
-  const activeResidents = myResidents.filter(
-    (r) => r.status === 'InPatient'
-  ).length;
-  const myTasks = mockTasks.filter((t) => t.branchId === branchId);
-  const pendingTasks = myTasks.filter(
-    (t) => t.status === 'Todo' || t.status === 'In Progress'
-  ).length;
-  const adminAlerts = mockAlerts.filter(
-    (a) => a.targetRoles.includes('admin') && a.branchId === branchId
+  const branchId = user?.branchId || '';
+  const [residents, setResidents] = useState<Resident[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchDashboard = async () => {
+    setLoading(true);
+    try {
+      const [residentsData, tasksData, alertsData, staffData] = await Promise.all([
+        residentService.getAllResidents(),
+        taskService.getAllTasks(),
+        alertsService.getAlerts(),
+        staffService.getAllStaff(),
+      ]);
+      setResidents(residentsData);
+      setTasks(tasksData);
+      setAlerts(alertsData);
+      setStaff(staffData);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (!branchId) return;
+
+    
+
+    void fetchDashboard();
+  }, [branchId]);
+
+  const myResidents = useMemo(() => residents.filter((r) => r.branchId === branchId), [residents, branchId]);
+  const activeResidents = useMemo(
+    () => myResidents.filter((r) => r.status === 'InPatient').length,
+    [myResidents],
   );
-  const criticalAlerts = adminAlerts.filter(
-    (a) => a.severity === 'Critical' && a.status !== 'Resolved'
-  ).length;
-  const staffCount = mockStaffMembers.filter(
-    (s) => s.branchId === branchId
-  ).length;
-  const recentTasks = myTasks.slice(0, 4);
+  const myTasks = useMemo(() => tasks.filter((t) => t.branchId === branchId), [tasks, branchId]);
+  const pendingTasks = useMemo(
+    () => myTasks.filter((t) => t.status === 'Todo' || t.status === 'In Progress').length,
+    [myTasks],
+  );
+  const adminAlerts = useMemo(
+    () => alerts.filter((a) => a.targetRoles.includes('admin') && a.branchId === branchId),
+    [alerts, branchId],
+  );
+  const criticalAlerts = useMemo(
+    () => adminAlerts.filter((a) => a.severity === 'Critical' && a.status !== 'Resolved').length,
+    [adminAlerts],
+  );
+  const staffCount = useMemo(() => staff.filter((s) => s.branchId === branchId).length, [staff, branchId]);
+  const recentTasks = useMemo(() => myTasks.slice(0, 4), [myTasks]);
   const getTaskCategoryColor = (category: string) => {
     switch (category) {
       case 'Medication':
@@ -56,6 +90,10 @@ export const AdminDashboard = () => {
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };
+
+  if(loading) {
+    return <AdminDashboardSkeleton />;
+  }
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -74,6 +112,7 @@ export const AdminDashboard = () => {
           <Link to="/admin/residents/new">
             <Button icon={Plus}>Add Resident</Button>
           </Link>
+          <RefreshButton onRefresh={fetchDashboard}/>
         </div>
       </div>
 
@@ -81,18 +120,18 @@ export const AdminDashboard = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="InPatient Residents"
-          value={activeResidents}
+          value={loading ? '—' : activeResidents}
           icon={Users} />
         
-        <StatsCard title="Active Staff" value={staffCount} icon={Activity} />
+        <StatsCard title="Active Staff" value={loading ? '—' : staffCount} icon={Activity} />
         <StatsCard
           title="Pending Tasks"
-          value={pendingTasks}
+          value={loading ? '—' : pendingTasks}
           icon={ClipboardList} />
         
         <StatsCard
           title="Critical Alerts"
-          value={criticalAlerts}
+          value={loading ? '—' : criticalAlerts}
           icon={AlertCircle}
           trend={criticalAlerts > 0 ? 'Requires attention' : 'All clear'}
           trendUp={criticalAlerts === 0} />

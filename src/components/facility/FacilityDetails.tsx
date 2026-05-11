@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Building2,
@@ -7,41 +7,220 @@ import {
   Mail,
   FileText,
   Download,
-  Trash2,
   ShieldAlert,
   ArrowLeft,
   Activity,
   Network,
-  Users,
   Plus,
   Upload,
-  Eye
-} from
-  'lucide-react';
+} from 'lucide-react';
 import { Card, Button, Badge, Modal, Input } from '../../components/UI';
-import { mockFacilities, mockBranches, mockAuditLogs } from '../../mockData';
-import { Facility } from '../../types';
+import { mockAuditLogs } from '../../mockData';
+import { Branch, Facility } from '../../types';
+import { facilityService } from '../../services/facilityService';
+import { CreateBranchRequest } from '../../services/branchService';
+import { useAuth } from '../../context/AuthContext';
+import axios from 'axios';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage, getApiSuccessMessage } from '../../utils/apiMessage';
+import { ResidentDetailsSkeleton } from '../skeletons/DetailsSkeleton';
+
+const generateTemporaryPassword = () => {
+  return `Oron@${Math.random().toString(36).slice(-8)}A1`;
+};
+
+const emptyBranchForm: CreateBranchRequest = {
+  facilityId: '',
+  name: '',
+  address: '',
+  phone: '',
+  type: 'Senior Living',
+  status: 'Active',
+  residentLimit: 100,
+
+  branchAdminFirstName: '',
+  branchAdminLastName: '',
+  branchAdminEmail: '',
+  branchAdminPassword: '',
+};
 
 export const FacilityDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const toast = useToast();
+  const [isRefreshingContractUrl, setIsRefreshingContractUrl] = useState(false);
   const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddBranchModalOpen, setIsAddBranchModalOpen] = useState(false);
-  const [facilities, setFacilities] = useState<Facility | undefined>();
+  const [facility, setFacility] = useState<Facility | null>(null);
+  const [facilityBranches, setFacilityBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [branchError, setBranchError] = useState<string | null>(null);
+  const [isCreatingBranch, setIsCreatingBranch] = useState(false);
+  const [branchForm, setBranchForm] = useState<CreateBranchRequest>(emptyBranchForm);
 
-  const facility = mockFacilities.find((f) => f.id === id) || mockFacilities[0];
-  const facilityBranches = mockBranches.filter(
-    (b) => b.facilityId === facility.id
-  );
-  const facilityLogs = mockAuditLogs.
-    filter((log) => log.facilityId === facility.id).
-    slice(0, 5);
+  useEffect(() => {
+    if (!id) {
+      return;
+    }
+
+    void loadFacilityDetails(id);
+  }, [id]);
+
+  const loadFacilityDetails = async (facilityId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const apiBase = (import.meta as any).env?.VITE_API_URL as string;
+      const auth = localStorage.getItem('oron_auth');
+      const token = auth ? (JSON.parse(auth) as { token?: string }).token || '' : '';
+
+      const [facilityData, branchesResponse] = await Promise.all([
+        facilityService.getFacilityById(facilityId),
+        axios.get(`${apiBase}/branches`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token || ''}`,
+          },
+        }),
+      ]);
+
+      const payload = branchesResponse.data;
+      const branchesData: Branch[] = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload?.branches)
+            ? payload.branches
+            : [];
+
+      setFacility(facilityData);
+      setFacilityBranches(branchesData.filter((branch) => branch.facilityId === facilityId));
+      setBranchForm((prev) => ({
+        ...prev,
+        facilityId,
+      }));
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to load facility details');
+      setError(message);
+      toast.error(message);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const facilityLogs = useMemo(() => {
+    if (!facility) {
+      return [];
+    }
+
+    return mockAuditLogs
+      .filter((log) => log.facilityId === facility.id)
+      .slice(0, 5);
+  }, [facility]);
 
   const handleRevokeAccess = () => {
     setIsRevokeModalOpen(false);
     navigate('/owner/facilities');
   };
+
+  const handleBranchInputChange = (field: keyof CreateBranchRequest, value: string | number) => {
+    setBranchForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleCreateBranch = async () => {
+    if (!facility) {
+      return;
+    }
+
+    try {
+      setIsCreatingBranch(true);
+      setBranchError(null);
+
+      const tempPassword = branchForm.branchAdminPassword;
+      const apiBase = (import.meta as any).env?.VITE_API_URL as string;
+      const auth = localStorage.getItem('oron_auth');
+      const token = auth ? (JSON.parse(auth) as { token?: string }).token || '' : '';
+
+      const createdBranchResponse = await axios.post(`${apiBase}/branches`, {
+        ...branchForm,
+        facilityId: facility.id,
+        residentLimit: Number(branchForm.residentLimit),
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token || ''}`,
+        },
+      });
+
+      const createdBranch: Branch = createdBranchResponse.data;
+
+      setFacilityBranches((prev) => [...prev, createdBranch]);
+      setFacility((prev) =>
+        prev
+          ? {
+              ...prev,
+              totalBranches: prev.totalBranches + 1,
+            }
+          : prev,
+      );
+      setBranchForm({
+        ...emptyBranchForm,
+        facilityId: facility.id,
+      });
+      setIsAddBranchModalOpen(false);
+      toast.success(getApiSuccessMessage(createdBranchResponse.data, 'Branch created successfully.'));
+
+      if (tempPassword) {
+        toast.success(`Branch admin temporary password: ${tempPassword}`);
+      }
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to create branch');
+      setBranchError(message);
+      toast.error(message);
+      console.error(err);
+    } finally {
+      setIsCreatingBranch(false);
+    }
+  };
+
+  const handleDownloadContract = async () => {
+    if (!id) return;
+    try {
+      setIsRefreshingContractUrl(true);
+      // Always refetch facility before download so we get a fresh signed URL.
+      const freshFacility = await facilityService.getFacilityById(id);
+      setFacility(freshFacility);
+      if (freshFacility.contractDocumentUrl) {
+        window.open(freshFacility.contractDocumentUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        toast.error('No contract document available.');
+      }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to refresh contract download link'));
+    } finally {
+      setIsRefreshingContractUrl(false);
+    }
+  };
+
+  if (loading) {
+    return <ResidentDetailsSkeleton/>
+  }
+
+  if (error) {
+    return <div className="p-4 bg-red-50 text-red-700 rounded-lg">{error}</div>;
+  }
+
+  if (!facility) {
+    return <div className="p-8 text-center text-slate-500">Facility not found.</div>;
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -79,7 +258,6 @@ export const FacilityDetails = () => {
             variant="outline"
             onClick={() => {
               setIsEditModalOpen(true);
-              setFacilities(facility);
             }}
             className="w-full sm:w-auto text-sm">
             Edit Details
@@ -158,14 +336,24 @@ export const FacilityDetails = () => {
                 <Network className="h-4 w-4 sm:h-5 sm:w-5 text-brand-500" />
                 Facility Branches
               </h2>
-              <Button
-                size="sm"
-                variant="outline"
-                icon={Plus}
-                onClick={() => setIsAddBranchModalOpen(true)}
-                className="w-full sm:w-auto">
-                Add Branch
-              </Button>
+              {user?.role === 'owner' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  icon={Plus}
+                  onClick={() => {
+                    setBranchError(null);
+                  setBranchForm({
+                    ...emptyBranchForm,
+                    facilityId: facility.id,
+                    branchAdminPassword: generateTemporaryPassword(),
+                  });
+                    setIsAddBranchModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto">
+                  Add Branch
+                </Button>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
@@ -220,7 +408,7 @@ export const FacilityDetails = () => {
                           </div>
                         </td>
                         <td className="px-3 sm:px-5 py-3 sm:py-4 text-slate-600 text-sm">
-                          {branch.branchAdminName}
+                          {branch.branchAdminName || 'Unassigned'}
                         </td>
                       </tr>
                     );
@@ -253,29 +441,44 @@ export const FacilityDetails = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="px-3 sm:px-5 py-3 sm:py-4">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-brand-500 shrink-0" />
-                        <span className="font-medium text-slate-900 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
-                          Master_Service_Agreement_2025.pdf
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 text-slate-500 text-xs sm:text-sm hidden sm:table-cell">
-                      Jan 1, 2025
-                    </td>
-                    <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
-                      <div className="flex items-center justify-end gap-1 sm:gap-2">
-                        <Button variant="ghost" size="sm" icon={Download} className="text-xs sm:text-sm">
-                          Download
-                        </Button>
-                        <button className="p-1 sm:p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors">
-                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  {facility.contractDocumentUrl ? (
+                    <tr className="hover:bg-slate-50/50">
+                      <td className="px-3 sm:px-5 py-3 sm:py-4">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-brand-500 shrink-0" />
+                          <span className="font-medium text-slate-900 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
+                            Contract Document
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-slate-500 text-xs sm:text-sm hidden sm:table-cell">
+                        {facility.contractStart
+                          ? new Date(facility.contractStart).toLocaleDateString()
+                          : '—'}
+                      </td>
+                      <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
+                        <div className="flex items-center justify-end gap-1 sm:gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={Download}
+                            isLoading={isRefreshingContractUrl}
+                            onClick={handleDownloadContract}
+                            className="text-xs sm:text-sm">
+                            Download
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="px-3 sm:px-5 py-6 text-center text-slate-500 text-xs sm:text-sm">
+                        No contract document uploaded.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -409,43 +612,113 @@ export const FacilityDetails = () => {
         onClose={() => setIsAddBranchModalOpen(false)}
         title="Add New Branch">
         <div className="space-y-4">
+          {branchError && (
+            <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+              {branchError}
+            </div>
+          )}
           <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2">
             Branch Details
           </h3>
-          <Input label="Branch Name *" placeholder="e.g. Sunrise Downtown" />
-          <Input label="Address *" placeholder="123 Main St" />
-          <Input label="Phone Number *" placeholder="(555) 000-0000" />
+          <Input
+            label="Branch Name *"
+            placeholder="e.g. Sunrise Downtown"
+            value={branchForm.name}
+            onChange={(e) => handleBranchInputChange('name', e.target.value)}
+          />
+          <Input
+            label="Address *"
+            placeholder="123 Main St"
+            value={branchForm.address}
+            onChange={(e) => handleBranchInputChange('address', e.target.value)}
+          />
+          <Input
+            label="Phone Number *"
+            placeholder="(555) 000-0000"
+            value={branchForm.phone}
+            onChange={(e) => handleBranchInputChange('phone', e.target.value)}
+          />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">
                 Type *
               </label>
-              <select className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
+              <select
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                value={branchForm.type}
+                onChange={(e) => handleBranchInputChange('type', e.target.value)}>
                 <option>Senior Living</option>
                 <option>Assisted Living</option>
                 <option>Memory Care</option>
+                <option>Residential</option>
               </select>
             </div>
-            <Input label="Resident Limit *" type="number" placeholder="100" />
+            <Input
+              label="Resident Limit *"
+              type="number"
+              placeholder="100"
+              value={branchForm.residentLimit}
+              onChange={(e) => handleBranchInputChange('residentLimit', Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700">
+              Status *
+            </label>
+            <select
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+              value={branchForm.status}
+              onChange={(e) => handleBranchInputChange('status', e.target.value)}>
+              <option>Active</option>
+              <option>Pending</option>
+              <option>Suspended</option>
+            </select>
           </div>
 
           <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2 mt-6">
             Branch Admin Account
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="First Name *" placeholder="John" />
-            <Input label="Last Name *" placeholder="Doe" />
+            <Input
+              label="First Name *"
+              placeholder="John"
+              value={branchForm.branchAdminFirstName}
+              onChange={(e) =>
+                handleBranchInputChange('branchAdminFirstName', e.target.value)
+              }
+            />
+            <Input
+              label="Last Name *"
+              placeholder="Doe"
+              value={branchForm.branchAdminLastName}
+              onChange={(e) =>
+                handleBranchInputChange('branchAdminLastName', e.target.value)
+              }
+            />
           </div>
-          <Input label="Email *" type="email" placeholder="admin@branch.com" />
-          <p className="text-xs text-slate-500">
-            An invitation email will be sent to this address to set up their password.
+          <Input
+            label="Email *"
+            type="email"
+            placeholder="admin@branch.com"
+            value={branchForm.branchAdminEmail}
+            onChange={(e) =>
+              handleBranchInputChange('branchAdminEmail', e.target.value)
+            }
+          />
+
+          <p className="text-xs text-slate-500 mt-1">Temporary password:</p>
+          <p className="text-xs text-slate-700 font-mono bg-slate-50 border border-slate-200 rounded-lg p-3 break-all">
+            {branchForm.branchAdminPassword}
           </p>
 
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
             <Button variant="outline" onClick={() => setIsAddBranchModalOpen(false)} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button onClick={() => setIsAddBranchModalOpen(false)} className="w-full sm:w-auto">
+            <Button
+              onClick={handleCreateBranch}
+              isLoading={isCreatingBranch}
+              className="w-full sm:w-auto">
               Create Branch
             </Button>
           </div>

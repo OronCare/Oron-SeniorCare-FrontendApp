@@ -17,7 +17,8 @@ export const sidebarConfig = {
     { name: "Facilities", path: "/owner/facilities", icon: Building2 },
     { name: "Rules Engine", path: "/owner/rules", icon: Settings },
     { name: "Reports", path: "/owner/reports", icon: FileText },
-    { name: "Audit Logs", path: "/owner/audit-logs", icon: FileText }
+    { name: "Audit Logs", path: "/owner/audit-logs", icon: FileText },
+    { name: "Notifications", path: "/owner/notifications", icon: Bell }
   ],
 
   facility_admin: [
@@ -33,7 +34,6 @@ export const sidebarConfig = {
     { name: "Dashboard", path: "/admin", icon: BarChart3 },
     { name: "Residents", path: "/admin/residents", icon: Users },
     { name: "Vitals", path: "/admin/vitals", icon: Activity },
-    { name: "Care Plans", path: "/admin/care-plans", icon: ClipboardList },
     { name: "Tasks", path: "/admin/tasks", icon: ClipboardList },
     { name: "Staff", path: "/admin/staff", icon: Users },
     { name: "Reports", path: "/admin/reports", icon: FileText },
