@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Filter, Download, Calendar } from 'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
 import { useAuth } from '../../context/AuthContext';
@@ -24,7 +24,7 @@ export const AuditLog = () => {
   const [page, setPage] = useState(1);
 
   const PAGE_SIZE = 5;
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = useCallback(async () => {
     if (!isAuthenticated || !user) return;
     try {
       setLoading(true);
@@ -38,25 +38,26 @@ export const AuditLog = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, toast, user]);
 
   useEffect(() => {
-    
-
     void fetchAuditLogs();
-  }, [isAuthenticated, user]);
+  }, [fetchAuditLogs]);
 
-  const uniqueActions = [
-  'All',
-  ...Array.from(new Set(logs.map((log) => log.action)))];
+  const uniqueActions = useMemo(() => {
+    return ['All', ...Array.from(new Set(logs.map((log) => log.action)))];
+  }, [logs]);
 
-  const filteredLogs = logs.filter((log) => {
-    const matchesSearch =
-    log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.details.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesAction = actionFilter === 'All' || log.action === actionFilter;
-    return matchesSearch && matchesAction;
-  });
+  const filteredLogs = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return logs.filter((log) => {
+      const matchesSearch =
+        log.user.toLowerCase().includes(q) ||
+        log.details.toLowerCase().includes(q);
+      const matchesAction = actionFilter === 'All' || log.action === actionFilter;
+      return matchesSearch && matchesAction;
+    });
+  }, [actionFilter, logs, searchTerm]);
 
   // Reset to first page on filter/search changes
   useEffect(() => {
@@ -74,7 +75,7 @@ export const AuditLog = () => {
   const showingTo = Math.min(safePage * PAGE_SIZE, filteredLogs.length);
 
 
-  const handleExportCSV = () => {
+  const handleExportCSV = useCallback(() => {
     const headers = ['Timestamp', 'User', 'Action', 'Details'];
     const csvContent = [
     headers.join(','),
@@ -94,7 +95,7 @@ export const AuditLog = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
+  }, [filteredLogs]);
   if (loading) {
     return (
         <TableSkeleton

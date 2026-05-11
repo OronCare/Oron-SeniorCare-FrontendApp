@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Filter, Plus, Upload, Network, Eye, Edit2 } from "lucide-react";
 import { Card, Button, Input } from "../../components/UI";
 import { getFullName, Resident, Branch } from "../../types";
@@ -34,7 +34,7 @@ const Residents = () => {
     const [branchFilter, setBranchFilter] = useState("All");
     const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
-    const fetchResidents = async () => {
+    const fetchResidents = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -47,7 +47,22 @@ const Residents = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [toast]);
+
+    const fetchBranches = useCallback(async () => {
+        if (role !== "facility_admin") return;
+        try {
+            const response = await axios.get<Branch[]>(`${import.meta.env.VITE_API_URL}/branches`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            setBranches(response.data);
+        } catch (err) {
+            console.warn('Unable to fetch branch list for filters', err);
+        }
+    }, [role, token]);
+
     useEffect(() => {
         const apiBase = import.meta.env.VITE_API_URL;
         if (!apiBase || !token) {
@@ -57,24 +72,9 @@ const Residents = () => {
             setLoading(false);
             return;
         }
-
-        const fetchBranches = async () => {
-            if (role !== "facility_admin") return;
-            try {
-                const response = await axios.get<Branch[]>(`${import.meta.env.VITE_API_URL}/branches`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-                setBranches(response.data);
-            } catch (err) {
-                console.warn('Unable to fetch branch list for filters', err);
-            }
-        };
-
-        fetchResidents();
-        fetchBranches();
-    }, [role, token]);
+        void fetchResidents();
+        void fetchBranches();
+    }, [fetchBranches, fetchResidents, toast, token]);
 
     const branchOptions = useMemo(() => {
         if (branches.length > 0) {
@@ -99,72 +99,79 @@ const Residents = () => {
     const isStaff = role === "staff";
     const actions = isStaff ? StaffResidenceactions : Residenceactions;
 
-    // Override for facility_admin
-    let finalActions = actions;
-    if (isFacilityAdmin) {
-        finalActions = [
-            {
-                render: (resident: Resident) => (
-                    <Link to={`/facility-admin/residents/${resident.id}`}>
-                        <span
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
-                            title="View resident"
-                            aria-label="View resident"
-                        >
-                            <Eye className="h-4 w-4" />
-                        </span>
-                    </Link>
-                )
-            },
-            {
-                render: (resident: Resident) => (
-                    <Link to={`/facility-admin/residents/${resident.id}/edit`}>
-                      <span
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
-                        title="Edit resident"
-                        aria-label="Edit resident"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </span>
-                    </Link>
-                  )
-            }
-        ];
-    } else if (isStaff) {
-        finalActions = [
-            {
-                render: (resident: Resident) => (
-                    <Link to={`/staff/residents/${resident.id}`}>
-                        <span
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
-                            title="View resident"
-                            aria-label="View resident"
-                        >
-                            <Eye className="h-4 w-4" />
-                        </span>
-                    </Link>
-                )
-            }
-        ];
-    }
+    const finalActions = useMemo(() => {
+        // Override for facility_admin
+        if (isFacilityAdmin) {
+            return [
+                {
+                    render: (resident: Resident) => (
+                        <Link to={`/facility-admin/residents/${resident.id}`}>
+                            <span
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+                                title="View resident"
+                                aria-label="View resident"
+                            >
+                                <Eye className="h-4 w-4" />
+                            </span>
+                        </Link>
+                    )
+                },
+                {
+                    render: (resident: Resident) => (
+                        <Link to={`/facility-admin/residents/${resident.id}/edit`}>
+                          <span
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+                            title="Edit resident"
+                            aria-label="Edit resident"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </span>
+                        </Link>
+                      )
+                }
+            ];
+        }
+        if (isStaff) {
+            return [
+                {
+                    render: (resident: Resident) => (
+                        <Link to={`/staff/residents/${resident.id}`}>
+                            <span
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+                                title="View resident"
+                                aria-label="View resident"
+                            >
+                                <Eye className="h-4 w-4" />
+                            </span>
+                        </Link>
+                    )
+                }
+            ];
+        }
+        return actions;
+    }, [actions, isFacilityAdmin, isStaff]);
+
     // 🔹 Filtering
-    const filteredResidents = residents.filter((resident) => {
-        const fullName = getFullName(resident).toLowerCase();
+    const filteredResidents = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase();
+        return residents.filter((resident) => {
+            const fullName = getFullName(resident).toLowerCase();
 
-        const matchesSearch =
-            fullName.includes(searchTerm.toLowerCase()) ||
-            resident.room.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch =
+                fullName.includes(q) ||
+                resident.room.toLowerCase().includes(q);
 
-        const matchesStatus =
-            statusFilter === "All" || resident.status === statusFilter;
+            const matchesStatus =
+                statusFilter === "All" || resident.status === statusFilter;
 
-        const matchesBranch =
-            role !== "facility_admin" ||
-            branchFilter === "All" ||
-            resident.branchId === branchFilter;
+            const matchesBranch =
+                role !== "facility_admin" ||
+                branchFilter === "All" ||
+                resident.branchId === branchFilter;
 
-        return matchesSearch && matchesStatus && matchesBranch;
-    });
+            return matchesSearch && matchesStatus && matchesBranch;
+        });
+    }, [branchFilter, residents, role, searchTerm, statusFilter]);
 
 
     // 🔹 Role-based config
