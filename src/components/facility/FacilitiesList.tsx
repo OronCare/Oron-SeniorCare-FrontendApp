@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Filter,
@@ -30,12 +30,7 @@ export const FacilitiesList = () => {
 
   const PAGE_SIZE = 5;
 
-  // Fetch facilities on mount
-  useEffect(() => {
-    fetchFacilities();
-  }, []);
-
-  const fetchFacilities = async () => {
+  const fetchFacilities = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -49,20 +44,25 @@ export const FacilitiesList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Fetch facilities on mount
+  useEffect(() => {
+    void fetchFacilities();
+  }, [fetchFacilities]);
 
   const safeFacilities = Array.isArray(facilities) ? facilities : [];
 
-  const filteredFacilities = safeFacilities.filter((facility) => {
-    const matchesSearch =
-      facility.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (facility.facilityAdminName || '').
-        toLowerCase().
-        includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'All' || facility.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredFacilities = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return safeFacilities.filter((facility) => {
+      const matchesSearch =
+        facility.name.toLowerCase().includes(q) ||
+        (facility.facilityAdminName || '').toLowerCase().includes(q);
+      const matchesStatus = statusFilter === 'All' || facility.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [safeFacilities, searchTerm, statusFilter]);
 
   useEffect(() => {
     setPage(1);
@@ -78,7 +78,7 @@ export const FacilitiesList = () => {
   const showingFrom =
     filteredFacilities.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const showingTo = Math.min(safePage * PAGE_SIZE, filteredFacilities.length);
-  const actions = [
+  const actions = useMemo(() => [
       {
       render: (facility : Facility) => (
         <Link to={`/owner/facilities/${facility.id}`}>
@@ -105,7 +105,7 @@ export const FacilitiesList = () => {
         </Link>
       )
     }
-  ];
+  ], []);
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
