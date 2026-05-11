@@ -13,15 +13,14 @@ import { mockBranches } from '../../mockData';
 import { Alert } from '../../types';
 import { alertsService } from '../../services/alertsService';
 import { NotificationsSkeleton } from '../skeletons/NotificationSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 
 export const Notifications = () => {
   const [activeTab, setActiveTab] = useState('All');
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
+  let isMounted = true;
 
     const loadAlerts = async () => {
       setIsLoading(true);
@@ -41,6 +40,9 @@ export const Notifications = () => {
         }
       }
     };
+
+  useEffect(() => {
+    
 
     void loadAlerts();
     return () => {
@@ -139,9 +141,12 @@ export const Notifications = () => {
             System alerts and updates relevant to you.
           </p>
         </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
         <Button variant="outline" icon={CheckCircle2} onClick={() => void markAllAsRead()}>
           Mark All as Read
         </Button>
+        <RefreshButton onRefresh={loadAlerts}/>
+        </div>
       </div>
 
       <Card noPadding>

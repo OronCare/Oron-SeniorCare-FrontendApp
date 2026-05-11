@@ -10,6 +10,7 @@ import { vitalService } from "../../services/vitalService";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
 import { VitalsEntryInitialSkeleton } from "../skeletons/VitalSkeleton";
+import { RefreshButton } from "../refresh/Refresh.tsx";
 
 type VitalFormState = {
   systolicBP: string;
@@ -60,21 +61,23 @@ export const VitalsEntry = () => {
   );
   const selectedResident = myResidents.find((r) => r.id === selectedResidentId);
 
+  const loadResidents = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await residentService.getAllResidents();
+      setResidents(data);
+    } catch (err) {
+      const message = getApiErrorMessage(err, "Failed to load residents");
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadResidents = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await residentService.getAllResidents();
-        setResidents(data);
-      } catch (err) {
-        const message = getApiErrorMessage(err, "Failed to load residents");
-        setError(message);
-        toast.error(message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    
 
     loadResidents();
   }, []);
@@ -150,16 +153,20 @@ export const VitalsEntry = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Log Vitals</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Record new health measurements for a resident.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Log Vitals</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Record new health measurements for a resident.
+          </p>
+        </div>
+        <div className="sm:ml-auto">
+          <RefreshButton onRefresh={loadResidents} />
+        </div>
       </div>
       {error && (
         <Card className="border-red-200 bg-red-50 text-red-700 text-sm">{error}</Card>
       )}
-      
       <Card>
         <div className="space-y-1">
           <label className="block text-sm font-medium text-slate-700">

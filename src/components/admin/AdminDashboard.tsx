@@ -17,6 +17,7 @@ import { alertsService } from '../../services/alertsService';
 import { staffService } from '../../services/staffService';
 import type { Alert, Resident, StaffMember, Task } from '../../types';
 import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 export const AdminDashboard = () => {
   const { user } = useAuth();
   const branchId = user?.branchId || '';
@@ -26,26 +27,27 @@ export const AdminDashboard = () => {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const fetchDashboard = async () => {
+    setLoading(true);
+    try {
+      const [residentsData, tasksData, alertsData, staffData] = await Promise.all([
+        residentService.getAllResidents(),
+        taskService.getAllTasks(),
+        alertsService.getAlerts(),
+        staffService.getAllStaff(),
+      ]);
+      setResidents(residentsData);
+      setTasks(tasksData);
+      setAlerts(alertsData);
+      setStaff(staffData);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
     if (!branchId) return;
 
-    const fetchDashboard = async () => {
-      setLoading(true);
-      try {
-        const [residentsData, tasksData, alertsData, staffData] = await Promise.all([
-          residentService.getAllResidents(),
-          taskService.getAllTasks(),
-          alertsService.getAlerts(),
-          staffService.getAllStaff(),
-        ]);
-        setResidents(residentsData);
-        setTasks(tasksData);
-        setAlerts(alertsData);
-        setStaff(staffData);
-      } finally {
-        setLoading(false);
-      }
-    };
+    
 
     void fetchDashboard();
   }, [branchId]);
@@ -110,6 +112,7 @@ export const AdminDashboard = () => {
           <Link to="/admin/residents/new">
             <Button icon={Plus}>Add Resident</Button>
           </Link>
+          <RefreshButton onRefresh={fetchDashboard}/>
         </div>
       </div>
 

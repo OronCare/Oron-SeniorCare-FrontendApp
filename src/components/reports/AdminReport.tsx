@@ -25,6 +25,7 @@ import {
   Cell,
   Legend,
 } from 'recharts';
+import { RefreshButton } from '../refresh/Refresh';
 
 export const AdminReport = () => {
   const { user } = useAuth();
@@ -39,35 +40,35 @@ export const AdminReport = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  let isMounted = true;
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [tasksData, alertsData, usersData, vitalsData, residentsData] = await Promise.all([
+        taskService.getAllTasks(),
+        alertsService.getAlerts(),
+        usersService.getAllUsers(),
+        vitalService.getAllVitals(),
+        residentService.getAllResidents(),
+      ]);
+
+      if (!isMounted) return;
+      setTasks(tasksData);
+      setAlerts(alertsData);
+      setStaff(usersData);
+      setVitals(vitalsData);
+      setResidents(residentsData);
+    } catch (err) {
+      if (!isMounted) return;
+      setError(err instanceof Error ? err.message : 'Failed to load report data');
+    } finally {
+      if (!isMounted) return;
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [tasksData, alertsData, usersData, vitalsData, residentsData] = await Promise.all([
-          taskService.getAllTasks(),
-          alertsService.getAlerts(),
-          usersService.getAllUsers(),
-          vitalService.getAllVitals(),
-          residentService.getAllResidents(),
-        ]);
-
-        if (!isMounted) return;
-        setTasks(tasksData);
-        setAlerts(alertsData);
-        setStaff(usersData);
-        setVitals(vitalsData);
-        setResidents(residentsData);
-      } catch (err) {
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : 'Failed to load report data');
-      } finally {
-        if (!isMounted) return;
-        setLoading(false);
-      }
-    };
-
     if (!branchId) {
       setError('Missing branch context. Please re-login.');
       setLoading(false);
@@ -243,9 +244,12 @@ export const AdminReport = () => {
             your branch.
           </p>
         </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
         <Button variant="outline" icon={Printer} onClick={() => window.print()}>
           Print Report
         </Button>
+        <RefreshButton onRefresh={load}/>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

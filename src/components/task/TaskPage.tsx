@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import { useNavigate } from 'react-router-dom';
 import { TaskManagementsSkeleton } from '../skeletons/TaskSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 
 type TaskStatus = 'Todo' | 'In Progress' | 'Done';
 
@@ -32,37 +33,38 @@ export const TaskManagements = () => {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [tasks, allResidents, users] = await Promise.all([
-          taskService.getAllTasks(),
-          residentService.getAllResidents(),
-          usersService.getAllUsers(),
-        ]);
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [tasks, allResidents, users] = await Promise.all([
+        taskService.getAllTasks(),
+        residentService.getAllResidents(),
+        usersService.getAllUsers(),
+      ]);
 
-        setTaskList(
-          isStaff && user?.id ? tasks.filter((t) => (t.assignedTo || '') === user.id) : tasks,
-        );
-        setResidents(allResidents);
-        setStaffMembers(
-          users.filter((u) => {
-            const normalizedRole = String(u.role || '').toLowerCase();
-            const isStaffRole = normalizedRole === 'staff';
-            const sameBranch = !user?.branchId || u.branchId === user.branchId;
-            return isStaffRole && sameBranch;
-          }),
-        );
-      } catch (err) {
-        const message = getApiErrorMessage(err, 'Failed to load task data');
-        setError(message);
-        toast.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setTaskList(
+        isStaff && user?.id ? tasks.filter((t) => (t.assignedTo || '') === user.id) : tasks,
+      );
+      setResidents(allResidents);
+      setStaffMembers(
+        users.filter((u) => {
+          const normalizedRole = String(u.role || '').toLowerCase();
+          const isStaffRole = normalizedRole === 'staff';
+          const sameBranch = !user?.branchId || u.branchId === user.branchId;
+          return isStaffRole && sameBranch;
+        }),
+      );
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to load task data');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+   
     fetchData();
   }, [isStaff, user?.branchId, user?.id]);
 
@@ -171,6 +173,7 @@ export const TaskManagements = () => {
               Create Task
             </Button>
           )}
+          <RefreshButton onRefresh={fetchData}/>
         </div>
       </div>
       {error && (

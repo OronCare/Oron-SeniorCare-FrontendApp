@@ -382,6 +382,16 @@ export interface NoteFilters {
   startDate?: string;
   endDate?: string;
 }
+export interface RefreshButtonProps {
+  onRefresh?: () => Promise<void> | void;
+  isLoading?: boolean;
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  size?: "default" | "sm" | "lg" | "icon";
+  className?: string;
+  showText?: boolean;
+  text?: string;
+  position?: "fixed" | "inline";
+}
 
 // Note type constants (optional, for easier usage)
 export const NoteTypes = {

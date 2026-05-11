@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import { RulesEnginesSkeleton } from '../skeletons/RulesSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 export const RulesEngines = () => {
   const { user } = useAuth();
   const toast = useToast();
@@ -27,21 +28,22 @@ export const RulesEngines = () => {
   const [error, setError] = useState<string | null>(null);
   const [savingRuleId, setSavingRuleId] = useState<string | null>(null);
 
+  const fetchRules = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await rulesService.getAllRules();
+      setRules(data);
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to load rules');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const fetchRules = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await rulesService.getAllRules();
-        setRules(data);
-      } catch (err) {
-        const message = getApiErrorMessage(err, 'Failed to load rules');
-        setError(message);
-        toast.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    
 
     fetchRules();
   }, []);
@@ -203,9 +205,12 @@ export const RulesEngines = () => {
             alerts.
           </p>
         </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
         <Button icon={Settings} variant="outline">
           Advanced Settings
         </Button>
+        <RefreshButton onRefresh={fetchRules}/>
+        </div>
       </div>
 
       <Card className="bg-blue-50 border-blue-100">
