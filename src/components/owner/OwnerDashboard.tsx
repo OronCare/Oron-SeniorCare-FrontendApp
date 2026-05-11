@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Building2,
   Users,
@@ -15,56 +15,61 @@ import SmartTable from '../../shared/Table';
 import { facilityService } from '../../services/facilityService';
 import { branchService } from '../../services/branchService';
 import { residentService } from '../../services/residentService';
-import { Facility, Branch } from '../../types';
+import { Facility, Branch, Resident } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
+import { RefreshButton } from '../refresh/Refresh.tsx';
 export const OwnerDashboard = () => {
   const toast = useToast();
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [residents, setResidents] = useState([]);
+  const [residents, setResidents] = useState<Resident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchData = useCallback(async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      const [facilitiesData, branchesData, residentsData] = await Promise.all([
+        facilityService.getAllFacilities(),
+        branchService.getAllBranches(),
+        residentService.getAllResidents(),
+      ]);
+      const residentCountsByFacility = residentsData.reduce(
+        (acc, resident) => {
+          if (resident.facilityId) {
+            acc[resident.facilityId] = (acc[resident.facilityId] ?? 0) + 1;
+          }
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      setFacilities(
+        facilitiesData.map((facility) => ({
+          ...facility,
+          totalResidents:
+            residentCountsByFacility[facility.id] ??
+            facility.totalResidents ??
+            0,
+        }))
+      );
+      setBranches(branchesData);
+      setResidents(residentsData);
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to fetch data');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [facilitiesData, branchesData, residentsData] = await Promise.all([
-          facilityService.getAllFacilities(),
-          branchService.getAllBranches(),
-          residentService.getAllResidents()
-        ]);
-        const residentCountsByFacility = residentsData.reduce(
-          (acc, resident) => {
-            if (resident.facilityId) {
-              acc[resident.facilityId] = (acc[resident.facilityId] ?? 0) + 1;
-            }
-            return acc;
-          },
-          {} as Record<string, number>
-        );
-
-        setFacilities(
-          facilitiesData.map((facility) => ({
-            ...facility,
-            totalResidents: residentCountsByFacility[facility.id] ?? facility.totalResidents ?? 0,
-          }))
-        );
-        setBranches(branchesData);
-        setResidents(residentsData);
-      } catch (err) {
-        const message = getApiErrorMessage(err, 'Failed to fetch data');
-        setError(message);
-        toast.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const totalFacilities = facilities.length;
   const totalBranches = branches.length;
@@ -110,7 +115,7 @@ export const OwnerDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">
             Platform Overview
@@ -119,9 +124,12 @@ export const OwnerDashboard = () => {
             Monitor all facilities and system health
           </p>
         </div>
-        <Link to="/owner/facilities/new">
-          <Button icon={Building2}>Onboard Facility</Button>
-        </Link>
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <Link to="/owner/facilities/new">
+            <Button icon={Building2}>Onboard Facility</Button>
+          </Link>
+          <RefreshButton onRefresh={fetchData} />
+        </div>
       </div>
 
       {/* Key Metrics */}

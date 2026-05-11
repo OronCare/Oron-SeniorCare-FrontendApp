@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Filter, Plus, Upload, Network, Eye, Edit2 } from "lucide-react";
 import { Card, Button, Input } from "../../components/UI";
 import { getFullName, Resident, Branch } from "../../types";
@@ -16,6 +16,7 @@ import axios from "axios";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
 import TableSkeleton from "../skeletons/TableSkeleton";
+import { RefreshButton } from "../refresh/Refresh.tsx";
 
 const Residents = () => {
     const { user, token } = useAuth();
@@ -33,6 +34,20 @@ const Residents = () => {
     const [branchFilter, setBranchFilter] = useState("All");
     const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
+    const fetchResidents = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const payload = await residentService.getAllResidents();
+            setResidents(payload);
+        } catch (err) {
+            const message = getApiErrorMessage(err, 'Failed to load residents');
+            setError(message);
+            toast.error(message);
+        } finally {
+            setLoading(false);
+        }
+    };
     useEffect(() => {
         const apiBase = import.meta.env.VITE_API_URL;
         if (!apiBase || !token) {
@@ -42,21 +57,6 @@ const Residents = () => {
             setLoading(false);
             return;
         }
-
-        const fetchResidents = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const payload = await residentService.getAllResidents();
-                setResidents(payload);
-            } catch (err) {
-                const message = getApiErrorMessage(err, 'Failed to load residents');
-                setError(message);
-                toast.error(message);
-            } finally {
-                setLoading(false);
-            }
-        };
 
         const fetchBranches = async () => {
             if (role !== "facility_admin") return;
@@ -206,32 +206,42 @@ const Residents = () => {
                     <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
                     <p className="text-sm text-slate-500 mt-1">{description}</p>
                 </div>
+                
 
                 {/* ACTION BUTTONS */}
 
-                {(isAdmin || isFacilityAdmin) && (
-                    <div className="flex gap-3">
-                        <Button
-                            variant="outline"
-                            icon={Upload}
-                            onClick={() => setIsBulkUploadOpen(true)}
-                        >
-                            Bulk Upload
-                        </Button>
+                <div className="flex gap-3 sm:ml-auto">
+                    {(isAdmin || isFacilityAdmin) && (
+                        <>
+                            <Button
+                                variant="outline"
+                                icon={Upload}
+                                onClick={() => setIsBulkUploadOpen(true)}
+                            >
+                                Bulk Upload
+                            </Button>
 
-                        <Button
-                            icon={Plus}
-                            onClick={() => {
-                                // Build the correct path based on role
-                                const basePath = role === "admin" ? "/admin" : "/facility-admin";
-                                navigate(`${basePath}/residents/new`);
-                            }}
-                        >
-                            Add Resident
-                        </Button>
-                    </div>
-                )}
+                            <Button
+                                icon={Plus}
+                                onClick={() => {
+                                    // Build the correct path based on role
+                                    const basePath = role === "admin" ? "/admin" : "/facility-admin";
+                                    navigate(`${basePath}/residents/new`);
+                                }}
+                            >
+                                Add Resident
+                            </Button>
+                        </>
+                    )}
+                    <RefreshButton onRefresh={fetchResidents} />
+                </div>
             </div>
+
+            {error && (
+                <Card className="border-red-200 bg-red-50 text-red-700 text-sm">
+                    {error}
+                </Card>
+            )}
 
             <Card noPadding>
                 {/* TOOLBAR */}
@@ -314,6 +324,10 @@ const Residents = () => {
                 <BulkUploadModal
                     isOpen={isBulkUploadOpen}
                     onClose={() => setIsBulkUploadOpen(false)}
+                    sampleCsvData={[
+                        "firstName,lastName,dob,gender,room,status,branchId,facilityId",
+                        "John,Doe,1940-01-01,Male,101,InPatient,BRANCH_ID,FACILITY_ID",
+                    ].join("\n")}
                     onUpload={(data) => {
                         console.log(data);
                         setIsBulkUploadOpen(false);

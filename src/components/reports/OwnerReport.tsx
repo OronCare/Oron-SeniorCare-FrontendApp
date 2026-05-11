@@ -23,6 +23,7 @@ import {
   Legend } from
 'recharts';
 import { OwnerReportSkeleton } from '../skeletons/ReportsSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 export const OwnerReport = () => {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -30,35 +31,36 @@ export const OwnerReport = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  let isMounted = true;
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [facilitiesData, branchesData, residentsData, alertsData] =
+        await Promise.all([
+          facilityService.getAllFacilities(),
+          branchService.getAllBranches(),
+          residentService.getAllResidents(),
+          alertsService.getAlerts(),
+        ]);
 
+      if (!isMounted) return;
+      setFacilities(facilitiesData);
+      setBranches(branchesData);
+      setResidents(residentsData);
+      setAlerts(alertsData);
+    } catch (err) {
+      if (!isMounted) return;
+      setError(err instanceof Error ? err.message : 'Failed to load report data');
+    } finally {
+      if (!isMounted) return;
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    let isMounted = true;
+    
 
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [facilitiesData, branchesData, residentsData, alertsData] =
-          await Promise.all([
-            facilityService.getAllFacilities(),
-            branchService.getAllBranches(),
-            residentService.getAllResidents(),
-            alertsService.getAlerts(),
-          ]);
-
-        if (!isMounted) return;
-        setFacilities(facilitiesData);
-        setBranches(branchesData);
-        setResidents(residentsData);
-        setAlerts(alertsData);
-      } catch (err) {
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : 'Failed to load report data');
-      } finally {
-        if (!isMounted) return;
-        setLoading(false);
-      }
-    };
+    
 
     void load();
     return () => {
@@ -222,9 +224,12 @@ export const OwnerReport = () => {
             System-wide analytics and trends
           </p>
         </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
         <Button variant="outline" icon={Printer} onClick={() => window.print()}>
           Print Report
         </Button>
+        <RefreshButton onRefresh={load}/>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

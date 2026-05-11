@@ -17,6 +17,7 @@ import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
 import { Pagination } from '../Pagination';
+import { RefreshButton } from '../refresh/Refresh';
 
 export const FacilitiesList = () => {
   const toast = useToast();
@@ -107,16 +108,19 @@ export const FacilitiesList = () => {
   ];
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Facilities</h1>
           <p className="text-sm text-slate-500 mt-1">
             Manage onboarded facilities and contracts
           </p>
         </div>
-        <Link to="/owner/facilities/new">
-          <Button icon={Plus}>Onboard Facility</Button>
-        </Link>
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <Link to="/owner/facilities/new">
+            <Button icon={Plus}>Onboard Facility</Button>
+          </Link>
+          <RefreshButton onRefresh={fetchFacilities}/>
+        </div>
       </div>
 
       <Card className=''>

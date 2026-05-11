@@ -25,6 +25,7 @@ import {
   Cell,
   Legend } from
 'recharts';
+import { RefreshButton } from '../refresh/Refresh';
 export const FacAdminReport = () => {
   const { user } = useAuth();
   const facilityId = user?.facilityId || '';
@@ -37,8 +38,7 @@ export const FacAdminReport = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  let isMounted = true;
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -66,6 +66,9 @@ export const FacAdminReport = () => {
         setLoading(false);
       }
     };
+
+  useEffect(() => {
+    
 
     if (!facilityId) {
       setError('Missing facility context. Please re-login.');
@@ -246,9 +249,12 @@ export const FacAdminReport = () => {
             Analytics across all your branches.
           </p>
         </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
         <Button variant="outline" icon={Printer} onClick={() => window.print()}>
           Print Report
         </Button>
+        <RefreshButton onRefresh={load}/>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

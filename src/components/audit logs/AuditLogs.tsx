@@ -10,6 +10,7 @@ import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
 import { Pagination } from '../Pagination';
+import { RefreshButton } from '../refresh/Refresh';
 
 
 export const AuditLog = () => {
@@ -23,23 +24,24 @@ export const AuditLog = () => {
   const [page, setPage] = useState(1);
 
   const PAGE_SIZE = 5;
+  const fetchAuditLogs = async () => {
+    if (!isAuthenticated || !user) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await auditLogService.getAuditLogs();
+      setLogs(data);
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Failed to load audit logs');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAuditLogs = async () => {
-      if (!isAuthenticated || !user) return;
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await auditLogService.getAuditLogs();
-        setLogs(data);
-      } catch (err) {
-        const message = getApiErrorMessage(err, 'Failed to load audit logs');
-        setError(message);
-        toast.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    
 
     void fetchAuditLogs();
   }, [isAuthenticated, user]);
@@ -110,9 +112,12 @@ export const AuditLog = () => {
             Track all system activity and user actions for your branch.
           </p>
         </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
         <Button variant="outline" icon={Download} onClick={handleExportCSV}>
           Export CSV
         </Button>
+        <RefreshButton onRefresh={fetchAuditLogs}/>
+        </div>
       </div>
 
       <Card noPadding>

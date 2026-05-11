@@ -8,6 +8,7 @@ import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
+import { RefreshButton } from '../refresh/Refresh';
 
 export const BranchLists = () => {
   const toast = useToast();
@@ -76,6 +77,9 @@ export const BranchLists = () => {
           <p className="text-sm text-slate-500 mt-1">
             Manage branches from your backend data
           </p>
+        </div>
+        <div className="flex items-center gap-2 sm:ml-auto">
+        <RefreshButton onRefresh={fetchBranches}/>
         </div>
       </div>
 
