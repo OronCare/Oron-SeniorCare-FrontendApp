@@ -100,12 +100,13 @@ export const Login = () => {
               </div>
 
               <div className="text-sm">
-                <a
-                  href="#"
-                  className="font-medium text-brand-600 hover:text-brand-500">
-                  
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password')}
+                  className="font-medium text-brand-600 hover:text-brand-500"
+                >
                   Forgot password?
-                </a>
+                </button>
               </div>
             </div>
 
