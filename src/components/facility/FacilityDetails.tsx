@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, Router } from 'react-router-dom';
 import {
   Building2,
   Phone,
@@ -41,6 +41,7 @@ export const FacilityDetails = () => {
   const [facilityBranches, setFacilityBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id) {
       return;
@@ -237,7 +238,7 @@ export const FacilityDetails = () => {
           <Button
             variant="outline"
             onClick={() => {
-              setIsEditModalOpen(true);
+              navigate(`/owner/facilities/${facility.id}/edit`)
             }}
             className="w-full sm:w-auto text-sm">
             Edit Details
