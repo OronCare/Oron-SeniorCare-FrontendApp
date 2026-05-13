@@ -71,7 +71,7 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleC
             />
             {!isCollapsed && (
               <span className="text-xl font-bold text-white">
-                ORON<span className="text-primary">Health</span>
+                ORON<span className="text-primary">Care</span>
               </span>
             )}
           </div>
@@ -152,7 +152,7 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleC
                   className="h-9 w-9 rounded-xl ring-1 ring-white/10"
                 />
                 <span className="text-xl font-bold">
-                  ORON<span className="text-primary">Health</span>
+                  ORON<span className="text-primary">Care</span>
                 </span>
               </div>
             </div>

@@ -21,6 +21,7 @@ import { CarePlan } from "./components/care plans/CarePlans";
 import { FacilitiesList } from "./components/facility/FacilitiesList";
 import { FacilityOnboarding } from "./components/facility/FacilityOnboarding";
 import { FacilityDetails } from "./components/facility/FacilityDetails";
+import { AddBranch } from "./components/facility/AddBranch";
 import { OwnerReport } from "./components/reports/OwnerReport";
 import { FacAdminReport } from "./components/reports/FacAdminReport";
 import { AdminReport } from "./components/reports/AdminReport";
@@ -51,6 +52,7 @@ const AppRoutes = () => {
         <Route path="facilities/new" element={<FacilityOnboarding />} />
         <Route path="facilities/:id/edit" element={<FacilityOnboarding />} />
         <Route path="facilities/:id" element={<FacilityDetails />} />
+        <Route path="facilities/:id/branches/new" element={<AddBranch />} />
         <Route path="rules" element={<RulesEngines />} />
         <Route path="reports" element={<OwnerReport />} />
         <Route path="audit-logs" element={<AuditLog />} />

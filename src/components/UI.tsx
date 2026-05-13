@@ -1,10 +1,10 @@
 import React, { forwardRef } from 'react';
-import { BoxIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 // Button
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
-  icon?: BoxIcon;
+  icon?: LucideIcon;
   isLoading?: boolean;
 }
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -38,6 +38,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       md: 'h-10 px-4 text-sm',
       lg: 'h-12 px-6 text-base'
     };
+    const hasChildren = React.Children.count(children) > 0;
     return (
       <button
         ref={ref}
@@ -47,7 +48,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         
         {isLoading &&
         <svg
-          className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+          className={`animate-spin -ml-1 h-4 w-4 text-current ${hasChildren ? 'mr-2' : ''}`}
           fill="none"
           viewBox="0 0 24 24">
           
@@ -67,7 +68,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           </svg>
         }
         {!isLoading && Icon &&
-        <Icon className={`mr-2 ${size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'}`} />
+        <Icon className={`${hasChildren ? 'mr-2' : ''} ${size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'}`} />
         }
         {children}
       </button>);
@@ -79,7 +80,7 @@ Button.displayName = 'Button';
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
-  icon?: BoxIcon;
+  icon?: LucideIcon;
 }
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className = '', label, error, icon: Icon, ...props }, ref) => {
@@ -162,7 +163,7 @@ export const StatsCard = ({
 
 
 
-}: {title: string;value: string | number;icon: BoxIcon;trend?: string;trendUp?: boolean;}) =>
+}: {title: string;value: string | number;icon: LucideIcon;trend?: string;trendUp?: boolean;}) =>
 <Card className="flex flex-col">
     <div className="flex items-center justify-between">
       <p className="text-sm font-medium text-slate-500">{title}</p>
@@ -188,19 +189,38 @@ export const Modal = ({
   onClose,
   title,
   children,
-  maxWidth = 'max-w-md'
+  maxWidth = 'max-w-md',
+  bodyClassName = 'p-5 overflow-y-auto',
+  closeOnBackdrop = false,
+  closeOnEsc = false,
 
 
 
 
 
 
-}: {isOpen: boolean;onClose: () => void;title: string;children: React.ReactNode;maxWidth?: string;}) => {
+}: {isOpen: boolean;onClose: () => void;title: string;children: React.ReactNode;maxWidth?: string;bodyClassName?: string;closeOnBackdrop?: boolean;closeOnEsc?: boolean;}) => {
   if (!isOpen) return null;
+  React.useEffect(() => {
+    if (!closeOnEsc) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [closeOnEsc, onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-900/50 backdrop-blur-sm p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-900/50 backdrop-blur-sm p-4"
+      onClick={() => {
+        if (closeOnBackdrop) onClose();
+      }}>
       <div
-        className={`relative w-full ${maxWidth} bg-white rounded-xl shadow-2xl flex flex-col max-h-[90vh]`}>
+        className={`relative w-full ${maxWidth} bg-white rounded-xl shadow-2xl flex flex-col max-h-[90vh]`}
+        onClick={(e) => e.stopPropagation()}>
         
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
@@ -223,7 +243,7 @@ export const Modal = ({
             </svg>
           </button>
         </div>
-        <div className="p-5 overflow-y-auto">{children}</div>
+        <div className={bodyClassName}>{children}</div>
       </div>
     </div>);
 
