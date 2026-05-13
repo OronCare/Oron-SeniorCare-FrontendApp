@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -10,11 +10,9 @@ import {
   Pill,
   MessageSquare,
   Activity,
-  Calendar,
   Plus,
   Edit2,
   Save,
-  CheckCircle2,
   ShieldAlert,
   Target,
 } from
@@ -85,7 +83,7 @@ export const ResidentDetails = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [resident, setResident] = useState<Resident | null>(null);
   const [vitals, setVitals] = useState<Vital[]>([]);
-  const [residentTasks, setResidentTasks] = useState<Task[]>([]);
+  const [, setResidentTasks] = useState<Task[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
 
   const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
@@ -115,16 +113,20 @@ export const ResidentDetails = () => {
     'clinical' | 'risk' | 'goals' | 'interventions' | 'preferences'
   >('clinical');
 
-  const fullName = resident ? getFullName(resident) : '';
-  const carePlan = carePlans[0];
-  const canManageCarePlans = user?.role === 'facility_admin' || user?.role === 'admin';
-  const canManageClinicalAssessment = user?.role === 'facility_admin' || user?.role === 'admin';
-  const canManageRiskProfile = user?.role === 'facility_admin' || user?.role === 'admin';
-  const canManageGoals = user?.role === 'facility_admin' || user?.role === 'admin';
-  const canManageInterventions = user?.role === 'facility_admin' || user?.role === 'admin';
-  const canManagePreferences = user?.role === 'facility_admin' || user?.role === 'admin';
+  const fullName = useMemo(() => (resident ? getFullName(resident) : ''), [resident]);
+  const carePlan = useMemo(() => carePlans[0], [carePlans]);
+  const canManage = useMemo(
+    () => user?.role === 'facility_admin' || user?.role === 'admin',
+    [user?.role],
+  );
+  const canManageCarePlans = canManage;
+  const canManageClinicalAssessment = canManage;
+  const canManageRiskProfile = canManage;
+  const canManageGoals = canManage;
+  const canManageInterventions = canManage;
+  const canManagePreferences = canManage;
 
-  const refreshCarePlans = async () => {
+  const refreshCarePlans = useCallback(async () => {
     if (!id) return;
     setCarePlanLoading(true);
     setCarePlanError(null);
@@ -136,7 +138,7 @@ export const ResidentDetails = () => {
     } finally {
       setCarePlanLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (!id) {
@@ -182,7 +184,7 @@ export const ResidentDetails = () => {
   useEffect(() => {
     if (!id) return;
     void refreshCarePlans();
-  }, [id]);
+  }, [id, refreshCarePlans]);
 
   useEffect(() => {
     if (!id) return;
@@ -292,7 +294,7 @@ export const ResidentDetails = () => {
     }
   }, [preferencesExist]);
 
-  const handleDeleteCarePlan = async () => {
+  const handleDeleteCarePlan = useCallback(async () => {
     if (!carePlan) return;
     if (!confirm('Are you sure you want to delete this care plan?')) return;
 
@@ -306,9 +308,9 @@ export const ResidentDetails = () => {
     } finally {
       setCarePlanMutating(false);
     }
-  };
+  }, [carePlan, refreshCarePlans]);
 
-  const handleAcknowledgeCarePlan = async () => {
+  const handleAcknowledgeCarePlan = useCallback(async () => {
     if (!carePlan) return;
     if (!confirm('Acknowledge & sign this care plan?')) return;
 
@@ -322,7 +324,7 @@ export const ResidentDetails = () => {
     } finally {
       setCarePlanMutating(false);
     }
-  };
+  }, [carePlan, refreshCarePlans]);
 
   useEffect(() => {
     if (!resident) return;
@@ -396,70 +398,51 @@ export const ResidentDetails = () => {
   };
 
   // Format vitals for chart (reverse to show chronological order left to right)
-  const chartData = [...vitals].reverse().map((v) => ({
-    date: new Date(v.date).toLocaleDateString([], {
-      month: 'short',
-      day: 'numeric'
-    }),
-    systolic: v.systolicBP,
-    diastolic: v.diastolicBP,
-    heartRate: v.heartRate
-  }));
+  const chartData = useMemo(() => {
+    return [...vitals].reverse().map((v) => ({
+      date: new Date(v.date).toLocaleDateString([], {
+        month: 'short',
+        day: 'numeric'
+      }),
+      systolic: v.systolicBP,
+      diastolic: v.diastolicBP,
+      heartRate: v.heartRate
+    }));
+  }, [vitals]);
 
-  const tabs = [
-    {
-      id: 'overview',
-      label: 'Overview',
-      icon: User
-    },
-    {
-      id: 'vitals',
-      label: 'Vitals History',
-      icon: Activity
-    },
-    {
-      id: 'careplan',
-      label: 'Care Plan',
-      icon: ClipboardList
-    },
-    {
-      id: 'medications',
-      label: 'Medications',
-      icon: Pill
-    },
-    {
-      id: 'tasks',
-      label: 'Tasks',
-      icon: CheckCircle2
-    },
-    {
-      id: 'notes',
-      label: 'Notes',
-      icon: MessageSquare
-    }
-  ];
+  const tabs = useMemo(
+    () => [
+      {
+        id: 'overview',
+        label: 'Overview',
+        icon: User
+      },
+      {
+        id: 'vitals',
+        label: 'Vitals History',
+        icon: Activity
+      },
+      {
+        id: 'careplan',
+        label: 'Care Plan',
+        icon: ClipboardList
+      },
+      {
+        id: 'medications',
+        label: 'Medications',
+        icon: Pill
+      },
+      {
+        id: 'notes',
+        label: 'Notes',
+        icon: MessageSquare
+      }
+    ],
+    [],
+  );
 
   // Rest of your component remains exactly the same...
   // (All the helper functions and JSX remain unchanged)
-
-  const getTaskCategoryColor = (category: string) => {
-    switch (category) {
-      case 'Medication':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'Bathing':
-        return 'bg-cyan-100 text-cyan-800 border-cyan-200';
-      case 'Vitals':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'Therapy':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'Observation':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'Meal':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
 
   const getNoteTypeColor = (type: string) => {
     switch (type) {
@@ -1373,9 +1356,6 @@ export const ResidentDetails = () => {
                   <h2 className="text-lg font-semibold text-slate-900">
                     Current Medications
                   </h2>
-                  <Button size="sm" icon={Plus}>
-                    Add Medication
-                  </Button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
@@ -1436,94 +1416,6 @@ export const ResidentDetails = () => {
             </motion.div>
           }
 
-          {activeTab === 'tasks' &&
-            <motion.div
-              key="tasks"
-              initial={{
-                opacity: 0,
-                y: 10
-              }}
-              animate={{
-                opacity: 1,
-                y: 0
-              }}
-              exit={{
-                opacity: 0,
-                y: -10
-              }}>
-
-              <Card noPadding>
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Resident Tasks
-                  </h2>
-                  <Button
-                    size="sm"
-                    icon={Plus}
-                    onClick={() => setIsCreateTaskOpen(true)}>
-
-                    Create Task
-                  </Button>
-                </div>
-                <div className="p-5 space-y-4">
-                  {residentTasks.map((task) => {
-                    return (
-                      <div
-                        key={task.id}
-                        className="p-4 rounded-lg border border-slate-200 bg-white hover:shadow-sm transition-shadow">
-
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium text-slate-900">
-                              {task.title}
-                            </h3>
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${getTaskCategoryColor(task.category)}`}>
-
-                              {task.category}
-                            </span>
-                          </div>
-                          <Badge
-                            variant={
-                              task.status === 'Todo' ?
-                                'default' :
-                                task.status === 'In Progress' ?
-                                  'info' :
-                                  'success'
-                            }>
-
-                            {task.status}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-500 mb-3">
-                          {task.description}
-                        </p>
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <div className="flex items-center gap-1.5">
-                            <User className="h-3.5 w-3.5" />
-                            <span>
-                              {task.assignedTo || 'Unassigned'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5" />
-                            <span>
-                              Due: {new Date(task.dueDate).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>);
-
-                  })}
-                  {residentTasks.length === 0 &&
-                    <div className="text-center py-8 text-slate-500 text-sm">
-                      No tasks assigned for this resident.
-                    </div>
-                  }
-                </div>
-              </Card>
-            </motion.div>
-          }
 
           {activeTab === 'notes' &&
             <motion.div

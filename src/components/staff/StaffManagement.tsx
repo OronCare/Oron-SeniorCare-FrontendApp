@@ -1,6 +1,6 @@
 // pages/Staff/StaffPage.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Search,
   Plus,
@@ -44,13 +44,16 @@ const StaffPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] =
     useState<StaffMember | null>(null);
-  const permissionOptions = [
-    "View Residents",
-    "Edit Vitals",
-    "Manage Care Plans",
-    "View Reports",
-    "Manage Tasks",
-  ];
+  const permissionOptions = useMemo(
+    () => [
+      "View Residents",
+      "Edit Vitals",
+      "Manage Care Plans",
+      "View Reports",
+      "Manage Tasks",
+    ],
+    [],
+  );
 
   const [editForm, setEditForm] = useState({
     firstName: "",
@@ -61,7 +64,7 @@ const StaffPage = () => {
     permissions: [] as string[],
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -84,12 +87,11 @@ const StaffPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isFacilityAdmin, toast, user?.facilityId]);
 
   useEffect(() => {
-   
-    fetchData();
-  }, [isFacilityAdmin, user?.facilityId]);
+    void fetchData();
+  }, [fetchData]);
 
   const staffData = useMemo(() => {
     if (isFacilityAdmin) {
@@ -103,54 +105,62 @@ const StaffPage = () => {
   }, [branches, isAdmin, isFacilityAdmin, staffList, user?.branchId]);
 
   // ---------------- FILTER ----------------
-  const filteredStaff = staffData.filter((staff) => {
-    const fullName = getFullName(staff).toLowerCase();
+  const filteredStaff = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return staffData.filter((staff) => {
+      const fullName = getFullName(staff).toLowerCase();
 
-    const matchesSearch =
-      fullName.includes(searchTerm.toLowerCase()) ||
-      staff.role.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch =
+        fullName.includes(q) ||
+        staff.role.toLowerCase().includes(q);
 
-    const matchesBranch =
-      !isFacilityAdmin ||
-      branchFilter === "All" ||
-      staff.branchId === branchFilter;
+      const matchesBranch =
+        !isFacilityAdmin ||
+        branchFilter === "All" ||
+        staff.branchId === branchFilter;
 
-    return matchesSearch && matchesBranch;
-  });
+      return matchesSearch && matchesBranch;
+    });
+  }, [branchFilter, isFacilityAdmin, searchTerm, staffData]);
 
   // ---------------- ACTIONS ----------------
-  const actions = [
-    {
-      render: (staff: StaffMember) => (
-        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}`}>
-          <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
-            title="View staff"
-            aria-label="View staff"
-          >
-            <Eye className="h-4 w-4" />
-          </span>
-        </Link>
-      ),
-    },
-    {
-      render: (staff: StaffMember) => (
-        <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}/edit`}>
-          <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
-            title="Edit staff"
-            aria-label="Edit staff"
-          >
-            <Edit2 className="h-4 w-4" />
-          </span>
-        </Link>
-      ),
-    },
-  ];
+  const actions = useMemo(
+    () => [
+      {
+        render: (staff: StaffMember) => (
+          <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}`}>
+            <span
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors hover:bg-primarySoft"
+              title="View staff"
+              aria-label="View staff"
+            >
+              <Eye className="h-4 w-4" />
+            </span>
+          </Link>
+        ),
+      },
+      {
+        render: (staff: StaffMember) => (
+          <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/${staff.id}/edit`}>
+            <span
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+              title="Edit staff"
+              aria-label="Edit staff"
+            >
+              <Edit2 className="h-4 w-4" />
+            </span>
+          </Link>
+        ),
+      },
+    ],
+    [isFacilityAdmin],
+  );
 
-  const staffColumnsConfig = isFacilityAdmin
-    ? StaffColumnsForFacilityAdmin(branches)
-    : StaffColumns;
+  const staffColumnsConfig = useMemo(() => {
+    return isFacilityAdmin
+      ? StaffColumnsForFacilityAdmin(branches)
+      : StaffColumns;
+  }, [branches, isFacilityAdmin]);
 
   const handleSaveEdit = async () => {
     if (!selectedStaff) return;

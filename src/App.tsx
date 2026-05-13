@@ -5,6 +5,8 @@ import { ToastProvider } from "./context/ToastContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { Login } from "./pages/Login";
 import { SetPassword } from "./pages/SetPassword";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ForgotPasswordVerify } from "./pages/ForgotPasswordVerify";
 import { Notifications } from "./components/Notification/Notification";
 import { OwnerLayout } from "./pages/dashboard/OwnerLayout";
 import { OwnerDashboard } from "./components/owner/OwnerDashboard";
@@ -43,6 +45,8 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/set-password" element={<SetPassword />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/forgot-password/verify" element={<ForgotPasswordVerify />} />
       <Route path="/" element={<Navigate to="/login" replace />} />
 
       {/* Owner nested routes */}

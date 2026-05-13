@@ -4,6 +4,7 @@ import { ClipboardList, Edit2, Save, Trash2 } from 'lucide-react';
 import type { ClinicalAssessment as ClinicalAssessmentType } from '../../types';
 import { clinicalAssessmentService } from '../../services/clinicalAssessmentService';
 
+
 type Props = {
   residentId: string;
   canManage: boolean;
@@ -169,173 +170,188 @@ export const ClinicalAssessment = ({
     if (!isVisible) return null;
   
     return (
-      <Card>
-        <div className="flex justify-between items-center mb-4">
+      <Card className="overflow-hidden">
+        {/* Header – unchanged */}
+        <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-3">
           <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
             <ClipboardList className="h-5 w-5 text-brand-500" />
             Clinical & Functional Assessment
           </h2>
+          {/* Badge and action buttons – unchanged */}
           {showToolbar && (
             <div className="flex items-center gap-2">
               <Badge variant={assessment ? 'success' : 'warning'} className="text-xs">
                 {titleBadge}
               </Badge>
               {canManage && assessment && (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="p-1 text-slate-400 hover:text-red-600 transition-colors disabled:opacity-50"
-                  disabled={mutating}
-                  title="Delete"
-                  aria-label="Delete clinical assessment"
-                >
+                <button onClick={handleDelete} disabled={mutating} className="p-1 text-slate-400 hover:text-red-600 transition-colors disabled:opacity-50">
                   <Trash2 className="h-4 w-4" />
                 </button>
               )}
               {canManage && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditing((v) => !v)}
-                  className="p-1 text-slate-400 hover:text-brand-600 transition-colors disabled:opacity-50"
-                  disabled={mutating}
-                  title="Edit"
-                  aria-label="Edit clinical assessment"
-                >
+                <button onClick={() => setIsEditing(v => !v)} disabled={mutating} className="p-1 text-slate-400 hover:text-brand-600 transition-colors disabled:opacity-50">
                   <Edit2 className="h-4 w-4" />
                 </button>
               )}
             </div>
           )}
         </div>
-
-        {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
   
-        {/* Medical Conditions & Allergies */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Medical Conditions</p>
-            {isEditing && canEdit ? (
-              <input
-                type="text"
-                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                value={draft.conditions.join(', ')}
-                onChange={(e) =>
-                  setDraft({ ...draft, conditions: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })
-                }
-                placeholder="e.g. Hypertension, Diabetes"
-              />
-            ) : (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {draft.conditions.map((c, i) => (
-                  <Badge key={i} variant="default" className="bg-slate-50">{c}</Badge>
-                ))}
-                {draft.conditions.length === 0 && <span className="text-sm text-slate-400">—</span>}
-              </div>
-            )}
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Allergies</p>
-            {isEditing && canEdit ? (
-              <input
-                type="text"
-                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                value={draft.allergies.join(', ')}
-                onChange={(e) =>
-                  setDraft({ ...draft, allergies: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })
-                }
-                placeholder="e.g. Penicillin, Sulfa"
-              />
-            ) : (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {draft.allergies.map((a, i) => (
-                  <Badge key={i} variant="danger" className="bg-red-50 text-red-700">{a}</Badge>
-                ))}
-                {draft.allergies.length === 0 && <span className="text-sm text-slate-400">—</span>}
-              </div>
-            )}
-          </div>
-        </div>
+        {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
   
-  
-        {/* ADL Scores – Structured dropdowns when editing */}
-        <div className="mb-4">
-          <p className="text-xs text-slate-500 font-medium mb-2">Activities of Daily Living (ADL)</p>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            {Object.entries(draft.adlScores).map(([key, val]) => (
-              <div key={key} className="flex justify-between items-center border-b border-slate-50 py-1">
-                <span className="capitalize text-slate-600">{key}</span>
-                {isEditing && canEdit ? (
-                  key === 'continence' ? (
-                    <select
-                      className="border border-slate-300 rounded px-2 py-1 text-sm"
-                      value={val}
-                      onChange={(e) => updateAdlScore(key, e.target.value)}
-                    >
-                      {continenceOptions.map(opt => <option key={opt}>{opt}</option>)}
-                    </select>
+        <div className="space-y-6">
+          {/* Group 1: Medical Conditions & Allergies – card‑like row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Conditions Card */}
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 shadow-sm">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Medical Conditions</p>
+              {isEditing && canEdit ? (
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  value={draft.conditions.join(', ')}
+                  onChange={(e) => setDraft({ ...draft, conditions: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  placeholder="e.g. Hypertension, Diabetes"
+                />
+              ) : (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {draft.conditions.length > 0 ? (
+                    draft.conditions.map((c, i) => (
+                      <Badge key={i} variant="outline" className="bg-white text-slate-700 border-slate-200">
+                        {c}
+                      </Badge>
+                    ))
                   ) : (
-                    <select
-                      className="border border-slate-300 rounded px-2 py-1 text-sm"
-                      value={val}
-                      onChange={(e) => updateAdlScore(key, e.target.value)}
-                    >
-                      {adlOptions.map(opt => <option key={opt}>{opt}</option>)}
-                    </select>
-                  )
-                ) : (
-                  <span className="font-medium text-slate-800">{val}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+                    <span className="text-sm text-slate-400 italic">— None recorded —</span>
+                  )}
+                </div>
+              )}
+            </div>
   
-        {/* Mobility & Cognitive */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Mobility Status</p>
+            {/* Allergies Card */}
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 shadow-sm">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Allergies</p>
+              {isEditing && canEdit ? (
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  value={draft.allergies.join(', ')}
+                  onChange={(e) => setDraft({ ...draft, allergies: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  placeholder="e.g. Penicillin, Sulfa"
+                />
+              ) : (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {draft.allergies.length > 0 ? (
+                    draft.allergies.map((a, i) => (
+                      <Badge key={i} variant="danger" className="bg-red-100 text-red-700 border-red-200">
+                        {a}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-slate-400 italic">— No known allergies —</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+  
+        {/* Group 2: ADL Scores – Split into two cards */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {/* Physical ADLs Card */}
+  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 shadow-sm">
+    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Physical ADLs</p>
+    <div className="space-y-3">
+      {Object.entries(draft.adlScores).map(([key, val]) => {
+        if (key === 'continence') return null;
+        return (
+          <div key={key} className="flex justify-between items-center border-b border-slate-200 pb-2">
+            <span className="capitalize text-sm font-medium text-slate-700">{key}</span>
             {isEditing && canEdit ? (
               <select
-                className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
-                value={draft.mobility}
-                onChange={(e) => setDraft({ ...draft, mobility: e.target.value })}
+                className="border border-slate-300 rounded-lg px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-brand-500"
+                value={val}
+                onChange={(e) => updateAdlScore(key, e.target.value)}
               >
-                <option>Walks independently</option>
-                <option>Walks with cane</option>
-                <option>Uses walker</option>
-                <option>Wheelchair dependent</option>
-                <option>Bedridden</option>
+                {adlOptions.map(opt => <option key={opt}>{opt}</option>)}
               </select>
             ) : (
-              <p className="text-sm text-slate-800 mt-1">{draft.mobility || '—'}</p>
+              <span className="text-sm font-medium text-slate-800">{val}</span>
             )}
           </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Cognitive Screening</p>
-            {isEditing && canEdit ? (
-              <select
-                className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
-                value={draft.cognitive}
-                onChange={(e) => setDraft({ ...draft, cognitive: e.target.value })}
-              >
-                <option>Intact</option>
-                <option>Mild cognitive impairment</option>
-                <option>Moderate to severe impairment</option>
-              </select>
-            ) : (
-              <p className="text-sm text-slate-800 mt-1">{draft.cognitive || '—'}</p>
-            )}
-          </div>
-        </div>
+        );
+      })}
+    </div>
+  </div>
+
+  {/* Continence Card */}
+  <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 shadow-sm">
+    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Continence</p>
+    <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+      <span className="capitalize text-sm font-medium text-slate-700">Continence</span>
+      {isEditing && canEdit ? (
+        <select
+          className="border border-slate-300 rounded-lg px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-brand-500"
+          value={draft.adlScores.continence}
+          onChange={(e) => updateAdlScore('continence', e.target.value)}
+        >
+          {continenceOptions.map(opt => <option key={opt}>{opt}</option>)}
+        </select>
+      ) : (
+        <span className="text-sm font-medium text-slate-800">{draft.adlScores.continence}</span>
+      )}
+    </div>
+  </div>
+</div>
   
-        {/* Save Button (only when editing) */}
-        {isEditing && canEdit && (
-          <div className="mt-6 flex justify-end">
-            <Button onClick={handleSave} icon={Save} isLoading={mutating}>
-              Save Changes
-            </Button>
+          {/* Group 3: Mobility & Cognitive – placed side by side as separate cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 shadow-sm">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Mobility Status</p>
+              {isEditing && canEdit ? (
+                <select
+                  className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand-500"
+                  value={draft.mobility}
+                  onChange={(e) => setDraft({ ...draft, mobility: e.target.value })}
+                >
+                  <option>Walks independently</option>
+                  <option>Walks with cane</option>
+                  <option>Uses walker</option>
+                  <option>Wheelchair dependent</option>
+                  <option>Bedridden</option>
+                </select>
+              ) : (
+                <p className="text-sm text-slate-800 mt-1">{draft.mobility || '—'}</p>
+              )}
+            </div>
+  
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 shadow-sm">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Cognitive Screening</p>
+              {isEditing && canEdit ? (
+                <select
+                  className="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand-500"
+                  value={draft.cognitive}
+                  onChange={(e) => setDraft({ ...draft, cognitive: e.target.value })}
+                >
+                  <option>Intact</option>
+                  <option>Mild cognitive impairment</option>
+                  <option>Moderate to severe impairment</option>
+                </select>
+              ) : (
+                <p className="text-sm text-slate-800 mt-1">{draft.cognitive || '—'}</p>
+              )}
+            </div>
           </div>
-        )}
+  
+          {/* Save Button – unchanged */}
+          {isEditing && canEdit && (
+            <div className="mt-6 flex justify-end">
+              <Button onClick={handleSave} icon={Save} isLoading={mutating}>
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </div>
       </Card>
     );
   };
+  
