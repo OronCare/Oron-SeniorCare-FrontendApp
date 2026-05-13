@@ -7,7 +7,7 @@ export const AuthBrandMark = () => (
       <img src="/oron-logo.svg" alt="Oron" className="h-full w-full object-cover" width={56} height={56} />
     </div>
     <p className="text-3xl font-bold text-slate-900 tracking-tight m-0">
-      ORON<span className="text-brand-600">Health</span>
+      ORON<span className="text-brand-600">Care</span>
     </p>
   </div>
 );

@@ -1,65 +1,46 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, Router } from 'react-router-dom';
 import {
   Building2,
   Phone,
   User,
   Mail,
   FileText,
+  Eye,
   Download,
   ShieldAlert,
   ArrowLeft,
   Activity,
   Network,
   Plus,
-  Upload,
+  Loader2,
+  
 } from 'lucide-react';
 import { Card, Button, Badge, Modal, Input } from '../../components/UI';
 import { mockAuditLogs } from '../../mockData';
 import { Branch, Facility } from '../../types';
 import { facilityService } from '../../services/facilityService';
-import { CreateBranchRequest } from '../../services/branchService';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
-import { getApiErrorMessage, getApiSuccessMessage } from '../../utils/apiMessage';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 import { ResidentDetailsSkeleton } from '../skeletons/DetailsSkeleton';
-
-const generateTemporaryPassword = () => {
-  return `Oron@${Math.random().toString(36).slice(-8)}A1`;
-};
-
-const emptyBranchForm: CreateBranchRequest = {
-  facilityId: '',
-  name: '',
-  address: '',
-  phone: '',
-  type: 'Senior Living',
-  status: 'Active',
-  residentLimit: 100,
-
-  branchAdminFirstName: '',
-  branchAdminLastName: '',
-  branchAdminEmail: '',
-  branchAdminPassword: '',
-};
 
 export const FacilityDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
-  const [isRefreshingContractUrl, setIsRefreshingContractUrl] = useState(false);
+  const [isRefreshingContractDownloadUrl, setIsRefreshingContractDownloadUrl] = useState(false);
+  const [isRefreshingContractViewUrl, setIsRefreshingContractViewUrl] = useState(false);
+  const [isViewContractModalOpen, setIsViewContractModalOpen] = useState(false);
+  const [contractViewUrl, setContractViewUrl] = useState<string | null>(null);
   const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isAddBranchModalOpen, setIsAddBranchModalOpen] = useState(false);
   const [facility, setFacility] = useState<Facility | null>(null);
   const [facilityBranches, setFacilityBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [branchError, setBranchError] = useState<string | null>(null);
-  const [isCreatingBranch, setIsCreatingBranch] = useState(false);
-  const [branchForm, setBranchForm] = useState<CreateBranchRequest>(emptyBranchForm);
 
   useEffect(() => {
     if (!id) {
@@ -99,10 +80,6 @@ export const FacilityDetails = () => {
 
       setFacility(facilityData);
       setFacilityBranches(branchesData.filter((branch) => branch.facilityId === facilityId));
-      setBranchForm((prev) => ({
-        ...prev,
-        facilityId,
-      }));
     } catch (err) {
       const message = getApiErrorMessage(err, 'Failed to load facility details');
       setError(message);
@@ -128,90 +105,94 @@ export const FacilityDetails = () => {
     navigate('/owner/facilities');
   };
 
-  const handleBranchInputChange = (field: keyof CreateBranchRequest, value: string | number) => {
-    setBranchForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleCreateBranch = async () => {
-    if (!facility) {
-      return;
-    }
-
-    try {
-      setIsCreatingBranch(true);
-      setBranchError(null);
-
-      const tempPassword = branchForm.branchAdminPassword;
-      const apiBase = (import.meta as any).env?.VITE_API_URL as string;
-      const auth = localStorage.getItem('oron_auth');
-      const token = auth ? (JSON.parse(auth) as { token?: string }).token || '' : '';
-
-      const createdBranchResponse = await axios.post(`${apiBase}/branches`, {
-        ...branchForm,
-        facilityId: facility.id,
-        residentLimit: Number(branchForm.residentLimit),
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token || ''}`,
-        },
-      });
-
-      const createdBranch: Branch = createdBranchResponse.data;
-
-      setFacilityBranches((prev) => [...prev, createdBranch]);
-      setFacility((prev) =>
-        prev
-          ? {
-              ...prev,
-              totalBranches: prev.totalBranches + 1,
-            }
-          : prev,
-      );
-      setBranchForm({
-        ...emptyBranchForm,
-        facilityId: facility.id,
-      });
-      setIsAddBranchModalOpen(false);
-      toast.success(getApiSuccessMessage(createdBranchResponse.data, 'Branch created successfully.'));
-
-      if (tempPassword) {
-        toast.success(`Branch admin temporary password: ${tempPassword}`);
-      }
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to create branch');
-      setBranchError(message);
-      toast.error(message);
-      console.error(err);
-    } finally {
-      setIsCreatingBranch(false);
-    }
-  };
-
   const handleDownloadContract = async () => {
     if (!id) return;
     try {
-      setIsRefreshingContractUrl(true);
+      setIsRefreshingContractDownloadUrl(true);
       // Always refetch facility before download so we get a fresh signed URL.
       const freshFacility = await facilityService.getFacilityById(id);
       setFacility(freshFacility);
       if (freshFacility.contractDocumentUrl) {
-        window.open(freshFacility.contractDocumentUrl, '_blank', 'noopener,noreferrer');
+        const response = await axios.get(freshFacility.contractDocumentUrl, {
+          responseType: 'blob',
+        });
+
+        const contentDisposition = response.headers?.['content-disposition'] as string | undefined;
+        const fileNameFromHeader = contentDisposition?.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i)?.[1];
+        const fileName = decodeURIComponent(fileNameFromHeader || 'contract-document');
+
+        const blobUrl = window.URL.createObjectURL(response.data);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(blobUrl);
       } else {
         toast.error('No contract document available.');
       }
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to refresh contract download link'));
     } finally {
-      setIsRefreshingContractUrl(false);
+      setIsRefreshingContractDownloadUrl(false);
     }
   };
 
+  const handleViewContract = async () => {
+    if (!id) return;
+    try {
+      setIsRefreshingContractViewUrl(true);
+      // Always refetch facility before view so we get a fresh signed URL.
+      const freshFacility = await facilityService.getFacilityById(id);
+      setFacility(freshFacility);
+      if (freshFacility.contractDocumentUrl) {
+        setContractViewUrl(freshFacility.contractDocumentUrl);
+        setIsViewContractModalOpen(true);
+      } else {
+        toast.error('No contract document available.');
+      }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to refresh contract view link'));
+    } finally {
+      setIsRefreshingContractViewUrl(false);
+    }
+  };
+
+  const closeViewContractModal = () => {
+    setIsViewContractModalOpen(false);
+    setContractViewUrl(null);
+  };
+
+  const contractPreviewType = useMemo<'pdf' | 'image' | 'other' | 'none'>(() => {
+    if (!contractViewUrl) return 'none';
+    try {
+      const url = new URL(contractViewUrl);
+      const path = url.pathname.toLowerCase();
+      if (path.endsWith('.pdf')) return 'pdf';
+      if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.webp') || path.endsWith('.gif')) {
+        return 'image';
+      }
+      return 'other';
+    } catch {
+      const lower = contractViewUrl.toLowerCase();
+      if (lower.includes('.pdf')) return 'pdf';
+      if (lower.includes('.png') || lower.includes('.jpg') || lower.includes('.jpeg') || lower.includes('.webp') || lower.includes('.gif')) {
+        return 'image';
+      }
+      return 'other';
+    }
+  }, [contractViewUrl]);
+
+  const contractPdfPreviewUrl = useMemo(() => {
+    if (!contractViewUrl) return null;
+    // Ask the built-in PDF viewer to fit the page in the viewport.
+    const hasHash = contractViewUrl.includes('#');
+    return `${contractViewUrl}${hasHash ? '&' : '#'}view=Fit`;
+  }, [contractViewUrl]);
+
   if (loading) {
-    return <ResidentDetailsSkeleton/>
+    return <ResidentDetailsSkeleton />
   }
 
   if (error) {
@@ -257,7 +238,7 @@ export const FacilityDetails = () => {
           <Button
             variant="outline"
             onClick={() => {
-              setIsEditModalOpen(true);
+              navigate(`/owner/facilities/${facility.id}/edit`)
             }}
             className="w-full sm:w-auto text-sm">
             Edit Details
@@ -341,15 +322,7 @@ export const FacilityDetails = () => {
                   size="sm"
                   variant="outline"
                   icon={Plus}
-                  onClick={() => {
-                    setBranchError(null);
-                  setBranchForm({
-                    ...emptyBranchForm,
-                    facilityId: facility.id,
-                    branchAdminPassword: generateTemporaryPassword(),
-                  });
-                    setIsAddBranchModalOpen(true);
-                  }}
+                  onClick={() => navigate(`/owner/facilities/${facility.id}/branches/new`)}
                   className="w-full sm:w-auto">
                   Add Branch
                 </Button>
@@ -458,15 +431,36 @@ export const FacilityDetails = () => {
                       </td>
                       <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
                         <div className="flex items-center justify-end gap-1 sm:gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={Download}
-                            isLoading={isRefreshingContractUrl}
-                            onClick={handleDownloadContract}
-                            className="text-xs sm:text-sm">
-                            Download
-                          </Button>
+                          <span
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors ${
+                              isRefreshingContractViewUrl ? 'opacity-60 cursor-not-allowed' : 'hover:bg-primarySoft cursor-pointer'
+                            }`}
+                            title="View"
+                            aria-label="View"
+                            aria-busy={isRefreshingContractViewUrl}
+                            onClick={isRefreshingContractViewUrl ? undefined : handleViewContract}
+                          >
+                            {isRefreshingContractViewUrl ? (
+                              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 animate-spin" aria-label="Loading" />
+                            ) : (
+                              <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" aria-label="View" />
+                            )}
+                          </span>
+                          <span
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-primary shadow-sm transition-colors ${
+                              isRefreshingContractDownloadUrl ? 'opacity-60 cursor-not-allowed' : 'hover:bg-primarySoft cursor-pointer'
+                            }`}
+                            title="Download"
+                            aria-label="Download"
+                            aria-busy={isRefreshingContractDownloadUrl}
+                            onClick={isRefreshingContractDownloadUrl ? undefined : handleDownloadContract}
+                          >
+                            {isRefreshingContractDownloadUrl ? (
+                              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 animate-spin" aria-label="Loading" />
+                            ) : (
+                              <Download className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" aria-label="Download" />
+                            )}
+                          </span>
                         </div>
                       </td>
                     </tr>
@@ -482,15 +476,7 @@ export const FacilityDetails = () => {
                 </tbody>
               </table>
             </div>
-            <div className="p-3 sm:p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl">
-              <Button
-                variant="outline"
-                size="sm"
-                icon={Upload}
-                className="w-full text-sm">
-                Upload New Document
-              </Button>
-            </div>
+            
           </Card>
         </div>
 
@@ -608,124 +594,6 @@ export const FacilityDetails = () => {
       </Modal>
 
       <Modal
-        isOpen={isAddBranchModalOpen}
-        onClose={() => setIsAddBranchModalOpen(false)}
-        title="Add New Branch">
-        <div className="space-y-4">
-          {branchError && (
-            <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-              {branchError}
-            </div>
-          )}
-          <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2">
-            Branch Details
-          </h3>
-          <Input
-            label="Branch Name *"
-            placeholder="e.g. Sunrise Downtown"
-            value={branchForm.name}
-            onChange={(e) => handleBranchInputChange('name', e.target.value)}
-          />
-          <Input
-            label="Address *"
-            placeholder="123 Main St"
-            value={branchForm.address}
-            onChange={(e) => handleBranchInputChange('address', e.target.value)}
-          />
-          <Input
-            label="Phone Number *"
-            placeholder="(555) 000-0000"
-            value={branchForm.phone}
-            onChange={(e) => handleBranchInputChange('phone', e.target.value)}
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700">
-                Type *
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                value={branchForm.type}
-                onChange={(e) => handleBranchInputChange('type', e.target.value)}>
-                <option>Senior Living</option>
-                <option>Assisted Living</option>
-                <option>Memory Care</option>
-                <option>Residential</option>
-              </select>
-            </div>
-            <Input
-              label="Resident Limit *"
-              type="number"
-              placeholder="100"
-              value={branchForm.residentLimit}
-              onChange={(e) => handleBranchInputChange('residentLimit', Number(e.target.value))}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">
-              Status *
-            </label>
-            <select
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-              value={branchForm.status}
-              onChange={(e) => handleBranchInputChange('status', e.target.value)}>
-              <option>Active</option>
-              <option>Pending</option>
-              <option>Suspended</option>
-            </select>
-          </div>
-
-          <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-2 mt-6">
-            Branch Admin Account
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="First Name *"
-              placeholder="John"
-              value={branchForm.branchAdminFirstName}
-              onChange={(e) =>
-                handleBranchInputChange('branchAdminFirstName', e.target.value)
-              }
-            />
-            <Input
-              label="Last Name *"
-              placeholder="Doe"
-              value={branchForm.branchAdminLastName}
-              onChange={(e) =>
-                handleBranchInputChange('branchAdminLastName', e.target.value)
-              }
-            />
-          </div>
-          <Input
-            label="Email *"
-            type="email"
-            placeholder="admin@branch.com"
-            value={branchForm.branchAdminEmail}
-            onChange={(e) =>
-              handleBranchInputChange('branchAdminEmail', e.target.value)
-            }
-          />
-
-          <p className="text-xs text-slate-500 mt-1">Temporary password:</p>
-          <p className="text-xs text-slate-700 font-mono bg-slate-50 border border-slate-200 rounded-lg p-3 break-all">
-            {branchForm.branchAdminPassword}
-          </p>
-
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
-            <Button variant="outline" onClick={() => setIsAddBranchModalOpen(false)} className="w-full sm:w-auto">
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateBranch}
-              isLoading={isCreatingBranch}
-              className="w-full sm:w-auto">
-              Create Branch
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
         isOpen={isRevokeModalOpen}
         onClose={() => setIsRevokeModalOpen(false)}
         title="Revoke Facility Access">
@@ -753,6 +621,51 @@ export const FacilityDetails = () => {
               Yes, Revoke Access
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isViewContractModalOpen}
+        onClose={closeViewContractModal}
+        title="Contract Document"
+        maxWidth="max-w-5xl"
+        bodyClassName="p-0 overflow-hidden"
+        closeOnBackdrop
+        closeOnEsc>
+        <div className="flex flex-col h-[80vh]">
+        
+
+          {contractPdfPreviewUrl && contractPreviewType === 'pdf' && (
+            <iframe
+              title="Contract document preview"
+              src={contractPdfPreviewUrl}
+              className="w-full flex-1"
+            />
+          )}
+
+          {contractViewUrl && contractPreviewType === 'image' && (
+            <div className="w-full flex-1 overflow-auto bg-slate-50">
+              <img
+                src={contractViewUrl}
+                alt="Contract document"
+                className="block max-w-full h-auto mx-auto"
+              />
+            </div>
+          )}
+
+          {contractViewUrl && contractPreviewType === 'other' && (
+            <div className="p-4 text-sm text-slate-700">
+              Preview not supported for this file type.{' '}
+              <a
+                href={contractViewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-600 hover:text-brand-700 font-medium underline">
+                Open in new tab
+              </a>
+              .
+            </div>
+          )}
         </div>
       </Modal>
     </div>
