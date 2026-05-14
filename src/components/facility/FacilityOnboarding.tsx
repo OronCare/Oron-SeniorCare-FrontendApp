@@ -15,6 +15,7 @@ import { CreateFacilityRequest, facilityService, UpdateFacilityRequest } from '.
 import { usersService } from '../../services/usersService';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage, getApiSuccessMessage } from '../../utils/apiMessage';
+import { PdfThumbnail } from '../common/PdfThumbnail';
 
 const generateTemporaryPassword = () => {
   return `Oron@${Math.random().toString(36).slice(-8)}A1`;
@@ -45,6 +46,13 @@ export const FacilityOnboarding = () => {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 const [fileName, setFileName] = useState('');
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    };
+  }, [filePreviewUrl]);
 
   const pageTitle = useMemo(
     () => (isEditMode ? 'Edit Facility' : 'Onboard New Facility'),
@@ -332,15 +340,41 @@ const [fileName, setFileName] = useState('');
                         if (file) {
                           setSelectedFile(file);
                           setFileName(file.name);
+                          setFilePreviewUrl((prev) => {
+                            if (prev) URL.revokeObjectURL(prev);
+                            return URL.createObjectURL(file);
+                          });
                           console.log('Selected file:', file);
                         }
                       }}
                     />
 
                     {fileName ? (
-                      <div className="text-sm font-medium text-slate-900">
-                        <span className="text-green-600">✓ File selected: </span>
-                        {fileName}
+                      <div className="flex items-center justify-center gap-3">
+                        {filePreviewUrl && (
+                          <a
+                            href={filePreviewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0"
+                            title="Open preview in new tab"
+                          >
+                            {(selectedFile?.type?.startsWith('image/') ?? false) ? (
+                              <img
+                                src={filePreviewUrl}
+                                alt={fileName}
+                                className="h-24 w-24 rounded-lg border border-slate-200 object-cover bg-white"
+                              />
+                            ) : (
+                              <PdfThumbnail fileUrl={filePreviewUrl} />
+                            )}
+                          </a>
+                        )}
+
+                        <div className="text-sm font-medium text-slate-900 text-left">
+                          <span className="text-green-600">✓ File selected: </span>
+                          {fileName}
+                        </div>
                       </div>
                     ) : (
                       <>

@@ -8,23 +8,25 @@ import {
   Network
 } from 'lucide-react';
 import { StatsCard, Card, Button } from '../../components/UI';
-import { mockAlerts } from '../../mockData';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { dashboardFacilitesActions, RecentFaciltescolumns } from '../../shared/TableColumns';
 import SmartTable from '../../shared/Table';
 import { facilityService } from '../../services/facilityService';
 import { branchService } from '../../services/branchService';
 import { residentService } from '../../services/residentService';
-import { Facility, Branch, Resident } from '../../types';
+import { Facility, Branch, Resident, Alert } from '../../types';
+import { alertsService } from '../../services/alertsService';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
 import { RefreshButton } from '../refresh/Refresh.tsx';
 export const OwnerDashboard = () => {
   const toast = useToast();
+  const navigate = useNavigate();
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [residents, setResidents] = useState<Resident[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,10 +34,11 @@ export const OwnerDashboard = () => {
     try {
       setError(null);
       setLoading(true);
-      const [facilitiesData, branchesData, residentsData] = await Promise.all([
+      const [facilitiesData, branchesData, residentsData, alertsData] = await Promise.all([
         facilityService.getAllFacilities(),
         branchService.getAllBranches(),
         residentService.getAllResidents(),
+        alertsService.getAlerts().catch(() => [] as Alert[]),
       ]);
       const residentCountsByFacility = residentsData.reduce(
         (acc, resident) => {
@@ -58,6 +61,11 @@ export const OwnerDashboard = () => {
       );
       setBranches(branchesData);
       setResidents(residentsData);
+      setAlerts(
+        alertsData
+          .slice()
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+      );
     } catch (err) {
       const message = getApiErrorMessage(err, 'Failed to fetch data');
       setError(message);
@@ -87,8 +95,7 @@ export const OwnerDashboard = () => {
     0
   );
   const utilization = Math.round(totalResidents / totalCapacity * 100) || 0;
-  const ownerAlerts = mockAlerts.filter((a) => a.targetRoles.includes('owner'));
-  const recentAlerts = ownerAlerts.slice(0, 4);
+  const recentAlerts = alerts.slice(0, 4);
   if (loading) {
     return <AdminDashboardSkeleton />
   }
@@ -215,7 +222,13 @@ export const OwnerDashboard = () => {
             }
           </div>
           <div className="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl">
-            <Button variant="outline" className="w-full" size="sm">
+            <Button
+              variant="outline"
+              className="w-full"
+              size="sm"
+              type="button"
+              onClick={() => navigate('/owner/notifications')}
+            >
               View All Alerts
             </Button>
           </div>
