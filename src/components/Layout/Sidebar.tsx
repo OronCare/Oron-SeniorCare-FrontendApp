@@ -27,11 +27,8 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleC
 
   const renderLinks = () =>
     links.map((link) => {
-      const isActive =
-              location.pathname === link.path 
+      const isActive = location.pathname === link.path;
 
-        console.log(isActive)
-  
       return (
         <Link
           key={link.name}
@@ -71,7 +68,7 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleC
             />
             {!isCollapsed && (
               <span className="text-xl font-bold text-white">
-                ORON<span className="text-primary">Health</span>
+                ORON <span className="text-primary">Care</span>
               </span>
             )}
           </div>
@@ -87,11 +84,12 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleC
             </span>
           </div>
           <button
+            type="button"
             onClick={onToggleCollapsed}
-            className="ml-auto p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-white transition-colors hover:bg-slate-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
           </button>
         </div>
 
@@ -152,7 +150,7 @@ const Sidebar = ({ isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleC
                   className="h-9 w-9 rounded-xl ring-1 ring-white/10"
                 />
                 <span className="text-xl font-bold">
-                  ORON<span className="text-primary">Health</span>
+                  ORON <span className="text-primary">Care</span>
                 </span>
               </div>
             </div>
