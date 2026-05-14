@@ -1,12 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Printer } from 'lucide-react';
 import { Card, Button } from '../../components/UI';
-import { facilityService } from '../../services/facilityService';
-import { branchService } from '../../services/branchService';
-import { residentService } from '../../services/residentService';
-import { alertsService } from '../../services/alertsService';
 import { Alert, Branch, Facility, Resident } from '../../types';
-import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
+import { useGetOwnerDashboardQuery } from '../../store/api/oronApi';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 import {
   BarChart,
   Bar,
@@ -24,49 +22,34 @@ import {
 'recharts';
 import { OwnerReportSkeleton } from '../skeletons/ReportsSkeleton';
 import { RefreshButton } from '../refresh/Refresh';
+
 export const OwnerReport = () => {
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  let isMounted = true;
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [facilitiesData, branchesData, residentsData, alertsData] =
-        await Promise.all([
-          facilityService.getAllFacilities(),
-          branchService.getAllBranches(),
-          residentService.getAllResidents(),
-          alertsService.getAlerts(),
-        ]);
+  const toast = useToast();
+  const errorToastShown = useRef(false);
 
-      if (!isMounted) return;
-      setFacilities(facilitiesData);
-      setBranches(branchesData);
-      setResidents(residentsData);
-      setAlerts(alertsData);
-    } catch (err) {
-      if (!isMounted) return;
-      setError(err instanceof Error ? err.message : 'Failed to load report data');
-    } finally {
-      if (!isMounted) return;
-      setLoading(false);
-    }
-  };
+  const {
+    data,
+    isLoading: loading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useGetOwnerDashboardQuery();
+
   useEffect(() => {
-    
+    if (!isError) {
+      errorToastShown.current = false;
+      return;
+    }
+    if (errorToastShown.current) return;
+    errorToastShown.current = true;
+    toast.error(getApiErrorMessage(error, 'Failed to load report data'));
+  }, [isError, error, toast]);
 
-    
-
-    void load();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const facilities: Facility[] = data?.facilities ?? [];
+  const branches: Branch[] = data?.branches ?? [];
+  const residents: Resident[] = data?.residents ?? [];
+  const alerts: Alert[] = data?.alerts ?? [];
 
   const monthLabel = (d: Date) =>
     d.toLocaleString('en-US', { month: 'short' });
@@ -78,7 +61,7 @@ export const OwnerReport = () => {
 
   const getResidentGrowthData = (items: Resident[]) => {
     const now = new Date();
-    const windowStart = startOfMonth(addMonths(now, -5)); // 6-month window inclusive
+    const windowStart = startOfMonth(addMonths(now, -5));
     const buckets = new Map<number, number>();
 
     for (let i = 0; i < 6; i += 1) {
@@ -102,7 +85,6 @@ export const OwnerReport = () => {
       }
     }
 
-    // Convert admissions into a cumulative total so it looks like "growth"
     let running = 0;
     const series = [...buckets.entries()]
       .sort((a, b) => a[0] - b[0])
@@ -111,7 +93,6 @@ export const OwnerReport = () => {
         return { month: monthLabel(new Date(ts)), residents: running };
       });
 
-    // If there is existing population before windowStart, add it as baseline
     const baseline = items.filter((r) => {
       const dt = r.admissionDate ? new Date(r.admissionDate) : null;
       if (!dt || Number.isNaN(dt.getTime())) return false;
@@ -129,7 +110,6 @@ export const OwnerReport = () => {
     return series;
   };
 
-  // 1. Branch Utilization Data
   const utilizationData = useMemo(
     () =>
       branches.map((b) => ({
@@ -142,10 +122,8 @@ export const OwnerReport = () => {
     [branches],
   );
 
-  // 2. Resident Growth Data (6-month trend derived from admissionDate)
   const growthData = useMemo(() => getResidentGrowthData(residents), [residents]);
 
-  // 3. Contract Status Data
   const activeCount = facilities.filter((f) => f.status === 'Active').length;
   const pendingCount = facilities.filter(
     (f) => f.status === 'Pending'
@@ -168,7 +146,7 @@ export const OwnerReport = () => {
   }].
   filter((d) => d.value > 0);
   const COLORS = ['#0D9488', '#F59E0B', '#EF4444'];
-  // 4. Alerts by Severity
+
   const activeAlerts = useMemo(
     () => alerts.filter((a) => a.status !== 'Resolved'),
     [alerts],
@@ -197,7 +175,7 @@ export const OwnerReport = () => {
     return <OwnerReportSkeleton />;
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -207,7 +185,7 @@ export const OwnerReport = () => {
           </div>
         </div>
         <Card>
-          <div className="text-sm text-red-600">Error loading report: {error}</div>
+          <div className="text-sm text-red-600">Error loading report: {getApiErrorMessage(error, 'Failed to load report data')}</div>
         </Card>
       </div>
     );
@@ -228,12 +206,11 @@ export const OwnerReport = () => {
         <Button variant="outline" icon={Printer} onClick={() => window.print()}>
           Print Report
         </Button>
-        <RefreshButton onRefresh={load}/>
+        <RefreshButton onRefresh={() => void refetch()} isLoading={isFetching} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Utilization */}
         <Card>
           <h2 className="text-lg font-semibold text-slate-900 mb-6">
             Branch Utilization (%)
@@ -248,12 +225,12 @@ export const OwnerReport = () => {
                   bottom: 5,
                   left: 0
                 }}>
-                
+
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
                   stroke="#E2E8F0" />
-                
+
                 <XAxis
                   dataKey="name"
                   axisLine={false}
@@ -262,7 +239,7 @@ export const OwnerReport = () => {
                     fill: '#64748B',
                     fontSize: 12
                   }} />
-                
+
                 <YAxis
                   axisLine={false}
                   tickLine={false}
@@ -271,7 +248,7 @@ export const OwnerReport = () => {
                     fontSize: 12
                   }}
                   domain={[0, 100]} />
-                
+
                 <Tooltip
                   cursor={{
                     fill: '#F8FAFC'
@@ -281,19 +258,18 @@ export const OwnerReport = () => {
                     border: '1px solid #E2E8F0',
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                   }} />
-                
+
                 <Bar
                   dataKey="utilization"
                   fill="#0D9488"
                   radius={[4, 4, 0, 0]}
                   barSize={40} />
-                
+
               </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        {/* Chart 2: Growth */}
         <Card>
           <h2 className="text-lg font-semibold text-slate-900 mb-6">
             Total Resident Growth (6 Mo)
@@ -308,12 +284,12 @@ export const OwnerReport = () => {
                   bottom: 5,
                   left: 0
                 }}>
-                
+
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
                   stroke="#E2E8F0" />
-                
+
                 <XAxis
                   dataKey="month"
                   axisLine={false}
@@ -322,7 +298,7 @@ export const OwnerReport = () => {
                     fill: '#64748B',
                     fontSize: 12
                   }} />
-                
+
                 <YAxis
                   axisLine={false}
                   tickLine={false}
@@ -330,14 +306,14 @@ export const OwnerReport = () => {
                     fill: '#64748B',
                     fontSize: 12
                   }} />
-                
+
                 <Tooltip
                   contentStyle={{
                     borderRadius: '8px',
                     border: '1px solid #E2E8F0',
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                   }} />
-                
+
                 <Line
                   type="monotone"
                   dataKey="residents"
@@ -352,13 +328,12 @@ export const OwnerReport = () => {
                   activeDot={{
                     r: 6
                   }} />
-                
+
               </LineChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        {/* Chart 3: Contracts */}
         <Card>
           <h2 className="text-lg font-semibold text-slate-900 mb-6">
             Facility Contract Status
@@ -374,7 +349,7 @@ export const OwnerReport = () => {
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value">
-                  
+
                   {contractData.map((entry, index) =>
                   <Cell
                     key={`cell-${index}`}
@@ -388,14 +363,13 @@ export const OwnerReport = () => {
                     border: '1px solid #E2E8F0',
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                   }} />
-                
+
                 <Legend verticalAlign="bottom" height={36} iconType="circle" />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        {/* Chart 4: Alerts */}
         <Card>
           <h2 className="text-lg font-semibold text-slate-900 mb-6">
             Active Alerts by Severity
@@ -411,12 +385,12 @@ export const OwnerReport = () => {
                   bottom: 5,
                   left: 20
                 }}>
-                
+
                 <CartesianGrid
                   strokeDasharray="3 3"
                   horizontal={false}
                   stroke="#E2E8F0" />
-                
+
                 <XAxis
                   type="number"
                   axisLine={false}
@@ -425,7 +399,7 @@ export const OwnerReport = () => {
                     fill: '#64748B',
                     fontSize: 12
                   }} />
-                
+
                 <YAxis
                   dataKey="name"
                   type="category"
@@ -435,7 +409,7 @@ export const OwnerReport = () => {
                     fill: '#64748B',
                     fontSize: 12
                   }} />
-                
+
                 <Tooltip
                   cursor={{
                     fill: '#F8FAFC'
@@ -445,7 +419,7 @@ export const OwnerReport = () => {
                     border: '1px solid #E2E8F0',
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                   }} />
-                
+
                 <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={30}>
                   {alertData.map((entry, index) =>
                   <Cell key={`cell-${index}`} fill={entry.fill} />

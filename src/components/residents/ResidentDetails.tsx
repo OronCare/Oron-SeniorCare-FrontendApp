@@ -50,12 +50,15 @@ import { goalsService } from '../../services/goalsService';
 import { interventionsService } from '../../services/interventionsService';
 import { preferencesService } from '../../services/preferencesService';
 import { notesService } from '../../services/notesService';
-import { residentService } from '../../services/residentService';
 import { vitalService } from '../../services/vitalService';
 import { taskService } from '../../services/taskService';
-import { branchService } from '../../services/branchService';
-import { facilityService } from '../../services/facilityService';
+import {
+  useGetBranchByIdQuery,
+  useGetFacilityByIdQuery,
+  useGetResidentByIdQuery,
+} from '../../store/api/oronApi';
 import { ResidentDetailsSkeleton } from '../skeletons/DetailsSkeleton';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 
 export const ResidentDetails = () => {
   const { id } = useParams();
@@ -81,10 +84,9 @@ export const ResidentDetails = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [resident, setResident] = useState<Resident | null>(null);
+  const [extrasLoading, setExtrasLoading] = useState(true);
   const [vitals, setVitals] = useState<Vital[]>([]);
   const [, setResidentTasks] = useState<Task[]>([]);
-  const [isPageLoading, setIsPageLoading] = useState(true);
 
   const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
   const [carePlanLoading, setCarePlanLoading] = useState(false);
@@ -107,11 +109,28 @@ export const ResidentDetails = () => {
   const [preferencesExist, setPreferencesExist] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
   const [startPreferencesEditing, setStartPreferencesEditing] = useState(false);
-  const [branchName, setBranchName] = useState<string>('');
-  const [facilityName, setFacilityName] = useState<string>('');
   const [carePlanSubTab, setCarePlanSubTab] = useState<
     'clinical' | 'risk' | 'goals' | 'interventions' | 'preferences'
   >('clinical');
+
+  const {
+    data: resident,
+    isLoading: residentLoading,
+    isError: residentIsError,
+    error: residentFetchError,
+    refetch: refetchResident,
+  } = useGetResidentByIdQuery(id!, { skip: !id });
+
+  const { data: branch } = useGetBranchByIdQuery(resident?.branchId ?? '', {
+    skip: !resident?.branchId,
+  });
+  const { data: facilityRow } = useGetFacilityByIdQuery(resident?.facilityId ?? '', {
+    skip: !resident?.facilityId,
+  });
+  const branchName = branch?.name ?? '';
+  const facilityName = facilityRow?.name ?? '';
+
+  const isPageLoading = (!!id && residentLoading) || extrasLoading;
 
   const fullName = useMemo(() => (resident ? getFullName(resident) : ''), [resident]);
   const carePlan = useMemo(() => carePlans[0], [carePlans]);
@@ -142,28 +161,19 @@ export const ResidentDetails = () => {
 
   useEffect(() => {
     if (!id) {
-      setIsPageLoading(false);
       setError('Resident ID is missing');
+      setExtrasLoading(false);
       return;
     }
 
-    const fetchResidentData = async () => {
-      setIsPageLoading(true);
-      setError(null);
-      try {
-        const [residentData, vitalsData, allTasks, notesData] = await Promise.all([
-          residentService.getResidentById(id),
-          vitalService.getVitalsByResident(id),
-          taskService.getAllTasks(),
-          notesService.getNotesByResidentId(id),
-        ]);
-
-        setResident(residentData);
-        sessionStorage.setItem(
-          `breadcrumb:residents:${residentData.id}`,
-          getFullName(residentData),
-        );
-        window.dispatchEvent(new Event('oron:breadcrumb:update'));
+    setError(null);
+    setExtrasLoading(true);
+    void Promise.all([
+      vitalService.getVitalsByResident(id),
+      taskService.getAllTasks(),
+      notesService.getNotesByResidentId(id),
+    ])
+      .then(([vitalsData, allTasks, notesData]) => {
         setVitals(
           [...vitalsData].sort(
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
@@ -171,15 +181,23 @@ export const ResidentDetails = () => {
         );
         setResidentTasks(allTasks.filter((task) => task.residentId === id));
         setNotes(notesData);
-      } catch (err) {
+      })
+      .catch((err) => {
         setError(err instanceof Error ? err.message : 'Failed to load resident details');
-      } finally {
-        setIsPageLoading(false);
-      }
-    };
-
-    void fetchResidentData();
+      })
+      .finally(() => {
+        setExtrasLoading(false);
+      });
   }, [id]);
+
+  useEffect(() => {
+    if (!resident?.id) return;
+    sessionStorage.setItem(
+      `breadcrumb:residents:${resident.id}`,
+      getFullName(resident),
+    );
+    window.dispatchEvent(new Event('oron:breadcrumb:update'));
+  }, [resident]);
 
   useEffect(() => {
     if (!id) return;
@@ -326,23 +344,6 @@ export const ResidentDetails = () => {
     }
   }, [carePlan, refreshCarePlans]);
 
-  useEffect(() => {
-    if (!resident) return;
-
-    Promise.all([
-      branchService.getBranchById(resident.branchId).catch(() => null),
-      facilityService.getFacilityById(resident.facilityId).catch(() => null),
-    ])
-      .then(([branch, facility]) => {
-        setBranchName(branch?.name ?? '');
-        setFacilityName(facility?.name ?? '');
-      })
-      .catch(() => {
-        setBranchName('');
-        setFacilityName('');
-      });
-  }, [resident]);
-
   //create note
   const handleCreateNote = async () => {
     if (!newNote.trim() || !id || !user) return;
@@ -462,7 +463,11 @@ export const ResidentDetails = () => {
     return (
       <div className="space-y-6 overflow-x-hidden">
         <Card>
-          <p className="text-sm text-red-600">{error || 'Resident not found'}</p>
+          <p className="text-sm text-red-600">
+            {residentIsError
+              ? getApiErrorMessage(residentFetchError, 'Failed to load resident')
+              : error || 'Resident not found'}
+          </p>
         </Card>
       </div>
     );
@@ -492,11 +497,10 @@ export const ResidentDetails = () => {
                 }
 
                 hasRetriedPhotoRef.current = true;
-                residentService
-                  .getResidentById(id)
-                  .then((fresh) => {
-                    setResident(fresh);
-                    if (fresh.photoUrl) {
+                void refetchResident()
+                  .then((result) => {
+                    const fresh = result.data;
+                    if (fresh?.photoUrl) {
                       e.currentTarget.style.display = '';
                       e.currentTarget.src = fresh.photoUrl;
                     }

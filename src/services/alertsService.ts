@@ -22,12 +22,12 @@ const getHeaders = () => ({
   Authorization: `Bearer ${getAuthToken()}`,
 });
 
-type AlertPayload = Partial<Alert> & {
+export type AlertPayload = Partial<Alert> & {
   targetRoles?: string[];
   healthState?: string;
 };
 
-const normalizeAlert = (payload: AlertPayload): Alert => ({
+export const normalizeAlert = (payload: AlertPayload): Alert => ({
   id: payload.id || "",
   facilityId: payload.facilityId || "",
   branchId: payload.branchId,
