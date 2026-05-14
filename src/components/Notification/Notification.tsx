@@ -1,5 +1,5 @@
 // components/shared/Notifications.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Bell,
   ShieldAlert,
@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   Info,
   AlertTriangle,
+  UserPlus,
+  Building2,
 } from 'lucide-react';
 import { Card, Button, Badge } from '../UI';
 import { mockBranches } from '../../mockData';
@@ -20,33 +22,32 @@ export const Notifications = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  let isMounted = true;
+  const isMountedRef = useRef(true);
 
-    const loadAlerts = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await alertsService.getAlerts();
-        if (isMounted) {
-          setAlerts(data);
-        }
-      } catch {
-        if (isMounted) {
-          setError('Failed to load notifications');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+  const loadAlerts = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await alertsService.getAlerts();
+      if (isMountedRef.current) {
+        setAlerts(data);
       }
-    };
+    } catch {
+      if (isMountedRef.current) {
+        setError('Failed to load notifications');
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  };
 
   useEffect(() => {
-    
-
+    isMountedRef.current = true;
     void loadAlerts();
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
   }, []);
 
@@ -80,7 +81,13 @@ export const Notifications = () => {
     }
   };
 
-  const getIcon = (severity: string) => {
+  const getIcon = (severity: string, title: string) => {
+    if (title === 'New resident added') {
+      return <UserPlus className="h-5 w-5 text-brand-600" />;
+    }
+    if (title.startsWith('Contract expiring soon')) {
+      return <Building2 className="h-5 w-5 text-slate-700" />;
+    }
     switch (severity) {
       case 'Critical':
         return <ShieldAlert className="h-5 w-5 text-red-600" />;
@@ -91,7 +98,13 @@ export const Notifications = () => {
     }
   };
 
-  const getBgColor = (severity: string) => {
+  const getBgColor = (severity: string, title: string) => {
+    if (title === 'New resident added') {
+      return 'bg-brand-100';
+    }
+    if (title.startsWith('Contract expiring soon')) {
+      return severity === 'Critical' ? 'bg-red-100' : 'bg-amber-100';
+    }
     switch (severity) {
       case 'Critical':
         return 'bg-red-100';
@@ -189,10 +202,11 @@ export const Notifications = () => {
               >
                 <div
                   className={`shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${getBgColor(
-                    alert.severity
+                    alert.severity,
+                    alert.title,
                   )}`}
                 >
-                  {getIcon(alert.severity)}
+                  {getIcon(alert.severity, alert.title)}
                 </div>
 
                 <div className="flex-1 space-y-1">
