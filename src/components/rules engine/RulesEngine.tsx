@@ -9,7 +9,7 @@ import {
 import { Card, Button } from '../../components/UI';
 import { Rule, RuleThreshold } from '../../types';
 import { motion } from 'framer-motion';
-import { rulesService } from '../../services/rulesService';
+import { useGetRulesQuery, useUpdateRuleMutation } from '../../store/api/oronApi';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
@@ -24,29 +24,24 @@ export const RulesEngines = () => {
   const [editThresholds, setEditThresholds] = useState<RuleThreshold | null>(
     null
   );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [savingRuleId, setSavingRuleId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchRules = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await rulesService.getAllRules();
-      setRules(data);
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to load rules');
+  const { data: rulesData = [], isLoading: loading, isError, error: queryError, refetch, isFetching } =
+    useGetRulesQuery();
+  const [updateRule] = useUpdateRuleMutation();
+
+  useEffect(() => {
+    setRules(rulesData);
+  }, [rulesData]);
+
+  useEffect(() => {
+    if (isError && queryError) {
+      const message = getApiErrorMessage(queryError, 'Failed to load rules');
       setError(message);
       toast.error(message);
-    } finally {
-      setLoading(false);
     }
-  };
-  useEffect(() => {
-    
-
-    fetchRules();
-  }, []);
+  }, [isError, queryError, toast]);
   const toggleRule = async (id: string) => {
     const currentRule = rules.find((rule) => rule.id === id);
     if (!currentRule) return;
@@ -60,7 +55,7 @@ export const RulesEngines = () => {
     );
 
     try {
-      const updated = await rulesService.updateRule(id, { isActive: nextState });
+      const updated = await updateRule({ id, body: { isActive: nextState } }).unwrap();
       setRules((prevRules) =>
         prevRules.map((r) => (r.id === id ? updated : r)),
       );
@@ -92,7 +87,7 @@ export const RulesEngines = () => {
     setSavingRuleId(id);
     setError(null);
     try {
-      const updated = await rulesService.updateRule(id, { thresholds: editThresholds });
+      const updated = await updateRule({ id, body: { thresholds: editThresholds } }).unwrap();
       setRules((prevRules) =>
         prevRules.map((r) => (r.id === id ? updated : r)),
       );
@@ -209,7 +204,7 @@ export const RulesEngines = () => {
         <Button icon={Settings} variant="outline">
           Advanced Settings
         </Button>
-        <RefreshButton onRefresh={fetchRules}/>
+        <RefreshButton onRefresh={() => void refetch()} isLoading={isFetching} />
         </div>
       </div>
 
