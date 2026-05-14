@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Lock, Mail, ArrowRight } from 'lucide-react';
 import { Button, Input, Card } from '../components/UI';
-import { AuthBrandMark } from '../components/auth/AuthBrandMark';
+import { AuthLoginBrandPanel } from '../components/auth/AuthLoginBrandPanel';
 import { getApiErrorMessage } from '../utils/apiMessage';
 
 export const Login = () => {
@@ -41,86 +41,101 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-0 left-0 w-full h-64 bg-brand-600 rounded-b-[100px] opacity-10 transform -translate-y-1/2"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-brand-400 rounded-full opacity-5 blur-3xl"></div>
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      <aside
+        className="relative flex min-h-[280px] shrink-0 flex-col items-center justify-center overflow-hidden bg-slate-900 px-8 py-16 lg:min-h-screen lg:w-[44%] lg:max-w-xl lg:py-20"
+        aria-label="Oron Care branding"
+      >
+        {/* Hero photo — place seniorcare.png in /public */}
+        <div
+          className="pointer-events-none absolute inset-0 bg-slate-800 bg-[url('/seniorcare.png')] bg-cover bg-center bg-no-repeat"
+          aria-hidden
+        />
+        {/* Depth + readability over busy illustration */}
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-900/45 to-slate-950/80"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_90%_at_50%_20%,rgba(14,100,155,0.22),transparent_58%)]"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(15,23,42,0.35)_100%)]"
+          aria-hidden
+        />
+        <AuthLoginBrandPanel />
+      </aside>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <AuthBrandMark />
-        <h2 className="mt-6 text-center text-2xl font-semibold tracking-tight text-slate-900">
-          Sign in to your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-600">
-          Care management and operational intelligence
-        </p>
-      </div>
+      <main className="relative flex flex-1 flex-col justify-center bg-slate-50 px-4 py-10 sm:px-8 lg:px-12 xl:px-16">
+        <div className="absolute inset-0 overflow-hidden lg:hidden" aria-hidden>
+          <div className="absolute -right-20 top-0 h-48 w-48 rounded-full bg-brand-600/10 blur-3xl" />
+        </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <Card className="py-8 px-4 sm:px-10 shadow-xl border-0 ring-1 ring-slate-200">
-          <form className="space-y-6" onSubmit={handleLogin}>
-            <div className="space-y-4">
-              <Input
-                label="Email address"
-                type="email"
-                required
-                icon={Mail}
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+        <div className="relative z-10 mx-auto w-full max-w-md">
+          <h2 className="text-center text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+            Sign in to your account
+          </h2>
+          <p className="mt-2 text-center text-sm text-slate-600 sm:text-base">Welcome back — enter your credentials below.</p>
 
-              <Input
-                label="Password"
-                type="password"
-                required
-                icon={Lock}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+          <Card className="mt-8 py-8 px-4 shadow-xl border-0 ring-1 ring-slate-200 sm:px-10">
+            <form className="space-y-6" onSubmit={handleLogin}>
+              <div className="space-y-4">
+                <Input
+                  label="Email address"
+                  type="email"
+                  required
+                  icon={Mail}
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
-            </div>
+                <Input
+                  label="Password"
+                  type="password"
+                  required
+                  icon={Lock}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600" />
-                
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-sm text-slate-700">
-                  
-                  Remember me
-                </label>
+                {error && <p className="text-sm text-red-600">{error}</p>}
               </div>
 
-              <div className="text-sm">
-                <button
-                  type="button"
-                  onClick={() => navigate('/forgot-password')}
-                  className="font-medium text-brand-600 hover:text-brand-500"
-                >
-                  Forgot password?
-                </button>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember-me"
+                    name="remember-me"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600"
+                  />
+
+                  <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-700">
+                    Remember me
+                  </label>
+                </div>
+
+                <div className="text-sm">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/forgot-password')}
+                    className="font-medium text-brand-600 hover:text-brand-500"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              isLoading={isLoading}>
-              
-              Sign in <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </form>
-        </Card>
-      </div>
-    </div>);
-
+              <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+                Sign in <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </form>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
 };

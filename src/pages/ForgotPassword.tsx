@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Mail, ShieldAlert } from 'lucide-react';
 import { Button, Card, Input } from '../components/UI';
-import { AuthBrandMark } from '../components/auth/AuthBrandMark';
+import { AuthPageHeader } from '../components/auth/AuthPageHeader';
 import { useToast } from '../context/ToastContext';
 import { getApiErrorMessage } from '../utils/apiMessage';
 
@@ -78,21 +78,12 @@ export const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-64 bg-brand-600 rounded-b-[100px] opacity-10 transform -translate-y-1/2"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-brand-400 rounded-full opacity-5 blur-3xl"></div>
-
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <AuthBrandMark />
-        <h2 className="mt-6 text-center text-2xl font-semibold tracking-tight text-slate-900">
-          Forgot your password?
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-600">
-          Enter your email. We’ll send you a one-time code to reset your password.
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <AuthPageHeader
+          title="Forgot your password?"
+          description="Enter your email. We’ll send you a one-time code to reset your password."
+        />
         <Card className="py-8 px-4 sm:px-10 shadow-xl border-0 ring-1 ring-slate-200">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
