@@ -1,5 +1,5 @@
 // components/shared/Notifications.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Bell,
   ShieldAlert,
@@ -13,43 +13,22 @@ import {
 import { Card, Button, Badge } from '../UI';
 import { mockBranches } from '../../mockData';
 import { Alert } from '../../types';
-import { alertsService } from '../../services/alertsService';
+import { useGetAlertsQuery, useUpdateAlertStatusMutation } from '../../store/api/oronApi';
 import { NotificationsSkeleton } from '../skeletons/NotificationSkeleton';
 import { RefreshButton } from '../refresh/Refresh';
 
 export const Notifications = () => {
   const [activeTab, setActiveTab] = useState('All');
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const isMountedRef = useRef(true);
+  const {
+    data: alerts = [],
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useGetAlertsQuery();
+  const [updateAlertStatus] = useUpdateAlertStatusMutation();
 
-  const loadAlerts = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await alertsService.getAlerts();
-      if (isMountedRef.current) {
-        setAlerts(data);
-      }
-    } catch {
-      if (isMountedRef.current) {
-        setError('Failed to load notifications');
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    void loadAlerts();
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+  const loadError = isError ? 'Failed to load notifications' : null;
 
   const tabs = ['All', 'Unread', 'Critical', 'Warning', 'Info'];
 
@@ -59,10 +38,9 @@ export const Notifications = () => {
     return alert.severity === activeTab;
   });
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (alertId: string) => {
     try {
-      const updated = await alertsService.updateAlertStatus(id, 'Read');
-      setAlerts((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      await updateAlertStatus({ id: alertId, status: 'Read' }).unwrap();
     } catch {
       // Keep list unchanged if update fails.
     }
@@ -74,8 +52,7 @@ export const Notifications = () => {
       return;
     }
     try {
-      await Promise.all(unread.map((a) => alertsService.updateAlertStatus(a.id, 'Read')));
-      setAlerts((prev) => prev.map((a) => ({ ...a, status: 'Read' })));
+      await Promise.all(unread.map((a) => updateAlertStatus({ id: a.id, status: 'Read' }).unwrap()));
     } catch {
       // Keep list unchanged if update fails.
     }
@@ -141,8 +118,8 @@ export const Notifications = () => {
     return branch?.name;
   };
 
-  if(isLoading){
-    return <NotificationsSkeleton/>
+  if (isLoading) {
+    return <NotificationsSkeleton />;
   }
 
   return (
@@ -158,7 +135,7 @@ export const Notifications = () => {
         <Button variant="outline" icon={CheckCircle2} onClick={() => void markAllAsRead()}>
           Mark All as Read
         </Button>
-        <RefreshButton onRefresh={loadAlerts}/>
+        <RefreshButton onRefresh={() => void refetch()} isLoading={isFetching} />
         </div>
       </div>
 
@@ -187,11 +164,11 @@ export const Notifications = () => {
         </div>
 
         <div className="divide-y divide-slate-100">
-          
-          {!isLoading && error && (
-            <div className="p-6 text-sm text-red-600">{error}</div>
+
+          {!isLoading && loadError && (
+            <div className="p-6 text-sm text-red-600">{loadError}</div>
           )}
-          {!isLoading && !error && filteredAlerts.map((alert) => {
+          {!isLoading && !loadError && filteredAlerts.map((alert) => {
             const branchName = getBranchName(alert.branchId);
             return (
               <div
@@ -278,7 +255,7 @@ export const Notifications = () => {
               </div>
             );
           })}
-          {!isLoading && !error && filteredAlerts.length === 0 && (
+          {!isLoading && !loadError && filteredAlerts.length === 0 && (
             <div className="p-12 text-center text-slate-500">
               <Bell className="h-12 w-12 mx-auto text-slate-300 mb-3" />
               <p className="text-lg font-medium text-slate-900">No notifications</p>

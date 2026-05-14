@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Network, Save, User } from 'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
-import { branchService, CreateBranchRequest } from '../../services/branchService';
-import { facilityService } from '../../services/facilityService';
+import type { CreateBranchRequest } from '../../services/branchService';
+import { useCreateBranchMutation, useGetFacilityByIdQuery } from '../../store/api/oronApi';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage, getApiSuccessMessage } from '../../utils/apiMessage';
 
@@ -11,8 +11,8 @@ const generateTemporaryPassword = () => {
   return `Oron@${Math.random().toString(36).slice(-8)}A1`;
 };
 
-const emptyBranchForm = (facilityId: string): CreateBranchRequest => ({
-  facilityId,
+const emptyBranchForm = (fid: string): CreateBranchRequest => ({
+  facilityId: fid,
   name: '',
   address: '',
   phone: '',
@@ -29,48 +29,27 @@ export const AddBranch = () => {
   const { id: facilityId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const [facilityName, setFacilityName] = useState<string | null>(null);
-  const [loadingFacility, setLoadingFacility] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [branchForm, setBranchForm] = useState<CreateBranchRequest | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    data: facility,
+    isLoading: loadingFacility,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useGetFacilityByIdQuery(facilityId!, { skip: !facilityId });
+
+  const [createBranch, { isLoading: isSubmitting }] = useCreateBranchMutation();
 
   useEffect(() => {
-    if (!facilityId) {
-      setLoadError('Missing facility.');
-      setLoadingFacility(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    const load = async () => {
-      setLoadingFacility(true);
-      setLoadError(null);
-      try {
-        const facility = await facilityService.getFacilityById(facilityId);
-        if (cancelled) return;
-        setFacilityName(facility.name);
-        setBranchForm({
-          ...emptyBranchForm(facilityId),
-          branchAdminPassword: generateTemporaryPassword(),
-        });
-      } catch (err) {
-        if (cancelled) return;
-        const message = getApiErrorMessage(err, 'Failed to load facility');
-        setLoadError(message);
-        toast.error(message);
-      } finally {
-        if (!cancelled) setLoadingFacility(false);
-      }
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [facilityId]);
+    if (!facilityId || !facility) return;
+    setBranchForm({
+      ...emptyBranchForm(facilityId),
+      branchAdminPassword: generateTemporaryPassword(),
+    });
+  }, [facilityId, facility]);
 
   const backToFacility = facilityId ? `/owner/facilities/${facilityId}` : '/owner/facilities';
 
@@ -82,15 +61,14 @@ export const AddBranch = () => {
     if (!facilityId || !branchForm) return;
 
     setSubmitError(null);
-    setIsSubmitting(true);
     const tempPassword = branchForm.branchAdminPassword;
 
     try {
-      const created = await branchService.createBranch({
+      const created = await createBranch({
         ...branchForm,
         facilityId,
         residentLimit: Number(branchForm.residentLimit),
-      });
+      }).unwrap();
       toast.success(getApiSuccessMessage(created, 'Branch created successfully.'));
       if (tempPassword) {
         toast.success(`Branch admin temporary password: ${tempPassword}`);
@@ -100,8 +78,6 @@ export const AddBranch = () => {
       const message = getApiErrorMessage(err, 'Failed to create branch');
       setSubmitError(message);
       toast.error(message);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -124,6 +100,16 @@ export const AddBranch = () => {
     );
   }
 
+  const loadError = isError ? getApiErrorMessage(error, 'Failed to load facility') : null;
+
+  if (facility && !branchForm) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 text-center text-slate-500 text-sm">
+        Preparing form…
+      </div>
+    );
+  }
+
   if (loadError || !branchForm) {
     return (
       <div className="max-w-4xl mx-auto space-y-4">
@@ -133,9 +119,16 @@ export const AddBranch = () => {
         <Link to={backToFacility} className="text-sm font-medium text-brand-600 hover:text-brand-700">
           ← Back to facility
         </Link>
+        {isError ? (
+          <Button variant="outline" type="button" onClick={() => void refetch()}>
+            Retry
+          </Button>
+        ) : null}
       </div>
     );
   }
+
+  const facilityName = facility?.name;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -159,7 +152,7 @@ export const AddBranch = () => {
           <Button variant="outline" onClick={() => navigate(backToFacility)}>
             Cancel
           </Button>
-          <Button icon={Save} isLoading={isSubmitting} onClick={handleSubmit}>
+          <Button icon={Save} isLoading={isSubmitting || isFetching} onClick={() => void handleSubmit()}>
             Create Branch
           </Button>
         </div>

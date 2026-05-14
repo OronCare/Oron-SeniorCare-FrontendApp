@@ -4,7 +4,7 @@ import { Card, Button, Input } from '../../components/UI';
 import { useAuth } from '../../context/AuthContext';
 import SmartTable from '../../shared/Table';
 import { Aditlogscolumns } from '../../shared/TableColumns';
-import { auditLogService } from '../../services/auditLogService';
+import { useGetAuditLogsQuery } from '../../store/api/oronApi';
 import { AuditLog as AuditLogType } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
@@ -16,33 +16,29 @@ import { RefreshButton } from '../refresh/Refresh';
 export const AuditLog = () => {
   const { user, isAuthenticated } = useAuth();
   const toast = useToast();
-  const [logs, setLogs] = useState<AuditLogType[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
   const [page, setPage] = useState(1);
 
   const PAGE_SIZE = 5;
-  const fetchAuditLogs = useCallback(async () => {
-    if (!isAuthenticated || !user) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await auditLogService.getAuditLogs();
-      setLogs(data);
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to load audit logs');
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated, toast, user]);
+
+  const {
+    data: logs = [],
+    isLoading: loading,
+    isError,
+    error: queryError,
+    refetch,
+    isFetching,
+  } = useGetAuditLogsQuery(undefined, { skip: !isAuthenticated || !user });
 
   useEffect(() => {
-    void fetchAuditLogs();
-  }, [fetchAuditLogs]);
+    if (isError && queryError) {
+      const message = getApiErrorMessage(queryError, 'Failed to load audit logs');
+      setError(message);
+      toast.error(message);
+    }
+  }, [isError, queryError, toast]);
 
   const uniqueActions = useMemo(() => {
     return ['All', ...Array.from(new Set(logs.map((log) => log.action)))];
@@ -117,7 +113,7 @@ export const AuditLog = () => {
         <Button variant="outline" icon={Download} onClick={handleExportCSV}>
           Export CSV
         </Button>
-        <RefreshButton onRefresh={fetchAuditLogs}/>
+        <RefreshButton onRefresh={() => void refetch()} isLoading={isFetching} />
         </div>
       </div>
 
