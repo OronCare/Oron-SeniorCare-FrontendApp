@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowRight } from 'lucide-react';
 import { Button, Card } from '../components/UI';
-import { AuthBrandMark } from '../components/auth/AuthBrandMark';
+import { AuthPageHeader } from '../components/auth/AuthPageHeader';
 import { useToast } from '../context/ToastContext';
 import { getApiErrorMessage } from '../utils/apiMessage';
 import { FORGOT_RESET_SESSION_KEY, PASSWORD_RESET_OTP_LENGTH } from '../constants/passwordReset';
@@ -276,21 +276,16 @@ export const ForgotPasswordVerify = () => {
   const timerActive = Boolean(expiresAt) && !isExpired;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-64 bg-brand-600 rounded-b-[100px] opacity-10 transform -translate-y-1/2"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-brand-400 rounded-full opacity-5 blur-3xl"></div>
-
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <AuthBrandMark />
-        <h2 className="mt-6 text-center text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
-          OTP verification
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-600">
-          We sent a one-time code to <span className="font-medium text-slate-900">{email}</span>
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <AuthPageHeader
+          title="OTP verification"
+          description={
+            <>
+              We sent a one-time code to <span className="font-medium text-slate-900">{email}</span>
+            </>
+          }
+        />
         <Card className="py-8 px-4 sm:px-10 shadow-xl border-0 ring-1 ring-slate-200 space-y-6">
           {error && (
             <div className="flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
