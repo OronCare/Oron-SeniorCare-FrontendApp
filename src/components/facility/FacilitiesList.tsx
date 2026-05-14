@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Filter,
@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import SmartTable from '../../shared/Table';
 import { Faciltescolumns } from '../../shared/TableColumns';
 import { Facility } from '../../types';
-import { facilityService } from '../../services/facilityService';
+import { useGetFacilitiesQuery } from '../../store/api/oronApi';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
@@ -23,33 +23,24 @@ export const FacilitiesList = () => {
   const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   const PAGE_SIZE = 5;
 
-  const fetchFacilities = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await facilityService.getAllFacilities();
-      setFacilities(Array.isArray(data) ? data : []);
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to fetch facilities');
-      setError(message);
-      toast.error(message);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  const {
+    data: facilities = [],
+    isLoading: loading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useGetFacilitiesQuery();
 
-  // Fetch facilities on mount
   useEffect(() => {
-    void fetchFacilities();
-  }, [fetchFacilities]);
+    if (isError && error) {
+      toast.error(getApiErrorMessage(error, 'Failed to fetch facilities'));
+    }
+  }, [isError, error, toast]);
 
   const safeFacilities = Array.isArray(facilities) ? facilities : [];
 
@@ -106,6 +97,8 @@ export const FacilitiesList = () => {
       )
     }
   ], []);
+  const errorMessage = isError ? getApiErrorMessage(error, 'Failed to fetch facilities') : null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -119,12 +112,11 @@ export const FacilitiesList = () => {
           <Link to="/owner/facilities/new">
             <Button icon={Plus}>Onboard Facility</Button>
           </Link>
-          <RefreshButton onRefresh={fetchFacilities}/>
+          <RefreshButton onRefresh={() => void refetch()} isLoading={isFetching} />
         </div>
       </div>
 
       <Card className=''>
-        {/* Toolbar */}
         <div className="p-5  border-b border-slate-100 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50/50">
           <div className="w-full sm:w-72">
             <Input
@@ -154,9 +146,9 @@ export const FacilitiesList = () => {
           {loading ? (
             <TableSkeleton rows={5} columns={6} />
           ) : null}
-          {error && (
+          {errorMessage && (
             <div className="p-4 bg-red-50 text-red-700 rounded-lg m-4">
-              {error}
+              {errorMessage}
             </div>
           )}
           {!loading && filteredFacilities.length === 0 ? (
@@ -177,7 +169,7 @@ export const FacilitiesList = () => {
                 actions={actions}
               />
             )
-            
+
           )}
           <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
           <p>

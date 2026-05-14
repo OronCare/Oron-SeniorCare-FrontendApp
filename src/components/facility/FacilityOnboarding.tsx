@@ -11,8 +11,13 @@ import {
   'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreateFacilityRequest, facilityService, UpdateFacilityRequest } from '../../services/facilityService';
-import { usersService } from '../../services/usersService';
+import { CreateFacilityRequest, UpdateFacilityRequest } from '../../services/facilityService';
+import {
+  useCreateFacilityMutation,
+  useGetFacilityByIdQuery,
+  useGetUserByIdQuery,
+  useUpdateFacilityMutation,
+} from '../../store/api/oronApi';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage, getApiSuccessMessage } from '../../utils/apiMessage';
 import { PdfThumbnail } from '../common/PdfThumbnail';
@@ -66,39 +71,36 @@ const [fileName, setFileName] = useState('');
     [isEditMode],
   );
 
+  const [createFacility, { isLoading: isCreating }] = useCreateFacilityMutation();
+  const [updateFacility, { isLoading: isUpdating }] = useUpdateFacilityMutation();
+
+  const { data: facility, isLoading: facilityLoading, isError: facilityLoadFailed, error: facilityLoadErr } = useGetFacilityByIdQuery(
+    facilityId!,
+    { skip: !isEditMode || !facilityId },
+  );
+  const adminId = facility?.facilityAdminId ?? '';
+  const { data: adminUser } = useGetUserByIdQuery(adminId, {
+    skip: !isEditMode || !adminId,
+  });
+
   useEffect(() => {
-    const load = async () => {
-      if (!isEditMode || !facilityId) return;
-      setError(null);
-      try {
-        const facility = await facilityService.getFacilityById(facilityId);
-        const adminUser = facility.facilityAdminId
-          ? await usersService.getUserById(facility.facilityAdminId)
-          : null;
+    if (!isEditMode || !facility) return;
+    setFormData({
+      name: facility.name ?? '',
+      phone: facility.phone ?? '',
+      email: facility.email ?? '',
+      type: facility.type ?? 'Senior Living',
+      status: facility.status ?? 'Active',
+      contractStart: facility.contractStart ? facility.contractStart.split('T')[0] : '',
+      contractEnd: facility.contractEnd ? facility.contractEnd.split('T')[0] : '',
+      adminFirstName: adminUser?.firstName ?? (facility.facilityAdminName?.split(' ')[0] ?? ''),
+      adminLastName: adminUser?.lastName ?? (facility.facilityAdminName?.split(' ').slice(1).join(' ') ?? ''),
+      adminEmail: adminUser?.email ?? '',
+      adminPassword: '',
+    });
+  }, [isEditMode, facility, adminUser]);
 
-        setFormData({
-          name: facility.name ?? '',
-          phone: facility.phone ?? '',
-          email: facility.email ?? '',
-          type: facility.type ?? 'Senior Living',
-          status: facility.status ?? 'Active',
-          contractStart: facility.contractStart ? facility.contractStart.split('T')[0] : '',
-          contractEnd: facility.contractEnd ? facility.contractEnd.split('T')[0] : '',
-          adminFirstName: adminUser?.firstName ?? (facility.facilityAdminName?.split(' ')[0] ?? ''),
-          adminLastName: adminUser?.lastName ?? (facility.facilityAdminName?.split(' ').slice(1).join(' ') ?? ''),
-          adminEmail: adminUser?.email ?? '',
-          // Do not generate/change password on edit unless user explicitly enters one
-          adminPassword: '',
-        });
-      } catch (err) {
-        const message = getApiErrorMessage(err, 'Failed to load facility');
-        setError(message);
-        toast.error(message);
-      }
-    };
-
-    void load();
-  }, [facilityId, isEditMode]);
+  const isEditDataLoading = isEditMode && facilityLoading;
 
   const handleInputChange = (field: keyof CreateFacilityRequest, value: string) => {
     setFormData(prev => ({
@@ -157,13 +159,25 @@ const [fileName, setFileName] = useState('');
           adminEmail: formData.adminEmail,
           adminPassword: formData.adminPassword?.trim() || undefined,
         };
-        await facilityService.updateFacility(facilityId, updatePayload);
+        await updateFacility({ id: facilityId, body: updatePayload }).unwrap();
         toast.success('Facility updated successfully.');
       } else {
-        const createdFacilityResponse = await facilityService.createFacility(
-          formData,
-          selectedFile ?? undefined,
-        );
+        const formDataToSend = new FormData();
+        formDataToSend.append('name', formData.name);
+        formDataToSend.append('phone', formData.phone);
+        formDataToSend.append('email', formData.email);
+        formDataToSend.append('type', formData.type);
+        formDataToSend.append('status', formData.status);
+        formDataToSend.append('contractStart', formData.contractStart);
+        formDataToSend.append('contractEnd', formData.contractEnd);
+        formDataToSend.append('adminFirstName', formData.adminFirstName);
+        formDataToSend.append('adminLastName', formData.adminLastName);
+        formDataToSend.append('adminEmail', formData.adminEmail);
+        formDataToSend.append('adminPassword', formData.adminPassword);
+        if (selectedFile) {
+          formDataToSend.append('contractDocument', selectedFile);
+        }
+        const createdFacilityResponse = await createFacility(formDataToSend).unwrap();
         toast.success(getApiSuccessMessage(createdFacilityResponse, 'Facility created successfully.'));
       }
 
@@ -179,6 +193,23 @@ const [fileName, setFileName] = useState('');
       console.error(err);
     }
   };
+
+  const submissionBusy = isSubmitting || isCreating || isUpdating;
+
+  if (isEditMode && facilityId && facilityLoading) {
+    return (
+      <div className="max-w-3xl mx-auto p-8 text-center text-slate-600">
+        Loading facility…
+      </div>
+    );
+  }
+  if (isEditMode && facilityId && facilityLoadFailed) {
+    return (
+      <div className="max-w-3xl mx-auto p-4 rounded-lg bg-red-50 text-red-700 text-sm">
+        {getApiErrorMessage(facilityLoadErr, 'Failed to load facility')}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -513,7 +544,7 @@ const [fileName, setFileName] = useState('');
           <Button
             variant="outline"
             onClick={handlePrev}
-            disabled={step === 1 || isSubmitting}
+            disabled={step === 1 || submissionBusy}
             icon={ArrowLeft}>
 
             Back
@@ -526,7 +557,7 @@ const [fileName, setFileName] = useState('');
 
             <Button
               onClick={handleSubmit}
-              isLoading={isSubmitting}
+              isLoading={submissionBusy}
               icon={CheckCircle}>
 
               Confirm & Onboard

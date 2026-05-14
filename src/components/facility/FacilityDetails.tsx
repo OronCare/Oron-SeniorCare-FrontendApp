@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link, useNavigate, Router } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Building2,
   Phone,
@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 import { Card, Button, Badge, Modal, Input } from '../../components/UI';
 import { mockAuditLogs } from '../../mockData';
-import { Branch, Facility } from '../../types';
-import { facilityService } from '../../services/facilityService';
+import { Branch } from '../../types';
+import { useGetFacilityByIdQuery, useGetBranchesQuery } from '../../store/api/oronApi';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
@@ -37,58 +37,29 @@ export const FacilityDetails = () => {
   const [contractViewUrl, setContractViewUrl] = useState<string | null>(null);
   const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [facility, setFacility] = useState<Facility | null>(null);
-  const [facilityBranches, setFacilityBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const {
+    data: facility,
+    isLoading: loading,
+    isError,
+    error: queryError,
+    refetch: refetchFacility,
+  } = useGetFacilityByIdQuery(id!, { skip: !id });
+
+  const { data: allBranches = [] } = useGetBranchesQuery();
+
+  const facilityBranches = useMemo(
+    () => (id ? allBranches.filter((branch) => branch.facilityId === id) : []),
+    [allBranches, id],
+  );
 
   useEffect(() => {
-    if (!id) {
-      return;
+    if (isError && queryError) {
+      toast.error(getApiErrorMessage(queryError, 'Failed to load facility details'));
     }
+  }, [isError, queryError, toast]);
 
-    void loadFacilityDetails(id);
-  }, [id]);
-
-  const loadFacilityDetails = async (facilityId: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const apiBase = (import.meta as any).env?.VITE_API_URL as string;
-      const auth = localStorage.getItem('oron_auth');
-      const token = auth ? (JSON.parse(auth) as { token?: string }).token || '' : '';
-
-      const [facilityData, branchesResponse] = await Promise.all([
-        facilityService.getFacilityById(facilityId),
-        axios.get(`${apiBase}/branches`, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token || ''}`,
-          },
-        }),
-      ]);
-
-      const payload = branchesResponse.data;
-      const branchesData: Branch[] = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.data)
-          ? payload.data
-          : Array.isArray(payload?.branches)
-            ? payload.branches
-            : [];
-
-      setFacility(facilityData);
-      setFacilityBranches(branchesData.filter((branch) => branch.facilityId === facilityId));
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to load facility details');
-      setError(message);
-      toast.error(message);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const error = isError ? getApiErrorMessage(queryError, 'Failed to load facility details') : null;
 
   const facilityLogs = useMemo(() => {
     if (!facility) {
@@ -109,11 +80,9 @@ export const FacilityDetails = () => {
     if (!id) return;
     try {
       setIsRefreshingContractDownloadUrl(true);
-      // Always refetch facility before download so we get a fresh signed URL.
-      const freshFacility = await facilityService.getFacilityById(id);
-      setFacility(freshFacility);
-      if (freshFacility.contractDocumentUrl) {
-        const response = await axios.get(freshFacility.contractDocumentUrl, {
+      const { data: fresh } = await refetchFacility();
+      if (fresh?.contractDocumentUrl) {
+        const response = await axios.get(fresh.contractDocumentUrl, {
           responseType: 'blob',
         });
 
@@ -143,11 +112,9 @@ export const FacilityDetails = () => {
     if (!id) return;
     try {
       setIsRefreshingContractViewUrl(true);
-      // Always refetch facility before view so we get a fresh signed URL.
-      const freshFacility = await facilityService.getFacilityById(id);
-      setFacility(freshFacility);
-      if (freshFacility.contractDocumentUrl) {
-        setContractViewUrl(freshFacility.contractDocumentUrl);
+      const { data: fresh } = await refetchFacility();
+      if (fresh?.contractDocumentUrl) {
+        setContractViewUrl(fresh.contractDocumentUrl);
         setIsViewContractModalOpen(true);
       } else {
         toast.error('No contract document available.');
