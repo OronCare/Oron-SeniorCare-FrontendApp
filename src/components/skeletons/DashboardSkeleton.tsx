@@ -6,14 +6,15 @@ export const AdminDashboardSkeleton = () => {
   return (
     <div className="space-y-6 animate-pulse">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 shrink">
           <div className="h-8 w-48 rounded-lg bg-slate-200" />
-          <div className="h-4 w-96 rounded bg-slate-100 mt-2" />
+          <div className="h-4 w-96 max-w-full rounded bg-slate-100 mt-2" />
         </div>
-        <div className="flex gap-3">
-          <div className="h-10 w-32 rounded-lg bg-slate-200" />
-          <div className="h-10 w-36 rounded-lg bg-slate-200" />
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
+          <div className="h-10 w-32 shrink-0 rounded-lg bg-slate-200" />
+          <div className="h-10 w-36 shrink-0 rounded-lg bg-slate-200" />
+          <div className="h-10 w-24 shrink-0 rounded-lg bg-slate-200" />
         </div>
       </div>
 

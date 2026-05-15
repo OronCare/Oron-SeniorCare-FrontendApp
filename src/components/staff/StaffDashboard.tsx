@@ -93,8 +93,8 @@ export const StaffDashboard = () => {
   }
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className='min-w-0 shrink'>
           <h1 className="text-2xl font-bold text-slate-900">
             Welcome back, {user ? getFullName(user).split(' ')[0] : 'Staff'}!
           </h1>
@@ -102,7 +102,7 @@ export const StaffDashboard = () => {
             Here's your shift overview for today.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
           <Link to="/staff/vitals">
             <Button icon={HeartPulse}>Log Vitals</Button>
           </Link>
