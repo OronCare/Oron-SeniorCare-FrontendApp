@@ -124,14 +124,14 @@ export const Notifications = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className='min-w-0 shrink'>
           <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
           <p className="text-sm text-slate-500 mt-1">
             System alerts and updates relevant to you.
           </p>
         </div>
-        <div className="flex items-center gap-2 sm:ml-auto">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
         <Button variant="outline" icon={CheckCircle2} onClick={() => void markAllAsRead()}>
           Mark All as Read
         </Button>

@@ -76,7 +76,7 @@ export const Login = () => {
           <h2 className="text-center text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-center text-sm text-slate-600 sm:text-base">Welcome back — enter your credentials below.</p>
+          <p className="mt-2 text-center text-sm text-slate-600 sm:text-base">Welcome back enter your credentials below.</p>
 
           <Card className="mt-8 py-8 px-4 shadow-xl border-0 ring-1 ring-slate-200 sm:px-10">
             <form className="space-y-6" onSubmit={handleLogin}>
