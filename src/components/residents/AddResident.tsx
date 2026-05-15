@@ -13,8 +13,13 @@ import {
 } from 'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
 import { useAuth } from '../../context/AuthContext';
-import { residentService, CreateResidentRequest } from '../../services/residentService';
-import { branchService } from '../../services/branchService';
+import type { CreateResidentRequest } from '../../services/residentService';
+import {
+  useCreateResidentMutation,
+  useGetBranchesPaginatedQuery,
+  useGetResidentByIdQuery,
+  useUpdateResidentMutation,
+} from '../../store/api/oronApi';
 import { Branch, EmergencyContact } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
@@ -71,7 +76,6 @@ export const AddRes = () => {
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([
     defaultContact,
   ]);
-  const [branches, setBranches] = useState<Branch[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [residentPhoto, setResidentPhoto] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,68 +90,62 @@ export const AddRes = () => {
     [isEditMode],
   );
 
+  const { data: branchesData } = useGetBranchesPaginatedQuery({ page: 1, limit: 500 });
+  const branches = branchesData?.data ?? [];
+
+  const {
+    data: resident,
+    isError: residentLoadFailed,
+    error: residentLoadErr,
+  } = useGetResidentByIdQuery(residentId!, {
+    skip: !isEditMode || !residentId,
+  });
+
+  const [createResident] = useCreateResidentMutation();
+  const [updateResident] = useUpdateResidentMutation();
+
   useEffect(() => {
-    const fetchBranches = async () => {
-      try {
-        const branchResults = await branchService.getAllBranches();
-        setBranches(branchResults);
-      } catch (err) {
-        console.warn('Unable to fetch branches for resident creation', err);
-      }
-    };
+    if (!resident) return;
+    setFormData({
+      branchId: resident.branchId,
+      facilityId: resident.facilityId,
+      firstName: resident.firstName ?? '',
+      middleName: resident.middleName ?? '',
+      lastName: resident.lastName ?? '',
+      dob: resident.dob ?? '',
+      gender: resident.gender ?? '',
+      room: resident.room ?? '',
+      status: resident.status ?? 'InPatient',
+      healthState: resident.healthState ?? 'Stable',
+      admissionDate: resident.admissionDate ?? new Date().toISOString().split('T')[0],
+      weight: resident.weight ?? 0,
+      height: resident.height ?? '',
+      medicalHistory: resident.medicalHistory ?? '',
+      allergies: resident.allergies ?? '',
+      primaryDiagnosis: resident.primaryDiagnosis ?? '',
+      lastVitalsDate: resident.lastVitalsDate ?? new Date().toISOString().split('T')[0],
+    });
+    setEmergencyContacts(
+      resident.emergencyContacts?.length ? resident.emergencyContacts : [defaultContact],
+    );
 
-    fetchBranches();
-  }, []);
+    if (resident.photoUrl) {
+      const img = document.getElementById('preview-image') as HTMLImageElement | null;
+      const icon = document.getElementById('placeholder-icon');
+      if (img) {
+        img.src = resident.photoUrl;
+        img.classList.remove('hidden');
+        if (icon) icon.classList.add('hidden');
+      }
+    }
+  }, [resident]);
 
   useEffect(() => {
-    if (!isEditMode || !residentId) return;
-
-    const fetchResident = async () => {
-      setError(null);
-      try {
-        const resident = await residentService.getResidentById(residentId);
-        setFormData({
-          branchId: resident.branchId,
-          facilityId: resident.facilityId,
-          firstName: resident.firstName ?? '',
-          middleName: resident.middleName ?? '',
-          lastName: resident.lastName ?? '',
-          dob: resident.dob ?? '',
-          gender: resident.gender ?? '',
-          room: resident.room ?? '',
-          status: resident.status ?? 'InPatient',
-          healthState: resident.healthState ?? 'Stable',
-          admissionDate: resident.admissionDate ?? new Date().toISOString().split('T')[0],
-          weight: resident.weight ?? 0,
-          height: resident.height ?? '',
-          medicalHistory: resident.medicalHistory ?? '',
-          allergies: resident.allergies ?? '',
-          primaryDiagnosis: resident.primaryDiagnosis ?? '',
-          lastVitalsDate: resident.lastVitalsDate ?? new Date().toISOString().split('T')[0],
-        });
-        setEmergencyContacts(
-          resident.emergencyContacts?.length ? resident.emergencyContacts : [defaultContact],
-        );
-
-        // Show existing photo if present (no file selected yet)
-        if (resident.photoUrl) {
-          const img = document.getElementById('preview-image') as HTMLImageElement | null;
-          const icon = document.getElementById('placeholder-icon');
-          if (img) {
-            img.src = resident.photoUrl;
-            img.classList.remove('hidden');
-            if (icon) icon.classList.add('hidden');
-          }
-        }
-      } catch (err) {
-        const message = getApiErrorMessage(err, 'Unable to load resident for editing');
-        setError(message);
-        toast.error(message);
-      }
-    };
-
-    void fetchResident();
-  }, [isEditMode, residentId]);
+    if (!residentLoadFailed) return;
+    const message = getApiErrorMessage(residentLoadErr, 'Unable to load resident for editing');
+    setError(message);
+    toast.error(message);
+  }, [residentLoadFailed, residentLoadErr, toast]);
 
   const branchOptions = branches.filter(
     (branch) => !user?.facilityId || branch.facilityId === user.facilityId,
@@ -221,11 +219,18 @@ export const AddRes = () => {
 
     try {
       if (isEditMode && residentId) {
-        await residentService.updateResident(residentId, payload, residentPhoto ?? undefined);
+        await updateResident({
+          id: residentId,
+          body: payload,
+          residentPhoto: residentPhoto ?? undefined,
+        }).unwrap();
         setSuccess('Resident updated successfully.');
         toast.success('Resident updated successfully.');
       } else {
-        await residentService.createResident(payload, residentPhoto ?? undefined);
+        await createResident({
+          body: payload,
+          residentPhoto: residentPhoto ?? undefined,
+        }).unwrap();
         setSuccess('Resident created successfully.');
         toast.success('Resident created successfully.');
       }
