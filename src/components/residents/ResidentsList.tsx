@@ -208,8 +208,8 @@ const Residents = () => {
     return (
         <div className="space-y-6">
             {/* HEADER */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 shrink">
                     <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
                     <p className="text-sm text-slate-500 mt-1">{description}</p>
                 </div>
@@ -217,7 +217,7 @@ const Residents = () => {
 
                 {/* ACTION BUTTONS */}
 
-                <div className="flex gap-3 sm:ml-auto">
+                <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
                     {(isAdmin || isFacilityAdmin) && (
                         <>
                             <Button

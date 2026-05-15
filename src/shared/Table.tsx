@@ -29,8 +29,8 @@ function SmartTable<T extends { id: string | number }>({
   
 
   return (
-    <div className=" overflow-x-auto border rounded-lg">
-      <div className="w-[400px] md:w-full ">
+    <div className="w-full min-w-0 max-w-full overflow-x-auto border rounded-lg">
+      <div className="min-w-[400px] md:min-w-0 w-full">
       <table className="w-full text-sm">
         {/* Header */}
         <thead className="bg-slate-50 border-b border-slate-200">

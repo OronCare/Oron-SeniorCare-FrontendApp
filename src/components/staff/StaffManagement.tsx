@@ -205,8 +205,8 @@ const StaffPage = () => {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between">
-        <div>
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 shrink">
           <h1 className="text-2xl font-bold">
             {isFacilityAdmin ? "Facility Staff" : "Staff Management"}
           </h1>
@@ -216,7 +216,7 @@ const StaffPage = () => {
               : "Manage facility staff, roles, and permissions for your branch."}
           </p>
         </div>
-        <div className="flex items-center gap-2 sm:ml-auto">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
         <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/new`}>
           <Button icon={Plus}>Add Staff Member</Button>
         </Link>
