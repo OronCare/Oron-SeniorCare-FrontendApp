@@ -56,31 +56,57 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
+export type BranchesQueryParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+};
+
+export type PaginatedBranchesResponse = {
+  data: Branch[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 export const branchService = {
-  async getAllBranches(): Promise<Branch[]> {
+  async getBranches(params: BranchesQueryParams = {}): Promise<PaginatedBranchesResponse> {
     try {
       const response = await axios.get(`${getApiBase()}/branches`, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getAuthToken()}`,
         },
+        params: {
+          page: params.page ?? 1,
+          limit: params.limit ?? 10,
+          ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+          ...(params.status && params.status !== 'All' ? { status: params.status } : {}),
+        },
       });
 
       const payload = response.data;
-      if (Array.isArray(payload)) {
-        return payload as Branch[];
-      }
-      if (Array.isArray(payload?.data)) {
-        return payload.data as Branch[];
-      }
-      if (Array.isArray(payload?.branches)) {
-        return payload.branches as Branch[];
+      if (payload && Array.isArray(payload.data) && typeof payload.total === 'number') {
+        return payload as PaginatedBranchesResponse;
       }
 
-      return [];
+      return {
+        data: [],
+        total: 0,
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+        totalPages: 0,
+      };
     } catch (error) {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch branches'));
     }
+  },
+
+  async getAllBranches(): Promise<Branch[]> {
+    const result = await this.getBranches({ page: 1, limit: 500 });
+    return result.data;
   },
 
   async getBranchById(id: string): Promise<Branch> {

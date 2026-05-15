@@ -1,45 +1,52 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Filter } from 'lucide-react';
-import { Card, Button, Input } from '../../components/UI';
+import { Card, Input } from '../../components/UI';
 import SmartTable from '../../shared/Table';
 import { BranchesActions, BranchesColumns } from '../../shared/TableColumns';
 import { Branch } from '../../types';
-import axios from 'axios';
+import { branchService } from '../../services/branchService';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
+import { Pagination } from '../Pagination';
 import { RefreshButton } from '../refresh/Refresh';
+
+const PAGE_SIZE = 10;
 
 export const BranchLists = () => {
   const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const fetchBranches = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const apiBase = (import.meta as any).env?.VITE_API_URL as string;
-      const auth = localStorage.getItem('oron_auth');
-      const token = auth ? (JSON.parse(auth) as { token?: string }).token || '' : '';
-      const response = await axios.get(`${apiBase}/branches`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token || ''}`,
-        },
+      const result = await branchService.getBranches({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedSearch,
+        status: statusFilter,
       });
-      const data = response.data;
-      const branchesData: Branch[] = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.data)
-          ? data.data
-          : Array.isArray(data?.branches)
-            ? data.branches
-            : [];
-      setBranches(branchesData);
+      setBranches(result.data);
+      setTotal(result.total);
+      if (result.totalPages > 0 && page > result.totalPages) {
+        setPage(result.totalPages);
+      }
     } catch (err) {
       const message = getApiErrorMessage(err, 'Failed to fetch branches');
       setError(message);
@@ -48,31 +55,20 @@ export const BranchLists = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [debouncedSearch, page, statusFilter, toast]);
 
   useEffect(() => {
     void fetchBranches();
   }, [fetchBranches]);
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const showingFrom = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const showingTo = Math.min(safePage * PAGE_SIZE, total);
 
-  const filteredBranches = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return branches.filter((branch) => {
-      const matchesSearch =
-        branch.name.toLowerCase().includes(q) ||
-        (branch.branchAdminName || '').toLowerCase().includes(q);
-      const matchesStatus = statusFilter === 'All' || branch.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [branches, searchTerm, statusFilter]);
-  if (loading) {
-    return (
-        <TableSkeleton
-            rows={5}
-            columns={6}
-        />
-    );
-}
+  const tableActions = useMemo(() => BranchesActions, []);
+
+  
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -83,7 +79,7 @@ export const BranchLists = () => {
           </p>
         </div>
         <div className="flex items-center gap-2 sm:ml-auto">
-        <RefreshButton onRefresh={fetchBranches}/>
+          <RefreshButton onRefresh={fetchBranches} />
         </div>
       </div>
 
@@ -103,7 +99,10 @@ export const BranchLists = () => {
               <select
                 className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
               >
                 <option value="All">All Statuses</option>
                 <option value="Active">Active</option>
@@ -120,30 +119,49 @@ export const BranchLists = () => {
           </div>
         )}
 
-        
-          <SmartTable
-            columns={BranchesColumns}
-            actions={BranchesActions}
-            data={filteredBranches}
-          />
-        
+        {/* TABLE */}
+
+{/* TABLE */}
+
+{loading ? (
+    <TableSkeleton
+        rows={PAGE_SIZE}
+        columns={BranchesColumns.map((column) => column.label)}
+    />
+) : total === 0 ? (
+    <div className="p-8 text-center">
+        <div className="text-slate-400 mb-2">
+            <Search className="h-12 w-12 mx-auto" />
+        </div>
+
+        <p className="text-lg font-medium text-slate-900">
+            No branches found
+        </p>
+
+        <p className="text-sm mt-1 text-slate-500">
+            Try adjusting your search or filters
+        </p>
+    </div>
+) : (
+    <SmartTable
+        data={branches}
+        columns={BranchesColumns}
+        actions={tableActions}
+    />
+)}
 
         <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
           <p>
-            Showing <span className="font-medium text-slate-900">1</span> to{' '}
-            <span className="font-medium text-slate-900">{filteredBranches.length}</span>{' '}
-            of{' '}
-            <span className="font-medium text-slate-900">{filteredBranches.length}</span>{' '}
-            results
+            Showing <span className="font-medium text-slate-900">{showingFrom}</span> to{' '}
+            <span className="font-medium text-slate-900">{showingTo}</span> of{' '}
+            <span className="font-medium text-slate-900">{total}</span> results
           </p>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
-          </div>
+          <Pagination
+            page={safePage}
+            totalItems={total}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         </div>
       </Card>
     </div>

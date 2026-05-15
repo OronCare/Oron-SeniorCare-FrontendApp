@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Filter, Plus, Upload, Network, Eye, Edit2 } from "lucide-react";
 import { Card, Button, Input } from "../../components/UI";
-import { getFullName, Resident, Branch } from "../../types";
+import { Resident, Branch } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import SmartTable from "../../shared/Table";
@@ -12,11 +12,14 @@ import {
 } from "../../shared/TableColumns";
 import { BulkUploadModal } from "../../components/BulkUploadModal";
 import { residentService } from "../../services/residentService";
-import axios from "axios";
+import { branchService } from "../../services/branchService";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
 import TableSkeleton from "../skeletons/TableSkeleton";
+import { Pagination } from "../Pagination";
 import { RefreshButton } from "../refresh/Refresh.tsx";
+
+const PAGE_SIZE = 10;
 
 const Residents = () => {
     const { user, token } = useAuth();
@@ -24,22 +27,45 @@ const Residents = () => {
     const navigate = useNavigate();
 
     const role = user?.role;
+    const isFacilityAdmin = role === "facility_admin";
 
     const [residents, setResidents] = useState<Resident[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [branchFilter, setBranchFilter] = useState("All");
+    const [page, setPage] = useState(1);
+    const [total, setTotal] = useState(0);
     const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setPage(1);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     const fetchResidents = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const payload = await residentService.getAllResidents();
-            setResidents(payload);
+            const result = await residentService.getResidents({
+                page,
+                limit: PAGE_SIZE,
+                search: debouncedSearch,
+                status: statusFilter,
+                branchId:
+                    isFacilityAdmin && branchFilter !== "All" ? branchFilter : undefined,
+            });
+            setResidents(result.data);
+            setTotal(result.total);
+            if (result.totalPages > 0 && page > result.totalPages) {
+                setPage(result.totalPages);
+            }
         } catch (err) {
             const message = getApiErrorMessage(err, 'Failed to load residents');
             setError(message);
@@ -47,21 +73,17 @@ const Residents = () => {
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, [branchFilter, debouncedSearch, isFacilityAdmin, page, statusFilter, toast]);
 
     const fetchBranches = useCallback(async () => {
         if (role !== "facility_admin") return;
         try {
-            const response = await axios.get<Branch[]>(`${import.meta.env.VITE_API_URL}/branches`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            setBranches(response.data);
+            const result = await branchService.getBranches({ page: 1, limit: 500 });
+            setBranches(result.data);
         } catch (err) {
             console.warn('Unable to fetch branch list for filters', err);
         }
-    }, [role, token]);
+    }, [role]);
 
     useEffect(() => {
         const apiBase = import.meta.env.VITE_API_URL;
@@ -80,21 +102,13 @@ const Residents = () => {
         if (branches.length > 0) {
             return branches.filter((branch) => branch.facilityId === user?.facilityId);
         }
+        return [];
+    }, [branches, user?.facilityId]);
 
-        return Array.from(new Set(residents.map((resident) => resident.branchId))).map((id) => ({
-            id,
-            facilityId: user?.facilityId || '',
-            name: id,
-            address: '',
-            phone: '',
-            type: '',
-            status: '',
-            residentLimit: 0,
-            currentResidents: 0,
-        } as Branch));
-    }, [branches, residents, user?.facilityId]);
-
-    const isFacilityAdmin = role === "facility_admin";
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const safePage = Math.min(Math.max(page, 1), totalPages);
+    const showingFrom = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+    const showingTo = Math.min(safePage * PAGE_SIZE, total);
     const isAdmin = role === "admin";
     const isStaff = role === "staff";
     const actions = isStaff ? StaffResidenceactions : Residenceactions;
@@ -119,15 +133,15 @@ const Residents = () => {
                 {
                     render: (resident: Resident) => (
                         <Link to={`/facility-admin/residents/${resident.id}/edit`}>
-                          <span
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
-                            title="Edit resident"
-                            aria-label="Edit resident"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </span>
+                            <span
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-fg shadow-sm transition-colors hover:bg-primarySoft"
+                                title="Edit resident"
+                                aria-label="Edit resident"
+                            >
+                                <Edit2 className="h-4 w-4" />
+                            </span>
                         </Link>
-                      )
+                    )
                 }
             ];
         }
@@ -151,32 +165,6 @@ const Residents = () => {
         return actions;
     }, [actions, isFacilityAdmin, isStaff]);
 
-    // 🔹 Filtering
-    const filteredResidents = useMemo(() => {
-        const q = searchTerm.trim().toLowerCase();
-        return residents.filter((resident) => {
-            const fullName = getFullName(resident).toLowerCase();
-
-            const matchesSearch =
-                fullName.includes(q) ||
-                resident.room.toLowerCase().includes(q);
-
-            const matchesStatus =
-                statusFilter === "All" || resident.status === statusFilter;
-
-            const matchesBranch =
-                role !== "facility_admin" ||
-                branchFilter === "All" ||
-                resident.branchId === branchFilter;
-
-            return matchesSearch && matchesStatus && matchesBranch;
-        });
-    }, [branchFilter, residents, role, searchTerm, statusFilter]);
-
-
-    // 🔹 Role-based config
-
-
     const title =
         role === "facility_admin"
             ? "Facility Residents"
@@ -191,18 +179,7 @@ const Residents = () => {
                 ? "View residents in your branch"
                 : "Manage resident profiles";
 
-    if (loading) {
-        return (
-            <TableSkeleton
-                title={title}
-                description={description}
-                showAddButton={isAdmin || isFacilityAdmin}
-                showFilters={!isStaff}
-                rows={5}
-                columns={6}
-            />
-        );
-    }
+
 
 
     return (
@@ -213,7 +190,7 @@ const Residents = () => {
                     <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
                     <p className="text-sm text-slate-500 mt-1">{description}</p>
                 </div>
-                
+
 
                 {/* ACTION BUTTONS */}
 
@@ -270,7 +247,10 @@ const Residents = () => {
                                 <select
                                     className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                                     value={branchFilter}
-                                    onChange={(e) => setBranchFilter(e.target.value)}
+                                    onChange={(e) => {
+                                        setBranchFilter(e.target.value);
+                                        setPage(1);
+                                    }}
                                 >
                                     <option value="All">All Branches</option>
                                     {branchOptions.map((branch) => (
@@ -288,7 +268,10 @@ const Residents = () => {
                             <select
                                 className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                                 value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
+                                onChange={(e) => {
+                                    setStatusFilter(e.target.value);
+                                    setPage(1);
+                                }}
                             >
                                 <option value="All">All Statuses</option>
                                 <option value="InPatient">InPatient</option>
@@ -301,27 +284,46 @@ const Residents = () => {
 
                 {/* TABLE */}
 
-                <SmartTable
-                    data={filteredResidents}
-                    columns={Reidencecolumns}
-                    actions={finalActions}
-                />
+                {/* TABLE */}
+
+                {loading ? (
+                    <TableSkeleton
+                        rows={PAGE_SIZE}
+                        columns={Reidencecolumns.map((column) => column.label)}
+                    />
+                ) : total === 0 ? (
+                    <div className="p-8 text-center">
+                        <div className="text-slate-400 mb-2">
+                            <Search className="h-12 w-12 mx-auto" />
+                        </div>
+
+                        <p className="text-lg font-medium text-slate-900">
+                            No residents found
+                        </p>
+
+                        <p className="text-sm mt-1 text-slate-500">
+                            Try adjusting your search or filters
+                        </p>
+                    </div>
+                ) : (
+                    <SmartTable
+                        data={residents}
+                        columns={Reidencecolumns}
+                        actions={finalActions}
+                    />
+                )}
                 <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
                     <p>
-                        Showing <span className="font-medium text-slate-900">1</span> to{' '}
-                        <span className="font-medium text-slate-900">{filteredResidents.length}</span>{' '}
-                        of{' '}
-                        <span className="font-medium text-slate-900">{filteredResidents.length}</span>{' '}
-                        results
+                        Showing <span className="font-medium text-slate-900">{showingFrom}</span> to{' '}
+                        <span className="font-medium text-slate-900">{showingTo}</span> of{' '}
+                        <span className="font-medium text-slate-900">{total}</span> results
                     </p>
-                    <div className="flex gap-1">
-                        <Button variant="outline" size="sm" disabled>
-                            Previous
-                        </Button>
-                        <Button variant="outline" size="sm" disabled>
-                            Next
-                        </Button>
-                    </div>
+                    <Pagination
+                        page={safePage}
+                        totalItems={total}
+                        pageSize={PAGE_SIZE}
+                        onPageChange={setPage}
+                    />
                 </div>
             </Card>
 
@@ -342,6 +344,6 @@ const Residents = () => {
                 />
             )}
         </div>
-  );
+    );
 };
 export default Residents;
