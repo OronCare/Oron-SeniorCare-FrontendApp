@@ -72,29 +72,56 @@ export interface CreateResidentRequest {
   lastVitalsDate: string;
 }
 
+export type ResidentsQueryParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  branchId?: string;
+};
+
+export type PaginatedResidentsResponse = {
+  data: Resident[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 export const residentService = {
-  async getAllResidents(): Promise<Resident[]> {
+  async getResidents(params: ResidentsQueryParams = {}): Promise<PaginatedResidentsResponse> {
     try {
       const response = await axios.get(`${API_BASE}/residents`, {
         headers: getJsonHeaders(),
+        params: {
+          page: params.page ?? 1,
+          limit: params.limit ?? 10,
+          ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+          ...(params.status && params.status !== 'All' ? { status: params.status } : {}),
+          ...(params.branchId && params.branchId !== 'All' ? { branchId: params.branchId } : {}),
+        },
       });
 
       const payload = response.data;
-
-      if (Array.isArray(payload)) {
-        return payload as Resident[];
-      }
-      if (Array.isArray(payload?.data)) {
-        return payload.data as Resident[];
-      }
-      if (Array.isArray(payload?.residents)) {
-        return payload.residents as Resident[];
+      if (payload && Array.isArray(payload.data) && typeof payload.total === 'number') {
+        return payload as PaginatedResidentsResponse;
       }
 
-      return [];
+      return {
+        data: [],
+        total: 0,
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+        totalPages: 0,
+      };
     } catch (error) {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch residents'));
     }
+  },
+
+  async getAllResidents(): Promise<Resident[]> {
+    const result = await this.getResidents({ page: 1, limit: 500 });
+    return result.data;
   },
 
   async createResident(data: CreateResidentRequest, residentPhoto?: File): Promise<Resident> {

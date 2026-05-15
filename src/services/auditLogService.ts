@@ -37,27 +37,50 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
+export type AuditLogsQueryParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  action?: string;
+};
+
+export type PaginatedAuditLogsResponse = {
+  data: AuditLog[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  actions: string[];
+};
+
 export const auditLogService = {
-  async getAuditLogs(): Promise<AuditLog[]> {
+  async getAuditLogs(params: AuditLogsQueryParams = {}): Promise<PaginatedAuditLogsResponse> {
     try {
       const response = await axios.get(`${getApiBase()}/audit-logs`, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getAuthToken()}`,
         },
+        params: {
+          page: params.page ?? 1,
+          limit: params.limit ?? 10,
+          ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+          ...(params.action && params.action !== 'All' ? { action: params.action } : {}),
+        },
       });
 
       const payload = response.data;
-      if (Array.isArray(payload)) {
-        return payload as AuditLog[];
+      if (payload && Array.isArray(payload.data) && typeof payload.total === 'number') {
+        return payload as PaginatedAuditLogsResponse;
       }
-      if (Array.isArray(payload?.data)) {
-        return payload.data as AuditLog[];
-      }
-      if (Array.isArray(payload?.logs)) {
-        return payload.logs as AuditLog[];
-      }
-      return [];
+      return {
+        data: [],
+        total: 0,
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+        totalPages: 0,
+        actions: [],
+      };
     } catch (error) {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch audit logs'));
     }
