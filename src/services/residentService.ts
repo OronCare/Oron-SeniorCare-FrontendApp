@@ -88,6 +88,35 @@ export type PaginatedResidentsResponse = {
   totalPages: number;
 };
 
+export const buildResidentFormData = (
+  data: CreateResidentRequest,
+  residentPhoto?: File,
+): FormData => {
+  const formData = new FormData();
+  formData.append('branchId', data.branchId);
+  formData.append('facilityId', data.facilityId);
+  formData.append('firstName', data.firstName);
+  if (data.middleName) formData.append('middleName', data.middleName);
+  formData.append('lastName', data.lastName);
+  formData.append('dob', data.dob);
+  formData.append('gender', data.gender);
+  formData.append('room', data.room);
+  formData.append('status', data.status);
+  formData.append('healthState', data.healthState);
+  formData.append('admissionDate', data.admissionDate);
+  formData.append('weight', String(data.weight));
+  formData.append('height', data.height);
+  formData.append('emergencyContacts', JSON.stringify(data.emergencyContacts));
+  formData.append('medicalHistory', data.medicalHistory);
+  formData.append('allergies', data.allergies);
+  formData.append('primaryDiagnosis', data.primaryDiagnosis);
+  formData.append('lastVitalsDate', data.lastVitalsDate);
+  if (residentPhoto) {
+    formData.append('residentPhoto', residentPhoto);
+  }
+  return formData;
+};
+
 export const residentService = {
   async getResidents(params: ResidentsQueryParams = {}): Promise<PaginatedResidentsResponse> {
     try {
@@ -126,29 +155,7 @@ export const residentService = {
 
   async createResident(data: CreateResidentRequest, residentPhoto?: File): Promise<Resident> {
     try {
-      const formData = new FormData();
-      formData.append('branchId', data.branchId);
-      formData.append('facilityId', data.facilityId);
-      formData.append('firstName', data.firstName);
-      if (data.middleName) formData.append('middleName', data.middleName);
-      formData.append('lastName', data.lastName);
-      formData.append('dob', data.dob);
-      formData.append('gender', data.gender);
-      formData.append('room', data.room);
-      formData.append('status', data.status);
-      formData.append('healthState', data.healthState);
-      formData.append('admissionDate', data.admissionDate);
-      formData.append('weight', String(data.weight));
-      formData.append('height', data.height);
-      formData.append('emergencyContacts', JSON.stringify(data.emergencyContacts));
-      formData.append('medicalHistory', data.medicalHistory);
-      formData.append('allergies', data.allergies);
-      formData.append('primaryDiagnosis', data.primaryDiagnosis);
-      formData.append('lastVitalsDate', data.lastVitalsDate);
-
-      if (residentPhoto) {
-        formData.append('residentPhoto', residentPhoto);
-      }
+      const formData = buildResidentFormData(data, residentPhoto);
 
       const response = await axios.post(`${API_BASE}/residents`, formData, {
         headers: getAuthHeaders(),
@@ -177,29 +184,7 @@ export const residentService = {
     residentPhoto?: File,
   ): Promise<Resident> {
     try {
-      const formData = new FormData();
-      formData.append('branchId', data.branchId);
-      formData.append('facilityId', data.facilityId);
-      formData.append('firstName', data.firstName);
-      if (data.middleName) formData.append('middleName', data.middleName);
-      formData.append('lastName', data.lastName);
-      formData.append('dob', data.dob);
-      formData.append('gender', data.gender);
-      formData.append('room', data.room);
-      formData.append('status', data.status);
-      formData.append('healthState', data.healthState);
-      formData.append('admissionDate', data.admissionDate);
-      formData.append('weight', String(data.weight));
-      formData.append('height', data.height);
-      formData.append('emergencyContacts', JSON.stringify(data.emergencyContacts));
-      formData.append('medicalHistory', data.medicalHistory);
-      formData.append('allergies', data.allergies);
-      formData.append('primaryDiagnosis', data.primaryDiagnosis);
-      formData.append('lastVitalsDate', data.lastVitalsDate);
-
-      if (residentPhoto) {
-        formData.append('residentPhoto', residentPhoto);
-      }
+      const formData = buildResidentFormData(data, residentPhoto);
 
       const response = await axios.put(`${API_BASE}/residents/${id}`, formData, {
         headers: getAuthHeaders(),

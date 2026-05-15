@@ -58,7 +58,7 @@ const normalizeStatus = (status?: string): StaffMember['status'] => {
   return status.toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
 };
 
-const normalizeStaff = (item: StaffApiPayload): StaffMember => ({
+export const normalizeStaff = (item: StaffApiPayload): StaffMember => ({
   id: item.id || item._id || '',
   branchId: item.branchId || '',
   facilityId: item.facilityId || '',
@@ -83,7 +83,7 @@ const extractArrayPayload = (payload: unknown): StaffApiPayload[] => {
   return [];
 };
 
-const extractSinglePayload = (payload: unknown): StaffApiPayload => {
+export const extractSingleStaffPayload = (payload: unknown): StaffApiPayload => {
   if ((payload as StaffApiPayload)?.id || (payload as StaffApiPayload)?._id) {
     return payload as StaffApiPayload;
   }
@@ -111,7 +111,7 @@ export type PaginatedStaffResponse = {
   totalPages: number;
 };
 
-const extractPaginatedPayload = (payload: unknown): PaginatedStaffResponse | null => {
+export const extractPaginatedStaffPayload = (payload: unknown): PaginatedStaffResponse | null => {
   if (
     payload &&
     typeof payload === 'object' &&
@@ -143,7 +143,7 @@ export const staffService = {
       },
     });
 
-    const paginated = extractPaginatedPayload(response.data);
+    const paginated = extractPaginatedStaffPayload(response.data);
     if (paginated) {
       return paginated;
     }
@@ -166,20 +166,20 @@ export const staffService = {
     const response = await axios.get(`${API_BASE}/staff/${id}`, {
       headers: getHeaders(),
     });
-    return normalizeStaff(extractSinglePayload(response.data));
+    return normalizeStaff(extractSingleStaffPayload(response.data));
   },
 
   async createStaff(data: CreateStaffRequest): Promise<StaffMember> {
     const response = await axios.post(`${API_BASE}/staff`, data, {
       headers: getHeaders(),
     });
-    return normalizeStaff(extractSinglePayload(response.data));
+    return normalizeStaff(extractSingleStaffPayload(response.data));
   },
 
   async updateStaff(id: string, data: UpdateStaffRequest): Promise<StaffMember> {
     const response = await axios.put(`${API_BASE}/staff/${id}`, data, {
       headers: getHeaders(),
     });
-    return normalizeStaff(extractSinglePayload(response.data));
+    return normalizeStaff(extractSingleStaffPayload(response.data));
   },
 };

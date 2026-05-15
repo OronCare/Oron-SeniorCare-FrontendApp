@@ -65,13 +65,13 @@ const toFrontendStatus = (status?: BackendTaskStatus): FrontendTaskStatus => {
   return "Todo";
 };
 
-const toBackendStatus = (status: FrontendTaskStatus): BackendTaskStatus => {
+export const toBackendStatus = (status: FrontendTaskStatus): BackendTaskStatus => {
   if (status === "In Progress") return "IN_PROGRESS";
   if (status === "Done") return "DONE";
   return "TODO";
 };
 
-const normalizeTask = (item: TaskPayload): Task => ({
+export const normalizeTask = (item: TaskPayload): Task => ({
   id: item.id || "",
   residentId: item.residentId || "",
   branchId: item.branchId || "",

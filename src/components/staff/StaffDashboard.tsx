@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ClipboardList,
@@ -7,52 +7,44 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  ArrowRight } from
-'lucide-react';
+  ArrowRight,
+} from 'lucide-react';
 import { Card, Button, StatsCard, Badge } from '../../components/UI';
 import { useAuth } from '../../context/AuthContext';
 import { getFullName } from '../../types';
-import type { Alert, Resident, Task } from '../../types';
-import { taskService } from '../../services/taskService';
-import { alertsService } from '../../services/alertsService';
-import { residentService } from '../../services/residentService';
+import { useGetStaffDashboardQuery } from '../../store/api/oronApi';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
 import { RefreshButton } from '../refresh/Refresh';
+
 export const StaffDashboard = () => {
   const { user } = useAuth();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const toast = useToast();
+  const errorToastShown = useRef(false);
 
-  const run = async () => {
-    if (!user?.id) return;
-    setIsLoading(true);
-    try {
-      const [allTasks, allAlerts, allResidents] = await Promise.all([
-        taskService.getAllTasks(),
-        alertsService.getAlerts(),
-        residentService.getAllResidents(),
-      ]);
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useGetStaffDashboardQuery(undefined, { skip: !user?.id });
 
-      // For staff, tasks should be filtered by assignee.
-      const my = allTasks.filter((t) => (t.assignedTo || '') === user.id);
-      setTasks(my);
-      setAlerts(allAlerts);
-
-      // Staff should see residents assigned via tasks (matches backend vitals restriction).
-      const residentIds = new Set(my.map((t) => t.residentId).filter(Boolean));
-      const myResidents = allResidents.filter((r) => residentIds.has(r.id));
-      setResidents(myResidents);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
   useEffect(() => {
-    
-    void run();
-  }, [user?.id]);
+    if (!isError) {
+      errorToastShown.current = false;
+      return;
+    }
+    if (errorToastShown.current) return;
+    errorToastShown.current = true;
+    toast.error(getApiErrorMessage(error, 'Failed to load dashboard'));
+  }, [isError, error, toast]);
+
+  const tasks = data?.tasks ?? [];
+  const alerts = data?.alerts ?? [];
+  const residents = data?.residents ?? [];
 
   const pendingTasks = useMemo(
     () => tasks.filter((t) => t.status === 'Todo' || t.status === 'In Progress'),
@@ -62,13 +54,14 @@ export const StaffDashboard = () => {
     () => tasks.filter((t) => t.status === 'Done'),
     [tasks],
   );
-  const recentAlerts = useMemo(() => {
-    // Backend already scopes alerts to the current user, but we keep only recent unread-ish.
-    return [...alerts]
-      .filter((a) => a.status !== 'Resolved')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 3);
-  }, [alerts]);
+  const recentAlerts = useMemo(
+    () =>
+      [...alerts]
+        .filter((a) => a.status !== 'Resolved')
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 3),
+    [alerts],
+  );
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -88,13 +81,15 @@ export const StaffDashboard = () => {
         return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
-  if(isLoading){
-    return <AdminDashboardSkeleton/>
+
+  if (isLoading) {
+    return <AdminDashboardSkeleton />;
   }
+
   return (
     <div className="space-y-6">
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className='min-w-0 shrink'>
+        <div className="min-w-0 shrink">
           <h1 className="text-2xl font-bold text-slate-900">
             Welcome back, {user ? getFullName(user).split(' ')[0] : 'Staff'}!
           </h1>
@@ -106,7 +101,7 @@ export const StaffDashboard = () => {
           <Link to="/staff/vitals">
             <Button icon={HeartPulse}>Log Vitals</Button>
           </Link>
-          <RefreshButton onRefresh={run}/>
+          <RefreshButton onRefresh={() => void refetch()} isLoading={isFetching} />
         </div>
       </div>
 
@@ -116,36 +111,34 @@ export const StaffDashboard = () => {
           value={pendingTasks.length}
           icon={ClipboardList}
           iconColor="text-brand-500"
-          iconBg="bg-brand-100" />
-        
+          iconBg="bg-brand-100"
+        />
         <StatsCard
           title="Tasks Completed"
           value={completedTasks.length}
           icon={CheckCircle2}
           iconColor="text-emerald-500"
-          iconBg="bg-emerald-100" />
-        
+          iconBg="bg-emerald-100"
+        />
         <StatsCard
           title="Active Alerts"
           value={recentAlerts.length}
           icon={AlertCircle}
           iconColor="text-amber-500"
-          iconBg="bg-amber-100" />
-        
+          iconBg="bg-amber-100"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* My Tasks */}
         <Card noPadding className="flex flex-col h-full">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-brand-500" /> My Tasks
-              Today
+              <ClipboardList className="h-5 w-5 text-brand-500" /> My Tasks Today
             </h2>
             <Link
               to="/staff/tasks"
-              className="text-sm font-medium text-brand-600 hover:text-brand-700">
-              
+              className="text-sm font-medium text-brand-600 hover:text-brand-700"
+            >
               View All
             </Link>
           </div>
@@ -154,26 +147,17 @@ export const StaffDashboard = () => {
               {pendingTasks.slice(0, 4).map((task) => {
                 const resident = residents.find((r) => r.id === task.residentId);
                 return (
-                  <div
-                    key={task.id}
-                    className="p-4 hover:bg-slate-50 transition-colors">
-                    
+                  <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors">
                     <div className="flex justify-between items-start mb-1">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-[10px] font-medium px-2 py-0.5 rounded border ${getCategoryColor(task.category)}`}>
-                          
+                          className={`text-[10px] font-medium px-2 py-0.5 rounded border ${getCategoryColor(task.category)}`}
+                        >
                           {task.category}
                         </span>
-                        <h3 className="font-medium text-slate-900 text-sm">
-                          {task.title}
-                        </h3>
+                        <h3 className="font-medium text-slate-900 text-sm">{task.title}</h3>
                       </div>
-                      <Badge
-                        variant={
-                        task.status === 'In Progress' ? 'info' : 'default'
-                        }>
-                        
+                      <Badge variant={task.status === 'In Progress' ? 'info' : 'default'}>
                         {task.status}
                       </Badge>
                     </div>
@@ -182,32 +166,31 @@ export const StaffDashboard = () => {
                     </p>
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span>
-                        {resident ?
-                        `${getFullName(resident)} (Rm ${resident.room})` :
-                        'General'}
+                        {resident
+                          ? `${getFullName(resident)} (Rm ${resident.room})`
+                          : 'General'}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {new Date(task.dueDate).toLocaleTimeString([], {
                           hour: '2-digit',
-                          minute: '2-digit'
+                          minute: '2-digit',
                         })}
                       </span>
                     </div>
-                  </div>);
-
+                  </div>
+                );
               })}
-              {pendingTasks.length === 0 &&
-              <div className="p-8 text-center text-slate-500 text-sm">
-                  {isLoading ? 'Loading tasks…' : 'No pending tasks for today!'}
+              {pendingTasks.length === 0 && (
+                <div className="p-8 text-center text-slate-500 text-sm">
+                  No pending tasks for today!
                 </div>
-              }
+              )}
             </div>
           </div>
         </Card>
 
         <div className="space-y-6">
-          {/* Recent Alerts */}
           <Card noPadding>
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
@@ -216,34 +199,35 @@ export const StaffDashboard = () => {
             </div>
             <div className="p-0">
               <div className="divide-y divide-slate-100">
-                {recentAlerts.map((alert) =>
-                <div
-                  key={alert.id}
-                  className="p-4 hover:bg-slate-50 transition-colors flex gap-3">
-                  
+                {recentAlerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="p-4 hover:bg-slate-50 transition-colors flex gap-3"
+                  >
                     <div
-                    className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${alert.severity === 'Critical' ? 'bg-red-500' : alert.severity === 'Warning' ? 'bg-amber-500' : 'bg-blue-500'}`} />
-                  
+                      className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
+                        alert.severity === 'Critical'
+                          ? 'bg-red-500'
+                          : alert.severity === 'Warning'
+                            ? 'bg-amber-500'
+                            : 'bg-blue-500'
+                      }`}
+                    />
                     <div>
-                      <h3 className="font-medium text-slate-900 text-sm">
-                        {alert.title}
-                      </h3>
+                      <h3 className="font-medium text-slate-900 text-sm">{alert.title}</h3>
                       <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
                         {alert.message}
                       </p>
                     </div>
                   </div>
+                ))}
+                {recentAlerts.length === 0 && (
+                  <div className="p-6 text-center text-sm text-slate-500">No active alerts.</div>
                 )}
-                {recentAlerts.length === 0 &&
-                <div className="p-6 text-center text-sm text-slate-500">
-                    {isLoading ? 'Loading alerts…' : 'No active alerts.'}
-                  </div>
-                }
               </div>
             </div>
           </Card>
 
-          {/* All Residents */}
           <Card noPadding>
             <div className="p-5 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
@@ -251,19 +235,19 @@ export const StaffDashboard = () => {
               </h2>
               <Link
                 to="/staff/residents"
-                className="text-sm font-medium text-brand-600 hover:text-brand-700">
-                
+                className="text-sm font-medium text-brand-600 hover:text-brand-700"
+              >
                 View All
               </Link>
             </div>
             <div className="p-0">
               <div className="divide-y divide-slate-100">
-                {residents.slice(0, 4).map((resident) =>
-                <Link
-                  key={resident.id}
-                  to={`/staff/residents/${resident.id}`}
-                  className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group">
-                  
+                {residents.slice(0, 4).map((resident) => (
+                  <Link
+                    key={resident.id}
+                    to={`/staff/residents/${resident.id}`}
+                    className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-medium text-xs">
                         {resident.firstName[0]}
@@ -273,17 +257,15 @@ export const StaffDashboard = () => {
                         <h3 className="font-medium text-slate-900 text-sm">
                           {getFullName(resident)}
                         </h3>
-                        <p className="text-xs text-slate-500">
-                          Room {resident.room}
-                        </p>
+                        <p className="text-xs text-slate-500">Room {resident.room}</p>
                       </div>
                     </div>
                     <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-brand-500 transition-colors" />
                   </Link>
-                )}
+                ))}
                 {residents.length === 0 && (
                   <div className="p-6 text-center text-sm text-slate-500">
-                    {isLoading ? 'Loading residents…' : 'No residents assigned yet.'}
+                    No residents assigned yet.
                   </div>
                 )}
               </div>
@@ -291,6 +273,7 @@ export const StaffDashboard = () => {
           </Card>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 };
+

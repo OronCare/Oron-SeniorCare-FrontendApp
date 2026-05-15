@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search,
   Filter,
@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import SmartTable from '../../shared/Table';
 import { Faciltescolumns } from '../../shared/TableColumns';
 import { Facility } from '../../types';
-import { facilityService } from '../../services/facilityService';
+import { useGetFacilitiesPaginatedQuery } from '../../store/api/oronApi';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
@@ -23,14 +23,11 @@ const PAGE_SIZE = 10;
 
 export const FacilitiesList = () => {
   const toast = useToast();
+  const errorToastShown = useRef(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -40,36 +37,44 @@ export const FacilitiesList = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const fetchFacilities = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await facilityService.getFacilities({
-        page,
-        limit: PAGE_SIZE,
-        search: debouncedSearch,
-        status: statusFilter,
-      });
-      setFacilities(result.data);
-      setTotal(result.total);
-      if (result.totalPages > 0 && page > result.totalPages) {
-        setPage(result.totalPages);
-      }
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to fetch facilities');
-      setError(message);
-      toast.error(message);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedSearch, page, statusFilter, toast]);
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useGetFacilitiesPaginatedQuery({
+    page,
+    limit: PAGE_SIZE,
+    search: debouncedSearch,
+    status: statusFilter,
+  });
+
+  const facilities = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const loading = isLoading || isFetching;
+  const errorMessage = isError
+    ? getApiErrorMessage(error, 'Failed to fetch facilities')
+    : null;
 
   useEffect(() => {
-    void fetchFacilities();
-  }, [fetchFacilities]);
+    if (!isError) {
+      errorToastShown.current = false;
+      return;
+    }
+    if (errorToastShown.current) return;
+    errorToastShown.current = true;
+    toast.error(getApiErrorMessage(error, 'Failed to fetch facilities'));
+  }, [isError, error, toast]);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  useEffect(() => {
+    if (totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const showingFrom = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const showingTo = Math.min(safePage * PAGE_SIZE, total);
@@ -115,7 +120,7 @@ export const FacilitiesList = () => {
           <Link to="/owner/facilities/new">
             <Button icon={Plus}>Onboard Facility</Button>
           </Link>
-          <RefreshButton onRefresh={fetchFacilities}/>
+          <RefreshButton onRefresh={() => void refetch()} isLoading={loading} />
         </div>
       </div>
 
@@ -150,9 +155,9 @@ export const FacilitiesList = () => {
           {loading ? (
             <TableSkeleton rows={PAGE_SIZE} columns={Faciltescolumns.map((column) => column.label)} />
           ) : null}
-          {error && (
+          {errorMessage && (
             <div className="p-4 bg-red-50 text-red-700 rounded-lg m-4">
-              {error}
+              {errorMessage}
             </div>
           )}
           {!loading && total === 0 ? (

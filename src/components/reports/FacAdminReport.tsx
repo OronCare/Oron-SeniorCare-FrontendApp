@@ -1,15 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Card } from '../../components/UI';
 import { useAuth } from '../../context/AuthContext';
 import { Printer } from 'lucide-react';
 import { Button } from '../../components/UI';
 import { OwnerReportSkeleton } from '../skeletons/ReportsSkeleton';
-import { branchService } from '../../services/branchService';
-import { taskService } from '../../services/taskService';
-import { alertsService } from '../../services/alertsService';
-import { usersService } from '../../services/usersService';
-import { vitalService } from '../../services/vitalService';
-import { Alert, Branch, Task, User, Vital } from '../../types';
+import {
+  useGetFacilityDashboardQuery,
+  useGetTasksQuery,
+  useGetVitalsQuery,
+} from '../../store/api/oronApi';
+import { getApiErrorMessage } from '../../utils/apiMessage';
+import type { User } from '../../types';
 import {
   BarChart,
   Bar,
@@ -30,64 +31,64 @@ export const FacAdminReport = () => {
   const { user } = useAuth();
   const facilityId = user?.facilityId || '';
 
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [staff, setStaff] = useState<User[]>([]);
-  const [vitals, setVitals] = useState<Vital[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: dashboard,
+    isLoading: dashboardLoading,
+    isFetching: dashboardFetching,
+    isError: dashboardError,
+    error: dashboardErr,
+    refetch: refetchDashboard,
+  } = useGetFacilityDashboardQuery(undefined, { skip: !facilityId });
 
-  let isMounted = true;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [branchesData, tasksData, alertsData, usersData, vitalsData] =
-          await Promise.all([
-            branchService.getAllBranches(),
-            taskService.getAllTasks(),
-            alertsService.getAlerts(),
-            usersService.getAllUsers(),
-            vitalService.getAllVitals(),
-          ]);
+  const {
+    data: tasks = [],
+    isLoading: tasksLoading,
+    isFetching: tasksFetching,
+    isError: tasksError,
+    error: tasksErr,
+    refetch: refetchTasks,
+  } = useGetTasksQuery(undefined, { skip: !facilityId });
 
-        if (!isMounted) return;
-        setBranches(branchesData);
-        setTasks(tasksData);
-        setAlerts(alertsData);
-        setStaff(usersData);
-        setVitals(vitalsData);
-      } catch (err) {
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : 'Failed to load report data');
-      } finally {
-        if (!isMounted) return;
-        setLoading(false);
-      }
-    };
+  const {
+    data: vitals = [],
+    isLoading: vitalsLoading,
+    isFetching: vitalsFetching,
+    isError: vitalsError,
+    error: vitalsErr,
+    refetch: refetchVitals,
+  } = useGetVitalsQuery(undefined, { skip: !facilityId });
 
-  useEffect(() => {
-    
+  const branches = dashboard?.branches ?? [];
+  const alerts = dashboard?.alerts ?? [];
+  const staff = (dashboard?.staff ?? []) as User[];
 
-    if (!facilityId) {
-      setError('Missing facility context. Please re-login.');
-      setLoading(false);
-      return () => {
-        isMounted = false;
-      };
-    }
+  const loading =
+    dashboardLoading ||
+    tasksLoading ||
+    vitalsLoading ||
+    dashboardFetching ||
+    tasksFetching ||
+    vitalsFetching;
 
-    void load();
-    return () => {
-      isMounted = false;
-    };
-  }, [facilityId]);
+  const queryError = dashboardError
+    ? getApiErrorMessage(dashboardErr, 'Failed to load report data')
+    : tasksError
+      ? getApiErrorMessage(tasksErr, 'Failed to load report data')
+      : vitalsError
+        ? getApiErrorMessage(vitalsErr, 'Failed to load report data')
+        : null;
 
-  const myBranches = useMemo(
-    () => branches.filter((b) => b.facilityId === facilityId),
-    [branches, facilityId],
-  );
+  const error = !facilityId
+    ? 'Missing facility context. Please re-login.'
+    : queryError;
+
+  const refetchAll = () => {
+    void refetchDashboard();
+    void refetchTasks();
+    void refetchVitals();
+  };
+
+  const myBranches = useMemo(() => branches, [branches]);
   const branchIds = useMemo(() => myBranches.map((b) => b.id), [myBranches]);
 
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -253,7 +254,7 @@ export const FacAdminReport = () => {
         <Button variant="outline" icon={Printer} onClick={() => window.print()}>
           Print Report
         </Button>
-        <RefreshButton onRefresh={load}/>
+        <RefreshButton onRefresh={refetchAll} isLoading={loading} />
         </div>
       </div>
 
