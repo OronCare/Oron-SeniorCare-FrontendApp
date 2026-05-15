@@ -27,31 +27,16 @@ export const AuditLog = () => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
+  const PAGE_SIZE = 5;
   const fetchAuditLogs = useCallback(async () => {
     if (!isAuthenticated || !user) return;
     try {
       setLoading(true);
       setError(null);
-      const result = await auditLogService.getAuditLogs({
-        page,
-        limit: PAGE_SIZE,
-        search: debouncedSearch,
-        action: actionFilter,
-      });
-      setLogs(result.data);
-      setTotal(result.total);
-      setAvailableActions(result.actions);
-      if (result.totalPages > 0 && page > result.totalPages) {
-        setPage(result.totalPages);
-      }
+      const data = await auditLogService.getAuditLogs();
+      setLogs(data.data);
+      setTotal(data.total);
+      setAvailableActions(data.actions);
     } catch (err) {
       const message = getApiErrorMessage(err, 'Failed to load audit logs');
       setError(message);
@@ -179,7 +164,7 @@ export const AuditLog = () => {
         </div>
 
         <p className="text-lg font-medium text-slate-900">
-            No Audit logs found
+            No audit logs found
         </p>
 
         <p className="text-sm mt-1 text-slate-500">

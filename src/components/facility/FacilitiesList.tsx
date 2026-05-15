@@ -102,7 +102,6 @@ export const FacilitiesList = () => {
       )
     }
   ], []);
-
   return (
     <div className="space-y-6 min-w-0 max-w-full">
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

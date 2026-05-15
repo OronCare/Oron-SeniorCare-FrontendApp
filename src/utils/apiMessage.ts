@@ -1,5 +1,17 @@
 import axios from 'axios';
 
+type RtkFetchLikeError = {
+  status: number | string;
+  data?: unknown;
+  error?: string;
+};
+
+const isRtkFetchLikeError = (error: unknown): error is RtkFetchLikeError =>
+  typeof error === 'object' &&
+  error !== null &&
+  'status' in error &&
+  ('data' in error || 'error' in error);
+
 type ApiPayload = {
   message?: unknown;
   error?: unknown;
@@ -48,6 +60,12 @@ export const getApiErrorMessage = (
   error: unknown,
   fallback = 'Something went wrong. Please try again.',
 ): string => {
+  if (isRtkFetchLikeError(error)) {
+    const messageFromPayload = extractFromPayload(error.data);
+    if (messageFromPayload) return messageFromPayload;
+    if (typeof error.error === 'string' && error.error) return error.error;
+  }
+
   if (axios.isAxiosError(error)) {
     const messageFromPayload = extractFromPayload(error.response?.data);
     if (messageFromPayload) return messageFromPayload;

@@ -43,7 +43,7 @@ const normalizeThresholds = (thresholds?: Partial<RuleThreshold>): RuleThreshold
   unit: String(thresholds?.unit ?? ""),
 });
 
-const normalizeRule = (item: RuleApiPayload): Rule => {
+export const normalizeRule = (item: RuleApiPayload): Rule => {
   const vitalType = String(item.vitalType ?? "heartRate") as VitalType;
   return {
     id: item.id || item._id || "",
@@ -80,12 +80,15 @@ const extractSinglePayload = (payload: unknown): RuleApiPayload => {
   return {} as RuleApiPayload;
 };
 
+export const parseRulesApiResponse = (payload: unknown): Rule[] =>
+  extractArrayPayload(payload).map(normalizeRule);
+
 export const rulesService = {
   async getAllRules(): Promise<Rule[]> {
     const response = await axios.get(`${API_BASE}/rules`, {
       headers: getHeaders(),
     });
-    return extractArrayPayload(response.data).map(normalizeRule);
+    return parseRulesApiResponse(response.data);
   },
 
   async updateRule(id: string, data: Partial<Rule>): Promise<Rule> {

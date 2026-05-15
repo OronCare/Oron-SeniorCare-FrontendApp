@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   Building2,
   Users,
@@ -11,96 +11,50 @@ import { StatsCard, Card, Button } from '../../components/UI';
 import { Link, useNavigate } from 'react-router-dom';
 import { dashboardFacilitesActions, RecentFaciltescolumns } from '../../shared/TableColumns';
 import SmartTable from '../../shared/Table';
-import { facilityService } from '../../services/facilityService';
-import { branchService } from '../../services/branchService';
-import { residentService } from '../../services/residentService';
-import { Facility, Branch, Resident, Alert } from '../../types';
-import { alertsService } from '../../services/alertsService';
+import { useGetOwnerDashboardQuery } from '../../store/api/oronApi';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
 import { RefreshButton } from '../refresh/Refresh.tsx';
+
 export const OwnerDashboard = () => {
   const toast = useToast();
   const navigate = useNavigate();
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const errorToastShown = useRef(false);
 
-  const fetchData = useCallback(async () => {
-    try {
-      setError(null);
-      setLoading(true);
-      const [facilitiesData, branchesData, residentsData, alertsData] = await Promise.all([
-        facilityService.getAllFacilities(),
-        branchService.getAllBranches(),
-        residentService.getAllResidents(),
-        alertsService.getAlerts().catch(() => [] as Alert[]),
-      ]);
-      const residentCountsByFacility = residentsData.reduce(
-        (acc, resident) => {
-          if (resident.facilityId) {
-            acc[resident.facilityId] = (acc[resident.facilityId] ?? 0) + 1;
-          }
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-
-      setFacilities(
-        facilitiesData.map((facility) => ({
-          ...facility,
-          totalResidents:
-            residentCountsByFacility[facility.id] ??
-            facility.totalResidents ??
-            0,
-        }))
-      );
-      setBranches(branchesData);
-      setResidents(residentsData);
-      setAlerts(
-        alertsData
-          .slice()
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-      );
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to fetch data');
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  const { data, isLoading, isError, error, refetch, isFetching } = useGetOwnerDashboardQuery();
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!isError) {
+      errorToastShown.current = false;
+      return;
+    }
+    if (errorToastShown.current) return;
+    errorToastShown.current = true;
+    toast.error(getApiErrorMessage(error, 'Failed to fetch data'));
+  }, [isError, error, toast]);
+
+  const facilities = data?.facilities ?? [];
+  const branches = data?.branches ?? [];
+  const residents = data?.residents ?? [];
+  const alerts = data?.alerts ?? [];
 
   const totalFacilities = facilities.length;
   const totalBranches = branches.length;
   const totalResidents = residents.length;
-  // const activeFacilities = facilities.filter(
-  //   (f) => f.status === 'Active'
-  // ).length;
-  // totalResidents = facilities.reduce(
-  //   (acc, curr) => acc + curr.totalResidents,
-  //   0
-  // );
-  // Calculate total capacity across all branches
   const totalCapacity = branches.reduce(
     (acc, curr) => acc + curr.residentLimit,
     0
   );
   const utilization = Math.round(totalResidents / totalCapacity * 100) || 0;
   const recentAlerts = alerts.slice(0, 4);
-  if (loading) {
+
+  if (isLoading) {
     return <AdminDashboardSkeleton />
   }
 
-  if (error) {
+  if (isError) {
+    const message = getApiErrorMessage(error, 'Failed to fetch data');
     return (
       <div className="space-y-6">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -114,7 +68,7 @@ export const OwnerDashboard = () => {
           </div>
         </div>
         <div className="flex justify-center items-center h-64">
-          <div className="text-red-500">Error loading dashboard: {error}</div>
+          <div className="text-red-500">Error loading dashboard: {message}</div>
         </div>
       </div>
     );
@@ -135,11 +89,10 @@ export const OwnerDashboard = () => {
           <Link to="/owner/facilities/new">
             <Button icon={Building2}>Onboard Facility</Button>
           </Link>
-          <RefreshButton onRefresh={fetchData} />
+          <RefreshButton onRefresh={() => void refetch()} isLoading={isFetching} />
         </div>
       </div>
 
-      {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Total Facilities"
@@ -166,7 +119,6 @@ export const OwnerDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Facilities List Preview */}
         <Card className="lg:col-span-2 flex flex-col h-full" noPadding>
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">
@@ -188,7 +140,6 @@ export const OwnerDashboard = () => {
           </div>
         </Card>
 
-        {/* System Alerts */}
         <Card className="flex flex-col h-full" noPadding>
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
