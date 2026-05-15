@@ -1,77 +1,71 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Users,
   Activity,
   ClipboardList,
   AlertCircle,
   Plus,
-  HeartPulse } from
-'lucide-react';
+  HeartPulse,
+} from 'lucide-react';
 import { StatsCard, Card, Badge, Button } from '../../components/UI';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { getFullName } from '../../types';
-import { residentService } from '../../services/residentService';
-import { taskService } from '../../services/taskService';
-import { alertsService } from '../../services/alertsService';
-import { staffService } from '../../services/staffService';
-import type { Alert, Resident, StaffMember, Task } from '../../types';
+import { useGetBranchDashboardQuery } from '../../store/api/oronApi';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 import { AdminDashboardSkeleton } from '../skeletons/DashboardSkeleton';
 import { RefreshButton } from '../refresh/Refresh';
+
 export const AdminDashboard = () => {
-  const { user } = useAuth();
-  const branchId = user?.branchId || '';
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const toast = useToast();
+  const errorToastShown = useRef(false);
 
-  const fetchDashboard = async () => {
-    setLoading(true);
-    try {
-      const [residentsData, tasksData, alertsData, staffData] = await Promise.all([
-        residentService.getAllResidents(),
-        taskService.getAllTasks(),
-        alertsService.getAlerts(),
-        staffService.getAllStaff(),
-      ]);
-      setResidents(residentsData);
-      setTasks(tasksData);
-      setAlerts(alertsData);
-      setStaff(staffData);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useGetBranchDashboardQuery();
+
   useEffect(() => {
-    if (!branchId) return;
+    if (!isError) {
+      errorToastShown.current = false;
+      return;
+    }
+    if (errorToastShown.current) return;
+    errorToastShown.current = true;
+    toast.error(getApiErrorMessage(error, 'Failed to fetch dashboard data'));
+  }, [isError, error, toast]);
 
-    
+  const residents = data?.residents ?? [];
+  const tasks = data?.tasks ?? [];
+  const alerts = data?.alerts ?? [];
+  const staff = data?.staff ?? [];
 
-    void fetchDashboard();
-  }, [branchId]);
-
-  const myResidents = useMemo(() => residents.filter((r) => r.branchId === branchId), [residents, branchId]);
   const activeResidents = useMemo(
-    () => myResidents.filter((r) => r.status === 'InPatient').length,
-    [myResidents],
+    () => residents.filter((r) => r.status === 'InPatient').length,
+    [residents],
   );
-  const myTasks = useMemo(() => tasks.filter((t) => t.branchId === branchId), [tasks, branchId]);
   const pendingTasks = useMemo(
-    () => myTasks.filter((t) => t.status === 'Todo' || t.status === 'In Progress').length,
-    [myTasks],
+    () =>
+      tasks.filter((t) => t.status === 'Todo' || t.status === 'In Progress').length,
+    [tasks],
   );
   const adminAlerts = useMemo(
-    () => alerts.filter((a) => a.targetRoles.includes('admin') && a.branchId === branchId),
-    [alerts, branchId],
+    () => alerts.filter((a) => a.targetRoles.includes('admin')),
+    [alerts],
   );
   const criticalAlerts = useMemo(
-    () => adminAlerts.filter((a) => a.severity === 'Critical' && a.status !== 'Resolved').length,
+    () =>
+      adminAlerts.filter((a) => a.severity === 'Critical' && a.status !== 'Resolved')
+        .length,
     [adminAlerts],
   );
-  const staffCount = useMemo(() => staff.filter((s) => s.branchId === branchId).length, [staff, branchId]);
-  const recentTasks = useMemo(() => myTasks.slice(0, 4), [myTasks]);
+  const staffCount = staff.length;
+  const recentTasks = useMemo(() => tasks.slice(0, 4), [tasks]);
+
   const getTaskCategoryColor = (category: string) => {
     switch (category) {
       case 'Medication':
@@ -91,9 +85,29 @@ export const AdminDashboard = () => {
     }
   };
 
-  if(loading) {
+  if (isLoading) {
     return <AdminDashboardSkeleton />;
   }
+
+  if (isError) {
+    const message = getApiErrorMessage(error, 'Failed to fetch dashboard data');
+    return (
+      <div className="space-y-6">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 shrink">
+            <h1 className="text-2xl font-bold text-slate-900">Branch Overview</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Manage residents, staff, and daily operations for your branch
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-64 text-red-500">
+          Error loading dashboard: {message}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -112,74 +126,60 @@ export const AdminDashboard = () => {
           <Link to="/admin/residents/new">
             <Button icon={Plus}>Add Resident</Button>
           </Link>
-          <RefreshButton onRefresh={fetchDashboard}/>
+          <RefreshButton onRefresh={() => void refetch()} isLoading={isFetching} />
         </div>
       </div>
 
-      {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="InPatient Residents"
-          value={loading ? '—' : activeResidents}
-          icon={Users} />
-        
-        <StatsCard title="Active Staff" value={loading ? '—' : staffCount} icon={Activity} />
-        <StatsCard
-          title="Pending Tasks"
-          value={loading ? '—' : pendingTasks}
-          icon={ClipboardList} />
-        
+        <StatsCard title="InPatient Residents" value={activeResidents} icon={Users} />
+        <StatsCard title="Active Staff" value={staffCount} icon={Activity} />
+        <StatsCard title="Pending Tasks" value={pendingTasks} icon={ClipboardList} />
         <StatsCard
           title="Critical Alerts"
-          value={loading ? '—' : criticalAlerts}
+          value={criticalAlerts}
           icon={AlertCircle}
           trend={criticalAlerts > 0 ? 'Requires attention' : 'All clear'}
-          trendUp={criticalAlerts === 0} />
-        
+          trendUp={criticalAlerts === 0}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Task Board Preview */}
         <Card className="flex flex-col h-full" noPadding>
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Today's Tasks
-            </h2>
+            <h2 className="text-lg font-semibold text-slate-900">Today's Tasks</h2>
             <Link
               to="/admin/tasks"
-              className="text-sm font-medium text-brand-600 hover:text-brand-700">
-              
+              className="text-sm font-medium text-brand-600 hover:text-brand-700"
+            >
               View Board
             </Link>
           </div>
           <div className="p-5 space-y-3 flex-1">
             {recentTasks.map((task) => {
-              const resident = myResidents.find((r) => r.id === task.residentId);
+              const resident = residents.find((r) => r.id === task.residentId);
               return (
                 <div
                   key={task.id}
-                  className="p-4 rounded-lg border border-slate-200 bg-white hover:shadow-sm transition-shadow">
-                  
+                  className="p-4 rounded-lg border border-slate-200 bg-white hover:shadow-sm transition-shadow"
+                >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-slate-900">
-                        {task.title}
-                      </h3>
+                      <h3 className="font-medium text-slate-900">{task.title}</h3>
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${getTaskCategoryColor(task.category)}`}>
-                        
+                        className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${getTaskCategoryColor(task.category)}`}
+                      >
                         {task.category}
                       </span>
                     </div>
                     <Badge
                       variant={
-                      task.status === 'Todo' ?
-                      'default' :
-                      task.status === 'In Progress' ?
-                      'info' :
-                      'success'
-                      }>
-                      
+                        task.status === 'Todo'
+                          ? 'default'
+                          : task.status === 'In Progress'
+                            ? 'info'
+                            : 'success'
+                      }
+                    >
                       {task.status}
                     </Badge>
                   </div>
@@ -189,9 +189,7 @@ export const AdminDashboard = () => {
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <div className="flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5" />
-                      <span>
-                        {resident ? getFullName(resident) : 'Unknown'}
-                      </span>
+                      <span>{resident ? getFullName(resident) : 'Unknown'}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Activity className="h-3.5 w-3.5" />
@@ -199,64 +197,63 @@ export const AdminDashboard = () => {
                         Due:{' '}
                         {new Date(task.dueDate).toLocaleTimeString([], {
                           hour: '2-digit',
-                          minute: '2-digit'
+                          minute: '2-digit',
                         })}
                       </span>
                     </div>
                   </div>
-                </div>);
-
+                </div>
+              );
             })}
-            {recentTasks.length === 0 &&
-            <div className="text-center text-sm text-slate-500 py-8">
+            {recentTasks.length === 0 && (
+              <div className="text-center text-sm text-slate-500 py-8">
                 No tasks for today.
               </div>
-            }
+            )}
           </div>
         </Card>
 
-        {/* Recent Alerts */}
         <Card className="flex flex-col h-full" noPadding>
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Recent Alerts
-            </h2>
+            <h2 className="text-lg font-semibold text-slate-900">Recent Alerts</h2>
             <Badge variant="danger">
               {adminAlerts.filter((a) => a.status === 'Unread').length} New
             </Badge>
           </div>
           <div className="divide-y divide-slate-100 flex-1 overflow-y-auto">
             {adminAlerts.map((alert) => {
-              const resident = alert.residentId ?
-              myResidents.find((r) => r.id === alert.residentId) :
-              null;
+              const resident = alert.residentId
+                ? residents.find((r) => r.id === alert.residentId)
+                : null;
               return (
                 <div
                   key={alert.id}
-                  className={`p-5 flex gap-4 ${alert.status === 'Unread' ? 'bg-slate-50/50' : ''}`}>
-                  
+                  className={`p-5 flex gap-4 ${alert.status === 'Unread' ? 'bg-slate-50/50' : ''}`}
+                >
                   <div
-                    className={`mt-1 p-2 rounded-full shrink-0 h-fit ${alert.severity === 'Critical' ? 'bg-red-100 text-red-600' : alert.severity === 'Warning' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                    
+                    className={`mt-1 p-2 rounded-full shrink-0 h-fit ${
+                      alert.severity === 'Critical'
+                        ? 'bg-red-100 text-red-600'
+                        : alert.severity === 'Warning'
+                          ? 'bg-amber-100 text-amber-600'
+                          : 'bg-blue-100 text-blue-600'
+                    }`}
+                  >
                     <AlertCircle className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-slate-900">
-                        {alert.title}
-                      </p>
+                      <p className="text-sm font-medium text-slate-900">{alert.title}</p>
                       <span className="text-xs text-slate-400 whitespace-nowrap">
                         {new Date(alert.date).toLocaleTimeString([], {
                           hour: '2-digit',
-                          minute: '2-digit'
+                          minute: '2-digit',
                         })}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-600 mt-1">
-                      {alert.message}
-                    </p>
-                    {resident &&
-                    <div className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-500">
+                    <p className="text-sm text-slate-600 mt-1">{alert.message}</p>
+                    {resident && (
+                      <div className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-500">
                         <span className="px-2 py-1 bg-slate-100 rounded-md">
                           Resident: {getFullName(resident)}
                         </span>
@@ -264,19 +261,19 @@ export const AdminDashboard = () => {
                           Room: {resident.room}
                         </span>
                       </div>
-                    }
+                    )}
                   </div>
-                </div>);
-
+                </div>
+              );
             })}
-            {adminAlerts.length === 0 &&
-            <div className="text-center text-sm text-slate-500 py-8">
+            {adminAlerts.length === 0 && (
+              <div className="text-center text-sm text-slate-500 py-8">
                 No recent alerts.
               </div>
-            }
+            )}
           </div>
         </Card>
       </div>
-    </div>);
-
+    </div>
+  );
 };

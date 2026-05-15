@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Filter, Plus, Upload, Network, Eye, Edit2 } from "lucide-react";
 import { Card, Button, Input } from "../../components/UI";
 import { Resident, Branch } from "../../types";
@@ -11,8 +11,10 @@ import {
     StaffResidenceactions,
 } from "../../shared/TableColumns";
 import { BulkUploadModal } from "../../components/BulkUploadModal";
-import { residentService } from "../../services/residentService";
-import { branchService } from "../../services/branchService";
+import {
+    useGetBranchesPaginatedQuery,
+    useGetResidentsPaginatedQuery,
+} from "../../store/api/oronApi";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
 import TableSkeleton from "../skeletons/TableSkeleton";
@@ -29,16 +31,12 @@ const Residents = () => {
     const role = user?.role;
     const isFacilityAdmin = role === "facility_admin";
 
-    const [residents, setResidents] = useState<Resident[]>([]);
-    const [branches, setBranches] = useState<Branch[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const errorToastShown = useRef(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [branchFilter, setBranchFilter] = useState("All");
     const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
     const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
     useEffect(() => {
@@ -49,54 +47,58 @@ const Residents = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    const fetchResidents = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await residentService.getResidents({
-                page,
-                limit: PAGE_SIZE,
-                search: debouncedSearch,
-                status: statusFilter,
-                branchId:
-                    isFacilityAdmin && branchFilter !== "All" ? branchFilter : undefined,
-            });
-            setResidents(result.data);
-            setTotal(result.total);
-            if (result.totalPages > 0 && page > result.totalPages) {
-                setPage(result.totalPages);
-            }
-        } catch (err) {
-            const message = getApiErrorMessage(err, 'Failed to load residents');
-            setError(message);
-            toast.error(message);
-        } finally {
-            setLoading(false);
-        }
-    }, [branchFilter, debouncedSearch, isFacilityAdmin, page, statusFilter, toast]);
+    const skipResidents = !import.meta.env.VITE_API_URL || !token;
+    const {
+        data: residentsData,
+        isLoading: residentsLoading,
+        isFetching: residentsFetching,
+        isError: residentsError,
+        error: residentsErr,
+        refetch: refetchResidents,
+    } = useGetResidentsPaginatedQuery(
+        {
+            page,
+            limit: PAGE_SIZE,
+            search: debouncedSearch,
+            status: statusFilter,
+            branchId:
+                isFacilityAdmin && branchFilter !== "All" ? branchFilter : undefined,
+        },
+        { skip: skipResidents },
+    );
 
-    const fetchBranches = useCallback(async () => {
-        if (role !== "facility_admin") return;
-        try {
-            const result = await branchService.getBranches({ page: 1, limit: 500 });
-            setBranches(result.data);
-        } catch (err) {
-            console.warn('Unable to fetch branch list for filters', err);
-        }
-    }, [role]);
+    const { data: branchesData } = useGetBranchesPaginatedQuery(
+        { page: 1, limit: 500 },
+        { skip: role !== "facility_admin" },
+    );
+
+    const residents = residentsData?.data ?? [];
+    const total = residentsData?.total ?? 0;
+    const totalPages =
+        residentsData?.totalPages ?? Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const loading = residentsLoading || residentsFetching;
+    const error = residentsError
+        ? getApiErrorMessage(residentsErr, "Failed to load residents")
+        : skipResidents
+          ? "Unable to load residents. Missing API configuration or authentication."
+          : null;
+    const branches = branchesData?.data ?? [];
 
     useEffect(() => {
-        const apiBase = import.meta.env.VITE_API_URL;
-        if (!apiBase || !token) {
-            const message = 'Unable to load residents. Missing API configuration or authentication.';
-            setError(message);
-            toast.error(message);
-            setLoading(false);
+        if (!residentsError) {
+            errorToastShown.current = false;
             return;
         }
-        void fetchResidents();
-        void fetchBranches();
-    }, [fetchBranches, fetchResidents, toast, token]);
+        if (errorToastShown.current) return;
+        errorToastShown.current = true;
+        toast.error(getApiErrorMessage(residentsErr, "Failed to load residents"));
+    }, [residentsError, residentsErr, toast]);
+
+    useEffect(() => {
+        if (totalPages > 0 && page > totalPages) {
+            setPage(totalPages);
+        }
+    }, [page, totalPages]);
 
     const branchOptions = useMemo(() => {
         if (branches.length > 0) {
@@ -105,7 +107,6 @@ const Residents = () => {
         return [];
     }, [branches, user?.facilityId]);
 
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const safePage = Math.min(Math.max(page, 1), totalPages);
     const showingFrom = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
     const showingTo = Math.min(safePage * PAGE_SIZE, total);
@@ -217,7 +218,10 @@ const Residents = () => {
                             </Button>
                         </>
                     )}
-                    <RefreshButton onRefresh={fetchResidents} />
+                    <RefreshButton
+                        onRefresh={() => void refetchResidents()}
+                        isLoading={loading}
+                    />
                 </div>
             </div>
 

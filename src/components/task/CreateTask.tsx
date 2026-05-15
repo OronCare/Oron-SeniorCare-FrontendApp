@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { Button, Card, Input } from '../../components/UI';
 import { useAuth } from '../../context/AuthContext';
-import { taskService } from '../../services/taskService';
-import { residentService } from '../../services/residentService';
-import { usersService } from '../../services/usersService';
-import type { Resident, Task, User as AppUser } from '../../types';
+import {
+  useCreateTaskMutation,
+  useGetBranchDashboardQuery,
+} from '../../store/api/oronApi';
+import type { Task } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 
@@ -14,16 +15,24 @@ export const CreateTask = () => {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const errorToastShown = useRef(false);
 
   const isBranchAdmin = user?.role === 'admin';
   const basePath = '/admin';
 
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [staffMembers, setStaffMembers] = useState<AppUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: dashboard,
+    isLoading: loading,
+    isError,
+    error: queryError,
+  } = useGetBranchDashboardQuery(undefined, { skip: !isBranchAdmin });
 
+  const [createTask, { isLoading: isSubmitting }] = useCreateTaskMutation();
+
+  const residents = dashboard?.residents ?? [];
+  const staffMembers = dashboard?.staff ?? [];
+
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: '',
     category: 'General' as Task['category'],
@@ -33,36 +42,19 @@ export const CreateTask = () => {
     dueDate: '',
   });
 
+  const loadError = isError
+    ? getApiErrorMessage(queryError, 'Failed to load task form data')
+    : null;
+
   useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [allResidents, users] = await Promise.all([
-          residentService.getAllResidents(),
-          usersService.getAllUsers(),
-        ]);
-
-        setResidents(allResidents);
-        setStaffMembers(
-          users.filter((u) => {
-            const normalizedRole = String(u.role || '').toLowerCase();
-            const isStaffRole = normalizedRole === 'staff';
-            const sameBranch = !user?.branchId || u.branchId === user.branchId;
-            return isStaffRole && sameBranch;
-          }),
-        );
-      } catch (err) {
-        const message = getApiErrorMessage(err, 'Failed to load task form data');
-        setError(message);
-        toast.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void run();
-  }, [toast, user?.branchId]);
+    if (!loadError) {
+      errorToastShown.current = false;
+      return;
+    }
+    if (errorToastShown.current) return;
+    errorToastShown.current = true;
+    toast.error(loadError);
+  }, [loadError, toast]);
 
   const pageTitle = 'Create Task';
   const pageDescription = 'Assign a task to a staff member and set a due date.';
@@ -85,15 +77,14 @@ export const CreateTask = () => {
     }
     if (!canSubmit || !user?.branchId || !user?.facilityId) {
       const message = 'Please fill all required fields.';
-      setError(message);
+      setSubmitError(message);
       toast.error(message);
       return;
     }
 
-    setIsSubmitting(true);
-    setError(null);
+    setSubmitError(null);
     try {
-      await taskService.createTask({
+      await createTask({
         residentId: form.residentId,
         branchId: user.branchId,
         facilityId: user.facilityId,
@@ -103,15 +94,13 @@ export const CreateTask = () => {
         status: 'Todo',
         dueDate: new Date(form.dueDate).toISOString(),
         assignedToId: form.assignedToId,
-      });
+      }).unwrap();
       toast.success('Task created successfully.');
       navigate(`${basePath}/tasks`);
     } catch (err) {
       const message = getApiErrorMessage(err, 'Failed to create task');
-      setError(message);
+      setSubmitError(message);
       toast.error(message);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -124,6 +113,8 @@ export const CreateTask = () => {
       </div>
     );
   }
+
+  const displayError = submitError || loadError;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -150,9 +141,9 @@ export const CreateTask = () => {
         </div>
       </div>
 
-      {error && (
+      {displayError && (
         <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-          {error}
+          {displayError}
         </div>
       )}
 
@@ -253,4 +244,3 @@ export const CreateTask = () => {
     </div>
   );
 };
-
