@@ -96,12 +96,70 @@ const extractSinglePayload = (payload: unknown): StaffApiPayload => {
   return {} as StaffApiPayload;
 };
 
+export type StaffQueryParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  branchId?: string;
+};
+
+export type PaginatedStaffResponse = {
+  data: StaffMember[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+const extractPaginatedPayload = (payload: unknown): PaginatedStaffResponse | null => {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    Array.isArray((payload as PaginatedStaffResponse).data) &&
+    typeof (payload as PaginatedStaffResponse).total === 'number'
+  ) {
+    const paginated = payload as PaginatedStaffResponse;
+    return {
+      ...paginated,
+      data: paginated.data.map((item) =>
+        normalizeStaff(item as StaffApiPayload),
+      ),
+    };
+  }
+  return null;
+};
+
 export const staffService = {
-  async getAllStaff(): Promise<StaffMember[]> {
+  async getStaff(params: StaffQueryParams = {}): Promise<PaginatedStaffResponse> {
     const response = await axios.get(`${API_BASE}/staff`, {
       headers: getHeaders(),
+      params: {
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+        ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+        ...(params.branchId && params.branchId !== 'All'
+          ? { branchId: params.branchId }
+          : {}),
+      },
     });
-    return extractArrayPayload(response.data).map(normalizeStaff);
+
+    const paginated = extractPaginatedPayload(response.data);
+    if (paginated) {
+      return paginated;
+    }
+
+    return {
+      data: [],
+      total: 0,
+      page: params.page ?? 1,
+      limit: params.limit ?? 10,
+      totalPages: 0,
+    };
+  },
+
+  async getAllStaff(): Promise<StaffMember[]> {
+    const result = await this.getStaff({ page: 1, limit: 500 });
+    return result.data;
   },
 
   async getStaffById(id: string): Promise<StaffMember> {

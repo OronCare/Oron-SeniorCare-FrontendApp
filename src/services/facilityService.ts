@@ -89,31 +89,57 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
+export type FacilitiesQueryParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+};
+
+export type PaginatedFacilitiesResponse = {
+  data: Facility[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 export const facilityService = {
-  async getAllFacilities(): Promise<Facility[]> {
+  async getFacilities(params: FacilitiesQueryParams = {}): Promise<PaginatedFacilitiesResponse> {
     try {
       const response = await axios.get(`${getApiBase()}/facilities`, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getAuthToken()}`,
         },
+        params: {
+          page: params.page ?? 1,
+          limit: params.limit ?? 10,
+          ...(params.search?.trim() ? { search: params.search.trim() } : {}),
+          ...(params.status && params.status !== 'All' ? { status: params.status } : {}),
+        },
       });
 
       const payload = response.data;
-      if (Array.isArray(payload)) {
-        return payload as Facility[];
-      }
-      if (Array.isArray(payload?.data)) {
-        return payload.data as Facility[];
-      }
-      if (Array.isArray(payload?.facilities)) {
-        return payload.facilities as Facility[];
+      if (payload && Array.isArray(payload.data) && typeof payload.total === 'number') {
+        return payload as PaginatedFacilitiesResponse;
       }
 
-      return [];
+      return {
+        data: [],
+        total: 0,
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+        totalPages: 0,
+      };
     } catch (error) {
       throw new Error(getApiErrorMessage(error, 'Failed to fetch facilities'));
     }
+  },
+
+  async getAllFacilities(): Promise<Facility[]> {
+    const result = await this.getFacilities({ page: 1, limit: 500 });
+    return result.data;
   },
 
   async getFacilityById(id: string): Promise<Facility> {
