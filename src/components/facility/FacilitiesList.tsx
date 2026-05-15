@@ -100,15 +100,15 @@ export const FacilitiesList = () => {
   const errorMessage = isError ? getApiErrorMessage(error, 'Failed to fetch facilities') : null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div>
+    <div className="space-y-6 min-w-0 max-w-full">
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className='min-w-0 shrink'>
           <h1 className="text-2xl font-bold text-slate-900">Facilities</h1>
           <p className="text-sm text-slate-500 mt-1">
             Manage onboarded facilities and contracts
           </p>
         </div>
-        <div className="flex items-center gap-2 sm:ml-auto">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
           <Link to="/owner/facilities/new">
             <Button icon={Plus}>Onboard Facility</Button>
           </Link>
@@ -142,7 +142,7 @@ export const FacilitiesList = () => {
             </div>
           </div>
         </div>
-        <div className="w-full overflow-x-auto ">
+        <div className="w-full min-w-0 max-w-full">
           {loading ? (
             <TableSkeleton rows={5} columns={6} />
           ) : null}

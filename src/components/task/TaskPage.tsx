@@ -143,8 +143,8 @@ export const TaskManagements = () => {
   return (
     <div className="space-y-6 h-[calc(100vh-8rem)] flex flex-col">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
-        <div>
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 shrink">
           <h1 className="text-2xl font-bold text-slate-900">
             {isStaff ? 'My Tasks' : 'Task Board'}
           </h1>
@@ -155,7 +155,7 @@ export const TaskManagements = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
           <div className="flex items-center gap-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
             <Filter className="h-4 w-4" />
             <select
