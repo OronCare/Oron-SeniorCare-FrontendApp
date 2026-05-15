@@ -12,10 +12,10 @@ import {
 } from "lucide-react";
 
 import { Card, Button, Input, Modal } from "../../components/UI";
-import { getFullName, StaffMember } from "../../types";
+import { StaffMember } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import SmartTable from "../../shared/Table";
-import { StaffColumns, StaffColumnsForFacilityAdmin } from "../../shared/TableColumns";
+import { Reidencecolumns, StaffColumns, StaffColumnsForFacilityAdmin } from "../../shared/TableColumns";
 import { staffService } from "../../services/staffService";
 import { branchService } from "../../services/branchService";
 import { Branch } from "../../types";
@@ -23,15 +23,17 @@ import axios from "axios";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
 import TableSkeleton from "../skeletons/TableSkeleton";
+import { Pagination } from "../Pagination";
 import { Link } from "react-router-dom";
 import { RefreshButton } from "../refresh/Refresh";
+
+const PAGE_SIZE = 10;
 
 const StaffPage = () => {
   const { user } = useAuth();
   const toast = useToast();
 
   const isFacilityAdmin = user?.role === "facility_admin";
-  const isAdmin = user?.role === "admin";
 
   // ---------------- STATE ----------------
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
@@ -40,7 +42,10 @@ const StaffPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState("All");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] =
     useState<StaffMember | null>(null);
@@ -64,21 +69,42 @@ const StaffPage = () => {
     permissions: [] as string[],
   });
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const fetchBranches = useCallback(async () => {
+    if (!isFacilityAdmin) return;
+    try {
+      const result = await branchService.getBranches({ page: 1, limit: 500 });
+      const facilityBranches = result.data.filter(
+        (branch) => branch.facilityId === user?.facilityId,
+      );
+      setBranches(facilityBranches);
+    } catch (err) {
+      console.warn("Unable to fetch branch list for filters", err);
+    }
+  }, [isFacilityAdmin, user?.facilityId]);
+
+  const fetchStaff = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [staffPayload, branchPayload] = await Promise.all([
-        staffService.getAllStaff(),
-        isFacilityAdmin ? branchService.getAllBranches() : Promise.resolve([]),
-      ]);
-
-      setStaffList(staffPayload);
-      if (isFacilityAdmin) {
-        const facilityBranches = branchPayload.filter(
-          (branch) => branch.facilityId === user?.facilityId
-        );
-        setBranches(facilityBranches);
+      const result = await staffService.getStaff({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedSearch,
+        branchId:
+          isFacilityAdmin && branchFilter !== "All" ? branchFilter : undefined,
+      });
+      setStaffList(result.data);
+      setTotal(result.total);
+      if (result.totalPages > 0 && page > result.totalPages) {
+        setPage(result.totalPages);
       }
     } catch (err) {
       const message = getApiErrorMessage(err, "Failed to load staff data");
@@ -87,41 +113,24 @@ const StaffPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [isFacilityAdmin, toast, user?.facilityId]);
+  }, [branchFilter, debouncedSearch, isFacilityAdmin, page, toast]);
+
+  const fetchData = useCallback(async () => {
+    await Promise.all([fetchStaff(), fetchBranches()]);
+  }, [fetchBranches, fetchStaff]);
 
   useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+    void fetchStaff();
+  }, [fetchStaff]);
 
-  const staffData = useMemo(() => {
-    if (isFacilityAdmin) {
-      const branchIds = branches.map((b) => b.id);
-      return staffList.filter((s) => branchIds.includes(s.branchId));
-    }
-    if (isAdmin) {
-      return staffList.filter((s) => s.branchId === user?.branchId);
-    }
-    return staffList;
-  }, [branches, isAdmin, isFacilityAdmin, staffList, user?.branchId]);
+  useEffect(() => {
+    void fetchBranches();
+  }, [fetchBranches]);
 
-  // ---------------- FILTER ----------------
-  const filteredStaff = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return staffData.filter((staff) => {
-      const fullName = getFullName(staff).toLowerCase();
-
-      const matchesSearch =
-        fullName.includes(q) ||
-        staff.role.toLowerCase().includes(q);
-
-      const matchesBranch =
-        !isFacilityAdmin ||
-        branchFilter === "All" ||
-        staff.branchId === branchFilter;
-
-      return matchesSearch && matchesBranch;
-    });
-  }, [branchFilter, isFacilityAdmin, searchTerm, staffData]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const showingFrom = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const showingTo = Math.min(safePage * PAGE_SIZE, total);
 
   // ---------------- ACTIONS ----------------
   const actions = useMemo(
@@ -193,14 +202,7 @@ const StaffPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <TableSkeleton
-        rows={5}
-        columns={6}
-      />
-    );
-  }
+  
   // ---------------- UI ----------------
   return (
     <div className="space-y-6">
@@ -249,7 +251,10 @@ const StaffPage = () => {
               <select
                 className="bg-transparent border-none focus:ring-0 p-0 text-sm font-medium cursor-pointer"
                 value={branchFilter}
-                onChange={(e) => setBranchFilter(e.target.value)}
+                onChange={(e) => {
+                  setBranchFilter(e.target.value);
+                  setPage(1);
+                }}
               >
                 <option value="All">All Branches</option>
                 {branches.map((b) => (
@@ -263,11 +268,47 @@ const StaffPage = () => {
           )}
         </div>
 
-        <SmartTable
-          data={loading ? [] : filteredStaff}
-          columns={staffColumnsConfig}
-          actions={actions}
-        />
+        {/* TABLE */}
+
+{loading ? (
+    <TableSkeleton
+        rows={PAGE_SIZE}
+        columns={StaffColumns.map((column) => column.label)}
+    />
+) : total === 0 ? (
+    <div className="p-8 text-center">
+        <div className="text-slate-400 mb-2">
+            <Search className="h-12 w-12 mx-auto" />
+        </div>
+
+        <p className="text-lg font-medium text-slate-900">
+            No staff members found
+        </p>
+
+        <p className="text-sm mt-1 text-slate-500">
+            Try adjusting your search or filters
+        </p>
+    </div>
+) : (
+    <SmartTable
+        data={staffList}
+        columns={staffColumnsConfig}
+        actions={actions}
+    />
+)}
+        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
+          <p>
+            Showing <span className="font-medium text-slate-900">{showingFrom}</span> to{" "}
+            <span className="font-medium text-slate-900">{showingTo}</span> of{" "}
+            <span className="font-medium text-slate-900">{total}</span> results
+          </p>
+          <Pagination
+            page={safePage}
+            totalItems={total}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </div>
       </Card>
       {/* EDIT MODAL */}
       <Modal
