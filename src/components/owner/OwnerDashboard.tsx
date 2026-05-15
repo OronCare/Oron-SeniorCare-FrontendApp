@@ -38,10 +38,11 @@ export const OwnerDashboard = () => {
   const branches = data?.branches ?? [];
   const residents = data?.residents ?? [];
   const alerts = data?.alerts ?? [];
+  const totals = data?.totals;
 
-  const totalFacilities = facilities.length;
-  const totalBranches = branches.length;
-  const totalResidents = residents.length;
+  const totalFacilities = totals?.facilities ?? facilities.length;
+  const totalBranches = totals?.branches ?? branches.length;
+  const totalResidents = totals?.residents ?? residents.length;
   const totalCapacity = branches.reduce(
     (acc, curr) => acc + curr.residentLimit,
     0

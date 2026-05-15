@@ -13,11 +13,18 @@ import { parseRulesApiResponse } from '../../services/rulesService';
 import type { CreateFacilityResponse, UpdateFacilityRequest } from '../../services/facilityService';
 import type { CreateBranchRequest } from '../../services/branchService';
 
+export interface OwnerDashboardTotals {
+  facilities: number;
+  branches: number;
+  residents: number;
+}
+
 export interface OwnerDashboardSnapshot {
   facilities: Facility[];
   branches: Branch[];
   residents: Resident[];
   alerts: Alert[];
+  totals: OwnerDashboardTotals;
 }
 
 const getApiBase = (): string => {
@@ -37,15 +44,6 @@ const getAuthToken = (): string => {
     return '';
   }
 };
-
-const asFacilityArray = (value: unknown): Facility[] =>
-  Array.isArray(value) ? (value as Facility[]) : [];
-
-const asBranchArray = (value: unknown): Branch[] =>
-  Array.isArray(value) ? (value as Branch[]) : [];
-
-const asResidentArray = (value: unknown): Resident[] =>
-  Array.isArray(value) ? (value as Resident[]) : [];
 
 const asAlertArray = (value: unknown): Alert[] => {
   if (!Array.isArray(value)) return [];
@@ -84,6 +82,59 @@ const extractBranchesPayload = (payload: unknown): Branch[] => {
   return [];
 };
 
+const extractResidentsPayload = (payload: unknown): Resident[] => {
+  if (Array.isArray(payload)) return payload as Resident[];
+  if (Array.isArray((payload as { data?: unknown })?.data)) {
+    return (payload as { data: Resident[] }).data;
+  }
+  if (Array.isArray((payload as { residents?: unknown })?.residents)) {
+    return (payload as { residents: Resident[] }).residents;
+  }
+  return [];
+};
+
+const extractPaginatedTotal = (payload: unknown, fallback: number): number => {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    typeof (payload as { total?: unknown }).total === 'number'
+  ) {
+    return (payload as { total: number }).total;
+  }
+  return fallback;
+};
+
+const extractOwnerDashboardTotals = (
+  response: Record<string, unknown>,
+  facilities: Facility[],
+  branches: Branch[],
+  residents: Resident[],
+): OwnerDashboardTotals => {
+  const fromApi = response.totals;
+  if (fromApi && typeof fromApi === 'object') {
+    const t = fromApi as Partial<OwnerDashboardTotals>;
+    return {
+      facilities:
+        typeof t.facilities === 'number'
+          ? t.facilities
+          : extractPaginatedTotal(response.facilities, facilities.length),
+      branches:
+        typeof t.branches === 'number'
+          ? t.branches
+          : extractPaginatedTotal(response.branches, branches.length),
+      residents:
+        typeof t.residents === 'number'
+          ? t.residents
+          : extractPaginatedTotal(response.residents, residents.length),
+    };
+  }
+  return {
+    facilities: extractPaginatedTotal(response.facilities, facilities.length),
+    branches: extractPaginatedTotal(response.branches, branches.length),
+    residents: extractPaginatedTotal(response.residents, residents.length),
+  };
+};
+
 export const oronApi = createApi({
   reducerPath: 'oronApi',
   baseQuery: fetchBaseQuery({
@@ -113,9 +164,15 @@ export const oronApi = createApi({
       query: () => '/dashboards/owner',
       providesTags: () => [{ type: 'OwnerDashboard', id: 'OWNER' }],
       transformResponse: (response: Record<string, unknown>): OwnerDashboardSnapshot => {
-        const facilitiesRaw = asFacilityArray(response?.facilities);
-        const branches = asBranchArray(response?.branches);
-        const residents = asResidentArray(response?.residents);
+        const facilitiesRaw = extractFacilitiesPayload(response?.facilities);
+        const branches = extractBranchesPayload(response?.branches);
+        const residents = extractResidentsPayload(response?.residents);
+        const totals = extractOwnerDashboardTotals(
+          response,
+          facilitiesRaw,
+          branches,
+          residents,
+        );
         const residentCountsByFacility = residents.reduce(
           (acc, resident) => {
             if (resident.facilityId) {
@@ -135,7 +192,7 @@ export const oronApi = createApi({
         const alerts = asAlertArray(response?.alerts)
           .slice()
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        return { facilities, branches, residents, alerts };
+        return { facilities, branches, residents, alerts, totals };
       },
     }),
 
