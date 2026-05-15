@@ -103,9 +103,7 @@ export const AuditLog = () => {
     }
   }, [actionFilter, debouncedSearch, toast, total]);
 
-  if (loading) {
-    return <TableSkeleton rows={PAGE_SIZE} columns={6} />;
-  }
+  
 
   const actionOptions = ['All', ...availableActions];
 
@@ -167,10 +165,33 @@ export const AuditLog = () => {
             {error}
           </div>
         )}
-            <SmartTable
-            data={logs}
-            columns={Aditlogscolumns}
-            />
+           {/* TABLE */}
+
+{loading ? (
+    <TableSkeleton
+        rows={PAGE_SIZE}
+        columns={Aditlogscolumns.map((column) => column.label)}
+    />
+) : total === 0 ? (
+    <div className="p-8 text-center">
+        <div className="text-slate-400 mb-2">
+            <Search className="h-12 w-12 mx-auto" />
+        </div>
+
+        <p className="text-lg font-medium text-slate-900">
+            No Audit logs found
+        </p>
+
+        <p className="text-sm mt-1 text-slate-500">
+            Try adjusting your search or filters
+        </p>
+    </div>
+) : (
+  <SmartTable
+  data={logs}
+  columns={Aditlogscolumns}
+  />
+)}
             <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-sm text-slate-600">
           <p>
             Showing <span className="font-medium text-slate-900">{showingFrom}</span> to{' '}
