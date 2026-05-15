@@ -27,16 +27,31 @@ export const AuditLog = () => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
-  const PAGE_SIZE = 5;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const fetchAuditLogs = useCallback(async () => {
     if (!isAuthenticated || !user) return;
     try {
       setLoading(true);
       setError(null);
-      const data = await auditLogService.getAuditLogs();
+      const data = await auditLogService.getAuditLogs({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedSearch,
+        action: actionFilter,
+      });
       setLogs(data.data);
       setTotal(data.total);
       setAvailableActions(data.actions);
+      if (data.totalPages > 0 && page > data.totalPages) {
+        setPage(data.totalPages);
+      }
     } catch (err) {
       const message = getApiErrorMessage(err, 'Failed to load audit logs');
       setError(message);
