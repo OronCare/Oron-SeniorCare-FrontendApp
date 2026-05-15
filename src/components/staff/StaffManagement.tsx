@@ -1,6 +1,6 @@
 // pages/Staff/StaffPage.tsx
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   Plus,
@@ -16,10 +16,11 @@ import { StaffMember } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import SmartTable from "../../shared/Table";
 import { Reidencecolumns, StaffColumns, StaffColumnsForFacilityAdmin } from "../../shared/TableColumns";
-import { staffService } from "../../services/staffService";
-import { branchService } from "../../services/branchService";
-import { Branch } from "../../types";
-import axios from "axios";
+import {
+  useGetBranchesPaginatedQuery,
+  useGetStaffPaginatedQuery,
+  useUpdateStaffMutation,
+} from "../../store/api/oronApi";
 import { useToast } from "../../context/ToastContext";
 import { getApiErrorMessage } from "../../utils/apiMessage";
 import TableSkeleton from "../skeletons/TableSkeleton";
@@ -35,17 +36,13 @@ const StaffPage = () => {
 
   const isFacilityAdmin = user?.role === "facility_admin";
 
-  // ---------------- STATE ----------------
-  const [staffList, setStaffList] = useState<StaffMember[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(false);
+  const errorToastShown = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState("All");
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] =
     useState<StaffMember | null>(null);
@@ -77,57 +74,55 @@ const StaffPage = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const fetchBranches = useCallback(async () => {
-    if (!isFacilityAdmin) return;
-    try {
-      const result = await branchService.getBranches({ page: 1, limit: 500 });
-      const facilityBranches = result.data.filter(
-        (branch) => branch.facilityId === user?.facilityId,
-      );
-      setBranches(facilityBranches);
-    } catch (err) {
-      console.warn("Unable to fetch branch list for filters", err);
-    }
-  }, [isFacilityAdmin, user?.facilityId]);
+  const {
+    data: staffData,
+    isLoading,
+    isFetching,
+    isError,
+    error: staffErr,
+    refetch,
+  } = useGetStaffPaginatedQuery({
+    page,
+    limit: PAGE_SIZE,
+    search: debouncedSearch,
+    branchId:
+      isFacilityAdmin && branchFilter !== "All" ? branchFilter : undefined,
+  });
 
-  const fetchStaff = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await staffService.getStaff({
-        page,
-        limit: PAGE_SIZE,
-        search: debouncedSearch,
-        branchId:
-          isFacilityAdmin && branchFilter !== "All" ? branchFilter : undefined,
-      });
-      setStaffList(result.data);
-      setTotal(result.total);
-      if (result.totalPages > 0 && page > result.totalPages) {
-        setPage(result.totalPages);
-      }
-    } catch (err) {
-      const message = getApiErrorMessage(err, "Failed to load staff data");
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [branchFilter, debouncedSearch, isFacilityAdmin, page, toast]);
+  const { data: branchesData } = useGetBranchesPaginatedQuery(
+    { page: 1, limit: 500 },
+    { skip: !isFacilityAdmin },
+  );
 
-  const fetchData = useCallback(async () => {
-    await Promise.all([fetchStaff(), fetchBranches()]);
-  }, [fetchBranches, fetchStaff]);
+  const [updateStaff] = useUpdateStaffMutation();
+
+  const staffList = staffData?.data ?? [];
+  const total = staffData?.total ?? 0;
+  const totalPages =
+    staffData?.totalPages ?? Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const loading = isLoading || isFetching;
+  const branches =
+    branchesData?.data.filter((branch) => branch.facilityId === user?.facilityId) ??
+    [];
 
   useEffect(() => {
-    void fetchStaff();
-  }, [fetchStaff]);
+    if (!isError) {
+      errorToastShown.current = false;
+      return;
+    }
+    if (errorToastShown.current) return;
+    errorToastShown.current = true;
+    const message = getApiErrorMessage(staffErr, "Failed to load staff data");
+    setError(message);
+    toast.error(message);
+  }, [isError, staffErr, toast]);
 
   useEffect(() => {
-    void fetchBranches();
-  }, [fetchBranches]);
+    if (totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const showingFrom = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const showingTo = Math.min(safePage * PAGE_SIZE, total);
@@ -176,25 +171,22 @@ const StaffPage = () => {
     setSubmitting(true);
     setError(null);
     try {
-      const updated = await staffService.updateStaff(selectedStaff.id, {
-        firstName: editForm.firstName.trim(),
-        middleName: editForm.middleName.trim() || undefined,
-        lastName: editForm.lastName.trim(),
-        role: editForm.role,
-        status: editForm.status,
-        permissions: editForm.permissions,
-      });
-      setStaffList((prev) =>
-        prev.map((staff) => (staff.id === selectedStaff.id ? updated : staff))
-      );
+      await updateStaff({
+        id: selectedStaff.id,
+        body: {
+          firstName: editForm.firstName.trim(),
+          middleName: editForm.middleName.trim() || undefined,
+          lastName: editForm.lastName.trim(),
+          role: editForm.role,
+          status: editForm.status,
+          permissions: editForm.permissions,
+        },
+      }).unwrap();
       setIsEditModalOpen(false);
       setSelectedStaff(null);
       toast.success("Staff member updated successfully.");
     } catch (err) {
-      const message =
-        axios.isAxiosError(err) && err.response?.status === 404
-          ? "Staff update API is not available yet on backend. Add PUT /staff/:id (or PATCH /staff/:id) to enable edit."
-          : getApiErrorMessage(err, "Failed to update staff member");
+      const message = getApiErrorMessage(err, "Failed to update staff member");
       setError(message);
       toast.error(message);
     } finally {
@@ -222,7 +214,7 @@ const StaffPage = () => {
         <Link to={`${isFacilityAdmin ? "/facility-admin" : "/admin"}/staff/new`}>
           <Button icon={Plus}>Add Staff Member</Button>
         </Link>
-        <RefreshButton onRefresh={fetchData}/>
+        <RefreshButton onRefresh={() => void refetch()} isLoading={loading} />
         </div>
       </div>
       {error && (

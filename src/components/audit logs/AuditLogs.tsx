@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, Filter, Download, Calendar } from 'lucide-react';
 import { Card, Button, Input } from '../../components/UI';
 import { useAuth } from '../../context/AuthContext';
 import SmartTable from '../../shared/Table';
 import { Aditlogscolumns } from '../../shared/TableColumns';
-import { auditLogService } from '../../services/auditLogService';
-import { AuditLog as AuditLogType } from '../../types';
+import {
+  useGetAuditLogsPaginatedQuery,
+  useLazyGetAuditLogsPaginatedQuery,
+} from '../../store/api/oronApi';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiMessage';
 import TableSkeleton from '../skeletons/TableSkeleton';
@@ -17,15 +19,11 @@ const PAGE_SIZE = 10;
 export const AuditLog = () => {
   const { user, isAuthenticated } = useAuth();
   const toast = useToast();
-  const [logs, setLogs] = useState<AuditLogType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const errorToastShown = useRef(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
-  const [availableActions, setAvailableActions] = useState<string[]>([]);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -35,49 +33,62 @@ export const AuditLog = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const fetchAuditLogs = useCallback(async () => {
-    if (!isAuthenticated || !user) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await auditLogService.getAuditLogs({
-        page,
-        limit: PAGE_SIZE,
-        search: debouncedSearch,
-        action: actionFilter,
-      });
-      setLogs(data.data);
-      setTotal(data.total);
-      setAvailableActions(data.actions);
-      if (data.totalPages > 0 && page > data.totalPages) {
-        setPage(data.totalPages);
-      }
-    } catch (err) {
-      const message = getApiErrorMessage(err, 'Failed to load audit logs');
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [actionFilter, debouncedSearch, isAuthenticated, page, toast, user]);
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useGetAuditLogsPaginatedQuery(
+    {
+      page,
+      limit: PAGE_SIZE,
+      search: debouncedSearch,
+      action: actionFilter,
+    },
+    { skip: !isAuthenticated || !user },
+  );
+
+  const [fetchAuditLogsForExport] = useLazyGetAuditLogsPaginatedQuery();
+
+  const logs = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const availableActions = data?.actions ?? [];
+  const totalPages = data?.totalPages ?? Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const loading = isLoading || isFetching;
+  const errorMessage = isError
+    ? getApiErrorMessage(error, 'Failed to load audit logs')
+    : null;
 
   useEffect(() => {
-    void fetchAuditLogs();
-  }, [fetchAuditLogs]);
+    if (!isError) {
+      errorToastShown.current = false;
+      return;
+    }
+    if (errorToastShown.current) return;
+    errorToastShown.current = true;
+    toast.error(getApiErrorMessage(error, 'Failed to load audit logs'));
+  }, [isError, error, toast]);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  useEffect(() => {
+    if (totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const showingFrom = total === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const showingTo = Math.min(safePage * PAGE_SIZE, total);
 
   const handleExportCSV = useCallback(async () => {
     try {
-      const result = await auditLogService.getAuditLogs({
+      const result = await fetchAuditLogsForExport({
         page: 1,
         limit: Math.min(total || PAGE_SIZE, 500),
         search: debouncedSearch,
         action: actionFilter,
-      });
+      }).unwrap();
       const exportLogs = result.data;
       const headers = ['Timestamp', 'User', 'Action', 'Details'];
       const csvContent = [
@@ -101,9 +112,7 @@ export const AuditLog = () => {
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to export audit logs'));
     }
-  }, [actionFilter, debouncedSearch, toast, total]);
-
-  
+  }, [actionFilter, debouncedSearch, fetchAuditLogsForExport, toast, total]);
 
   const actionOptions = ['All', ...availableActions];
 
@@ -120,7 +129,7 @@ export const AuditLog = () => {
         <Button variant="outline" icon={Download} onClick={() => void handleExportCSV()}>
           Export CSV
         </Button>
-        <RefreshButton onRefresh={fetchAuditLogs}/>
+        <RefreshButton onRefresh={() => void refetch()} isLoading={loading} />
         </div>
       </div>
 
@@ -160,12 +169,11 @@ export const AuditLog = () => {
             </div>
           </div>
         </div>
-        {error && (
+        {errorMessage && (
           <div className="p-4 bg-red-50 text-red-700 rounded-lg m-4">
-            {error}
+            {errorMessage}
           </div>
         )}
-           {/* TABLE */}
 
 {loading ? (
     <TableSkeleton
@@ -208,6 +216,6 @@ export const AuditLog = () => {
           />
         </div>
       </Card>
-    </div>);
-
+    </div>
+  );
 };

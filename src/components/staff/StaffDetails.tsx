@@ -1,24 +1,33 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Mail, Shield, Activity, ClipboardList, Calendar } from 'lucide-react';
 import { Badge, Button, Card } from '../UI';
-import { branchService } from '../../services/branchService';
-import { staffService } from '../../services/staffService';
-import { getFullName, StaffMember } from '../../types';
+import { getFullName } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { taskService } from '../../services/taskService';
-import type { Task } from '../../types';
+import {
+  useGetBranchByIdQuery,
+  useGetStaffByIdQuery,
+  useGetTasksQuery,
+} from '../../store/api/oronApi';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 import { ResidentDetailsSkeleton } from '../skeletons/DetailsSkeleton';
 
 export const StaffDetails = () => {
   const { id } = useParams();
   const { user } = useAuth();
 
-  const [staff, setStaff] = useState<StaffMember | null>(null);
-  const [branchName, setBranchName] = useState<string>('');
-  const [assignedTasks, setAssignedTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: staff,
+    isLoading: staffLoading,
+    isError: staffError,
+    error: staffErr,
+  } = useGetStaffByIdQuery(id!, { skip: !id });
+
+  const { data: branch } = useGetBranchByIdQuery(staff?.branchId ?? '', {
+    skip: !staff?.branchId,
+  });
+
+  const { data: allTasks = [] } = useGetTasksQuery();
 
   const backTo =
     user?.role === 'facility_admin'
@@ -28,44 +37,30 @@ export const StaffDetails = () => {
         : '/';
 
   useEffect(() => {
-    const run = async () => {
-      if (!id) {
-        setError('Staff ID is missing');
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      try {
-        const [s, allTasks] = await Promise.all([
-          staffService.getStaffById(id),
-          taskService.getAllTasks(),
-        ]);
-        setStaff(s);
-        setAssignedTasks(
-          allTasks
-            .filter((t) => (t.assignedTo || '') === s.id)
-            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()),
-        );
-        sessionStorage.setItem(`breadcrumb:staff:${s.id}`, getFullName(s));
-        window.dispatchEvent(new Event('oron:breadcrumb:update'));
+    if (!staff) return;
+    sessionStorage.setItem(`breadcrumb:staff:${staff.id}`, getFullName(staff));
+    window.dispatchEvent(new Event('oron:breadcrumb:update'));
+  }, [staff]);
 
-        if (s.branchId) {
-          try {
-            const b = await branchService.getBranchById(s.branchId);
-            setBranchName(b.name);
-          } catch {
-            setBranchName('');
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load staff details');
-      } finally {
-        setLoading(false);
-      }
-    };
-    void run();
-  }, [id]);
+  const assignedTasks = useMemo(
+    () =>
+      staff
+        ? allTasks
+            .filter((t) => (t.assignedTo || '') === staff.id)
+            .sort(
+              (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+            )
+        : [],
+    [allTasks, staff],
+  );
+
+  const branchName = branch?.name ?? '';
+  const loading = staffLoading;
+  const error = !id
+    ? 'Staff ID is missing'
+    : staffError
+      ? getApiErrorMessage(staffErr, 'Failed to load staff details')
+      : null;
 
   const initials = useMemo(() => {
     if (!staff) return '';

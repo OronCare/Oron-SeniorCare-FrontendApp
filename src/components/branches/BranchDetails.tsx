@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Network,
@@ -10,41 +10,32 @@ import {
   Users } from
 'lucide-react';
 import { Card, Button, Badge } from '../../components/UI';
-import { branchService } from '../../services/branchService';
-import { Branch } from '../../types';
+import { useGetBranchByIdQuery } from '../../store/api/oronApi';
+import { getApiErrorMessage } from '../../utils/apiMessage';
 import { ResidentDetailsSkeleton } from '../skeletons/DetailsSkeleton';
 
 
 export const BranchDetails = () => {
   const { id } = useParams();
-  const [branch, setBranch] = useState<Branch | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: branch,
+    isLoading,
+    isError,
+    error,
+  } = useGetBranchByIdQuery(id!, { skip: !id });
 
   useEffect(() => {
-    if (!id) {
-      setLoading(false);
-      setError('Branch ID is missing');
-      return;
-    }
+    if (!branch) return;
+    sessionStorage.setItem(`breadcrumb:branches:${branch.id}`, branch.name);
+    window.dispatchEvent(new Event('oron:breadcrumb:update'));
+  }, [branch]);
 
-    const fetchBranch = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await branchService.getBranchById(id);
-        setBranch(data);
-        sessionStorage.setItem(`breadcrumb:branches:${data.id}`, data.name);
-        window.dispatchEvent(new Event('oron:breadcrumb:update'));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load branch details');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchBranch();
-  }, [id]);
+  const errorMessage = !id
+    ? 'Branch ID is missing'
+    : isError
+      ? getApiErrorMessage(error, 'Failed to load branch details')
+      : null;
+  const loading = isLoading;
 
   const usagePercent = useMemo(() => {
     if (!branch?.residentLimit) return 0;
@@ -59,7 +50,7 @@ export const BranchDetails = () => {
     return (
       <div className="space-y-6">
         <Card>
-          <p className="text-sm text-red-600">{error || 'Branch not found'}</p>
+          <p className="text-sm text-red-600">{errorMessage || 'Branch not found'}</p>
         </Card>
       </div>
     );

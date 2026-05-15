@@ -36,7 +36,7 @@ export interface CreateVitalRequest {
   notes?: string;
 }
 
-const normalizeVital = (payload: Partial<Vital>): Vital => ({
+export const normalizeVital = (payload: Partial<Vital>): Vital => ({
   id: payload.id || "",
   residentId: payload.residentId || "",
   branchId: payload.branchId || "",

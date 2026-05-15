@@ -4,8 +4,12 @@ import { ArrowLeft, Mail, Save, Shield, User as UserIcon } from "lucide-react";
 import { Card, Button, Input } from "../../components/UI";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
-import { branchService } from "../../services/branchService";
-import { staffService } from "../../services/staffService";
+import {
+  useCreateStaffMutation,
+  useGetBranchesPaginatedQuery,
+  useGetStaffByIdQuery,
+  useUpdateStaffMutation,
+} from "../../store/api/oronApi";
 import { Branch, StaffMember } from "../../types";
 import { getApiErrorMessage } from "../../utils/apiMessage";
 
@@ -28,10 +32,8 @@ export const AddStaff = () => {
   const isAdmin = user?.role === "admin";
   const basePath = isFacilityAdmin ? "/facility-admin" : "/admin";
 
-  const [branches, setBranches] = useState<Branch[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -43,54 +45,50 @@ export const AddStaff = () => {
     permissions: permissionOptions.slice(0, 2),
   });
 
-  useEffect(() => {
-    if (!isEditMode || !staffId) return;
-    const loadStaff = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const staff = await staffService.getStaffById(staffId);
-        setForm((prev) => ({
-          ...prev,
-          firstName: staff.firstName ?? "",
-          middleName: staff.middleName ?? "",
-          lastName: staff.lastName ?? "",
-          email: staff.email ?? "",
-          role: staff.role,
-          branchId: staff.branchId ?? "",
-          permissions: staff.permissions?.length ? staff.permissions : prev.permissions,
-        }));
-      } catch (err) {
-        const message = getApiErrorMessage(err, "Failed to load staff member");
-        setError(message);
-        toast.error(message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    void loadStaff();
-  }, [isEditMode, staffId, toast]);
+  const {
+    data: staff,
+    isLoading,
+    isError: staffLoadFailed,
+    error: staffLoadErr,
+  } = useGetStaffByIdQuery(staffId!, { skip: !isEditMode || !staffId });
+
+  const { data: branchesData } = useGetBranchesPaginatedQuery(
+    { page: 1, limit: 500 },
+    { skip: !isFacilityAdmin },
+  );
+  const branches =
+    branchesData?.data.filter((b) => b.facilityId === user?.facilityId) ?? [];
+
+  const [createStaff] = useCreateStaffMutation();
+  const [updateStaff] = useUpdateStaffMutation();
 
   useEffect(() => {
-    if (!isFacilityAdmin) {
-      return;
-    }
-    const loadBranches = async () => {
-      try {
-        const all = await branchService.getAllBranches();
-        const facilityBranches = all.filter((b) => b.facilityId === user?.facilityId);
-        setBranches(facilityBranches);
-        setForm((prev) =>
-          prev.branchId || facilityBranches.length === 0
-            ? prev
-            : { ...prev, branchId: facilityBranches[0].id },
-        );
-      } catch (err) {
-        console.warn("Unable to load branches for staff creation", err);
-      }
-    };
-    void loadBranches();
-  }, [isFacilityAdmin, user?.facilityId]);
+    if (!staff) return;
+    setForm((prev) => ({
+      ...prev,
+      firstName: staff.firstName ?? "",
+      middleName: staff.middleName ?? "",
+      lastName: staff.lastName ?? "",
+      email: staff.email ?? "",
+      role: staff.role,
+      branchId: staff.branchId ?? "",
+      permissions: staff.permissions?.length ? staff.permissions : prev.permissions,
+    }));
+  }, [staff]);
+
+  useEffect(() => {
+    if (!staffLoadFailed) return;
+    const message = getApiErrorMessage(staffLoadErr, "Failed to load staff member");
+    setError(message);
+    toast.error(message);
+  }, [staffLoadFailed, staffLoadErr, toast]);
+
+  useEffect(() => {
+    if (!isFacilityAdmin || branches.length === 0) return;
+    setForm((prev) =>
+      prev.branchId ? prev : { ...prev, branchId: branches[0].id },
+    );
+  }, [branches, isFacilityAdmin]);
 
   const branchSelectOptions = useMemo(() => {
     if (!isFacilityAdmin) return [];
@@ -119,17 +117,20 @@ export const AddStaff = () => {
     setError(null);
     try {
       if (isEditMode && staffId) {
-        await staffService.updateStaff(staffId, {
-          firstName: form.firstName.trim(),
-          middleName: form.middleName.trim() || undefined,
-          lastName: form.lastName.trim(),
-          role: form.role,
-          status: "Active",
-          permissions: form.permissions,
-        });
+        await updateStaff({
+          id: staffId,
+          body: {
+            firstName: form.firstName.trim(),
+            middleName: form.middleName.trim() || undefined,
+            lastName: form.lastName.trim(),
+            role: form.role,
+            status: "Active",
+            permissions: form.permissions,
+          },
+        }).unwrap();
         toast.success("Staff member updated successfully.");
       } else {
-        await staffService.createStaff({
+        await createStaff({
           branchId: targetBranchId,
           facilityId: user.facilityId,
           firstName: form.firstName.trim(),
@@ -139,7 +140,7 @@ export const AddStaff = () => {
           role: form.role,
           status: "Active",
           permissions: form.permissions,
-        });
+        }).unwrap();
         toast.success("Staff member created successfully.");
       }
       navigate(`${basePath}/staff`);
